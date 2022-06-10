@@ -1,0 +1,47 @@
+#!/usr/bin/env zsh
+
+#  -------------------------------GENERAL----------------------------------
+alias cp='cp -iv'                           # Preferred 'cp' implementation
+alias mv='mv -iv'                           # Preferred 'mv' implementation
+alias mkdir='mkdir -pv'                     # Preferred 'mkdir' implementation
+alias less='less -FSRXc'                    # Preferred 'less' implementation
+alias wget="wget --hsts-file=$XDG_DATA_HOME/wget-hsts -c"
+alias cat=bat                               # Preferred 'cat' implementation
+alias top=bpytop                            # Preferred 'top' implementation
+alias c='clear'
+alias src="source $XDG_CONFIG_HOME/.zshrc"
+alias g=git
+alias path='echo -e ${PATH//:/\\n}'         # path:         Echo all executable Paths
+alias fix_stty='stty sane'                  # fix_stty:     Restore terminal settings when screwed up
+alias fix_term='echo -e "\033c"'            # fix_term:     Reset the conosle.  Similar to the reset command
+alias qfind="find . -iname"                # qfind:    Quickly search for file
+alias psx="ps aux | grep -i"
+
+
+#  -------------------------------LS----------------------------------
+# Directory Listing aliases
+
+alias ls=lsd
+alias l='ls -a'                 # short listing, all files
+alias l.='ls -d .*'             # short listing, only hidden files - .*
+alias ll='ls -latrhF'           # long, sort by newest to oldest
+alias L='ls -lathF'             # long, sort by oldest to newest
+alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
+# alias la='ls -Al'               # show hidden files
+# alias lc='ls -lcr'              # sort by change time
+# alias lk='ls -lSr'              # sort by size
+# alias lh='ls -lSrh'             # sort by size human readable
+# alias lm='ls -al | more'        # pipe through 'more'
+# alias lo='ls -laSFh'            # sort by size largest to smallest
+# alias lt='ls -ltr'              # sort by date
+# alias lu='ls -lur'              # sort by access time
+
+
+#  -------------------------------MISC----------------------------------
+alias xclip="xclip -selection c"
+
+
+# --------------------------------KITTY-----------------------------------
+alias icat="kitty +kitten icat"
+
+
