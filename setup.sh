@@ -28,4 +28,4 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/p
 sudo dnf install lsd thefuck zoxide fzf bat bpytop
 
 ## link up everything else
-bash $REPO_DIR/alias.sh
+sudo bash $REPO_DIR/alias.sh
