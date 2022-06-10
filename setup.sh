@@ -28,7 +28,7 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/p
 sudo dnf install lsd thefuck zoxide fzf bat bpytop -y
 
 ## link up everything else
-sudo echo "ZDOTDIR=$REPO_DIR" >> /etc/zshenv
+sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
 
 sed -i "1i \
 export XDG_CONFIG_HOME=$REPO_DIR\n\
