@@ -45,3 +45,4 @@ alias xclip="xclip -selection c"
 alias icat="kitty +kitten icat"
 
 
+alias nvidia-settings="nvidia-settings --config=$XDG_CONFIG_HOME/nvidia/settings
