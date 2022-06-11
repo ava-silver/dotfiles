@@ -4,4 +4,5 @@ state
 cache
 thefuck/__pycache__
 ipython
+Code
 .zcompdump*
