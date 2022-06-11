@@ -3,3 +3,5 @@ data
 state
 cache
 thefuck/__pycache__
+ipython
+.zcompdump*
