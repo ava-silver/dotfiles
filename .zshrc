@@ -1,3 +1,10 @@
+XDG=/home/ava/.dotfiles
+export XDG_CONFIG_HOME=$XDG/config
+export XDG_DATA_HOME=$XDG/data
+export XDG_STATE_HOME=$XDG/state
+export XDG_CACHE_HOME=$XDG/cache
+export ZSH=$XDG/.oh-my-zsh
+
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -83,3 +90,4 @@ export NVM_DIR=$XDG_DATA_HOME/nvm
 export PYTHONSTARTUP=$XDG_CONFIG_HOME/python/pythonrc
 export LESSHISTFILE=$XDG_CACHE_HOME/less/history
 export IPYTHONDIR=$XDG_CONFIG_HOME/ipython
+export MOZILLA_CONFIG=$XDG_CONFIG_HOME/mozilla

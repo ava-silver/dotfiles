@@ -1,8 +1,6 @@
 .oh-my-zsh
 data
 state
+config
 cache
-thefuck/__pycache__
-ipython
-Code
 .zcompdump*
