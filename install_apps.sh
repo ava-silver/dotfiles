@@ -13,6 +13,7 @@ sudo flatpak install flathub com.bitwarden.desktop
 sudo flatpak install flathub com.github.tchx84.Flatseal
 sudo flatpak install flathub com.mattjakeman.ExtensionManager
 sudo flatpak install flathub com.microsoft.Edge
+sudo flatpak install flathub com.discordapp.Discord
 
 # Snap apps
 sudo snap install code --classic
