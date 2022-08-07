@@ -1,6 +1,6 @@
 [user]
 	name = Ava Silver
-	email = t-avasilver@microsoft.com
+	email = avapsilver@gmail.com
 [core]
     editor = "code --wait"
 [alias]
@@ -36,3 +36,7 @@
     required = true
 [init]
 	defaultBranch = main
+[credential "https://github.com"]
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = !/usr/bin/gh auth git-credential

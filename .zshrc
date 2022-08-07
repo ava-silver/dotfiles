@@ -1,10 +1,7 @@
-XDG=/home/ava/.dotfiles
-export XDG_CONFIG_HOME=$XDG/config
-export XDG_DATA_HOME=$XDG/data
-export XDG_STATE_HOME=$XDG/state
-export XDG_CACHE_HOME=$XDG/cache
-export ZSH=$XDG/.oh-my-zsh
+export DOTFILES=/home/ava/.dotfiles
+export ZSH=$DOTFILES/.oh-my-zsh
 
+[[ $- != *i* ]] && return
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -77,17 +74,11 @@ export ARCHFLAGS="-arch x86_64"
 source $ZSH/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f $XDG_CONFIG_HOME/.p10k.zsh ]] || source $XDG_CONFIG_HOME/.p10k.zsh
+[[ ! -f $DOTFILES/.p10k.zsh ]] || source $DOTFILES/.p10k.zsh
 
-source $XDG_CONFIG_HOME/.zsh_aliases
+source $DOTFILES/.zsh_aliases
 eval $(thefuck --alias)
 
+path+=/home/ava/.local/bin
+path+=/home/ava/.cargo/bin
 
-# Clearing up the home file
-export HISTFILE=$XDG_STATE_HOME/zsh/history
-export WINEPREFIX=$XDG_DATA_HOME/wine
-export NVM_DIR=$XDG_DATA_HOME/nvm
-export PYTHONSTARTUP=$XDG_CONFIG_HOME/python/pythonrc
-export LESSHISTFILE=$XDG_CACHE_HOME/less/history
-export IPYTHONDIR=$XDG_CONFIG_HOME/ipython
-export MOZILLA_CONFIG=$XDG_CONFIG_HOME/mozilla

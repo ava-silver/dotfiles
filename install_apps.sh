@@ -1,8 +1,8 @@
 #!/usr/bin/zsh
 
 # DNF Apps
-sudo dnf install alacritty bitwarden snapd solaar gimp gnome-tweaks nextcloud-client python3 rust ImageMagick ffmpeg ranger vim
-sudo dnf module install nodejs:14
+sudo dnf install alacritty snapd solaar gimp gnome-tweaks nextcloud-client python3 rust ImageMagick ffmpeg ranger vim -y
+sudo dnf module install nodejs:14 -y
 
 
 # Flatpak apps
