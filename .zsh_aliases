@@ -49,4 +49,5 @@ alias celeste=/usr/games/celeste/Celeste
 alias aconfig='code /home/ava/.config/alacritty/alacritty.yml'
 
 
+alias nsvpn="sudo openvpn --config /home/ava/Documents/School/fourth_year/network_security/setup/corp-sec-separate-keys.ovpn --auth-user-pass /home/ava/Documents/School/fourth_year/network_security/setup/vpn_auth"
 
