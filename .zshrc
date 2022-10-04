@@ -59,6 +59,7 @@ plugins=(
   zsh-syntax-highlighting
   zsh-autosuggestions
   dnf
+  vscode
 )
 
 source $ZSH/oh-my-zsh.sh
