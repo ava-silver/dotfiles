@@ -32,6 +32,6 @@ sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
 
 
 ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
-
+ln -s $REPO_DIR/alacritty.yml /home/ava/.config/alacritty/alacritty.yml
 zsh ./install_apps.sh
 
