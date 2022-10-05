@@ -1,0 +1,14 @@
+Host pebble
+  User ava
+  HostName 192.168.0.16 
+  IdentityFile ~/.ssh/id_rock
+
+Host neu
+  User avasilver
+  HostName login.ccs.neu.edu
+  IdentityFile ~/.ssh/id_neu
+
+Host netsec
+  User pi
+  HostName 10.10.79.10
+  IdentityFile ~/.ssh/id_netsecpi

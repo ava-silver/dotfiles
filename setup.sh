@@ -30,5 +30,8 @@ sudo dnf install lsd thefuck zoxide fzf bat bpytop -y
 ## link up everything else
 sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
 
+
+ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
+
 zsh ./install_apps.sh
 
