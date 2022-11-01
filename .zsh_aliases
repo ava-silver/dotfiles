@@ -19,6 +19,7 @@ alias qfind='find . -iname'                 # qfind:    Quickly search for file
 alias zip='zip -r'
 alias open='xdg-open'
 alias cd=z
+alias rrm='/usr/bin/rm -rf'
 alias rm=rip
 alias restore='rip -u'
 alias ps=procs
