@@ -23,7 +23,6 @@ alias rrm='/usr/bin/rm -rf'
 alias rm=rip
 alias restore='rip -u'
 alias ps=procs
-alias neofetch='neofetch --ascii ~/.config/neofetch/neofetch.ascii'
 
 
 #  -------------------------------systemctl----------------------------------
