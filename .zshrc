@@ -3,6 +3,10 @@ export ZSH=$DOTFILES/.oh-my-zsh
 
 [[ $- != *i* ]] && return
 
+# neofetch!
+neofetch
+
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -87,5 +91,3 @@ path+=/home/ava/.cargo/bin
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 
-# lastly, neofetch!
-neofetch
