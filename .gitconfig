@@ -21,7 +21,7 @@
     d = diff
     dn = diff --name-only
     dh = diff HEAD
-    dh = diff HEAD --name-only
+    dhn = diff HEAD --name-only
     cf = !sh -c \"git diff --name-only | uniq | xargs code\"
     lg = lg1
     lg1 = lg1-specific --all
