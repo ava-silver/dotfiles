@@ -12,11 +12,13 @@
     ca = commit -am
     m = merge
     st = status
-    sw = switch
+    swi = switch
     pl = pull
     pu = push origin HEAD
-    s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+    sw = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
     # --select-1
+    s = stash
+    sp = stash pop
     unc = reset --hard HEAD~1
     d = diff
     dn = diff --name-only
