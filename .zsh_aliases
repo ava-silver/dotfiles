@@ -21,6 +21,7 @@ alias open='xdg-open'
 alias cd=z
 alias rrm='/usr/bin/rm -rf'
 alias rm=rip
+alias rrm='/bin/rm -rf'
 alias restore='rip -u'
 alias ps=procs
 
@@ -38,7 +39,7 @@ alias ls=lsd                    # Preferred ls implementation
 alias l=ls                      # short listing, all files
 alias l.='ls -d .*'             # short listing, only hidden files - .*
 alias la='ls -A'                # show hidden files
-alias ll='ls -latrhF'           # long, sort by newest to oldest
+alias ll='ls -lAh'              # long
 alias L='ls -lathF'             # long, sort by oldest to newest
 alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
 
@@ -51,5 +52,5 @@ alias celeste-push='wd=$(pwd) ; cd ~/.local/share/Celeste && g a && g c "Updated
 alias aconfig='code /home/ava/.config/alacritty/alacritty.yml'
 
 
-alias netsec-vpn="cd /home/ava/Documents/School/fourth_year/network_security/setup/ ; sudo openvpn --config ./corp-sec-separate-keys.ovpn --auth-user-pass ./vpn_auth ; cd"
+alias netsec-vpn="cd /home/ava/repos/.netsecvpn/ ; sudo openvpn --config ./corp-sec-separate-keys.ovpn --auth-user-pass ./vpn_auth ; cd"
 

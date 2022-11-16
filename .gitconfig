@@ -15,6 +15,7 @@
     swi = switch
     pl = pull
     pu = push origin HEAD
+    rst = reset --hard HEAD
     sw = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
     # --select-1
     s = stash
