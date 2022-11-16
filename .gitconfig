@@ -9,6 +9,7 @@
     co = checkout
     b = branch
     c = commit -m
+    cc = "!git commit -m \"updated $(date)\""
     ca = commit -am
     m = merge
     st = status
