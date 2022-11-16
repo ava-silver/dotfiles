@@ -15,7 +15,7 @@
     st = status
     swi = switch
     pl = pull
-    pu = push origin HEAD
+    pu = push
     su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
     rst = reset --hard HEAD
     sw = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
