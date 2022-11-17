@@ -8,6 +8,7 @@
     a = add -A
     co = checkout
     b = branch
+    nb = checkout -b
     c = commit -m
     cc = "!git commit -m \"updated $(date)\""
     ca = commit -am
