@@ -79,6 +79,7 @@ source $ZSH/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
 
 source $DOTFILES/.zsh_aliases
 eval $(thefuck --alias)
+[[ ! -f $DOTFILES/.cargo_vars ]] || source $DOTFILES/.cargo_vars
 
 path+=/home/ava/.local/bin
 path+=/home/ava/.cargo/bin

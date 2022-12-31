@@ -4,3 +4,4 @@ state
 config
 cache
 .zcompdump*
+.cargo_vars
