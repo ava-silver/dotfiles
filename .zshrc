@@ -90,5 +90,5 @@ export NVM_DIR="$HOME/.nvm"
 
 if (( $+commands[opam] ))
 then
-  eval $(opam env)
+  eval $(opam env --switch=4.13.1)
 fi
