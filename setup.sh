@@ -2,6 +2,9 @@
 
 export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
+# set up dnf
+sudo bash -c "cat $REPO_DIR/dnf.conf > /etc/dnf/dnf.conf"
+
 # Set up shell
 
 ## zsh

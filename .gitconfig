@@ -15,15 +15,15 @@
     ca = commit -am
     m = merge
     st = status
-    swi = switch
+    sw = switch
     pl = pull
     pu = push origin HEAD
     su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
     pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
     rst = reset --hard HEAD
-    sw = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+    s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
     # --select-1
-    s = stash
+    sta = stash
     sp = stash pop
     unc = reset --hard HEAD~1
     d = diff
