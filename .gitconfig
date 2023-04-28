@@ -3,8 +3,8 @@
   email = ava.silver@datadoghq.com
 [core]
   editor = "code --wait"
-	pager = diff-so-fancy | less --tabs=4 -RFX
-	hooksPath = /usr/local/dd/global_hooks
+  pager = diff-so-fancy | less --tabs=4 -RFX
+  hooksPath = /usr/local/dd/global_hooks
 [alias]
   a = add -A
   co = checkout
@@ -47,6 +47,6 @@
   process = git-lfs filter-process
   required = true
 [init]
-	defaultBranch = main
+  defaultBranch = main
 [push]
-	autoSetupRemote = true
+  autoSetupRemote = true
