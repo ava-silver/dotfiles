@@ -1,49 +1,52 @@
 [user]
-	name = Ava Silver
-	email = ava.silver@datadoghq.com
+  name = Ava Silver
+  email = ava.silver@datadoghq.com
 [core]
-    editor = "code --wait"
+  editor = "code --wait"
 	pager = diff-so-fancy | less --tabs=4 -RFX
 	hooksPath = /usr/local/dd/global_hooks
 [alias]
-    a = add -A
-    co = checkout
-    b = branch
-    nb = checkout -b
-    c = commit -m
-    ac = "!git add -A && git commit -m"
-    cc = "!git commit -m \"updated $(date)\""
-    ca = commit -am
-    m = merge
-    st = status
-    swi = switch
-    pl = pull
-    pu = push origin HEAD
-    su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
-    pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
-    rst = reset --hard HEAD
-    sw = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
-    # --select-1
-    s = stash
-    sp = stash pop
-    unc = reset --hard HEAD~1
-    d = diff
-    dn = diff --name-only
-    dh = diff HEAD
-    dhn = diff HEAD --name-only
-    cf = !sh -c \"git diff --name-only | uniq | xargs code\"
-    lg = lg1
-    lg1 = lg1-specific --all
-    lg2 = lg2-specific --all
-    lg3 = lg3-specific --all
+  a = add -A
+  co = checkout
+  b = branch
+  nb = checkout -b
+  c = commit -m
+  ac = "!git add -A && git commit -m"
+  cc = "!git commit -m \"updated $(date)\""
+  ca = commit -am
+  m = merge
+  mc = "!git add -A && git merge --continue"
+  st = status
+  sw = switch
+  pl = pull
+  pu = push origin HEAD
+  su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+  pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+  rst = reset --hard HEAD
+  s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+  # --select-1
+  sta = stash
+  sp = stash pop
+  unc = reset --hard HEAD~1
+  d = diff
+  dn = diff --name-only
+  dh = diff HEAD
+  dhn = diff HEAD --name-only
+  cf = !sh -c \"git diff --name-only | uniq | xargs code\"
+  lg = lg1
+  lg1 = lg1-specific --all
+  lg2 = lg2-specific --all
+  lg3 = lg3-specific --all
 
-    lg1-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)'
-    lg2-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)'
-    lg3-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset) %C(bold cyan)(committed: %cD)%C(reset) %C(auto)%d%C(reset)%n''          %C(white)%s%C(reset)%n''          %C(dim white)- %an <%ae> %C(reset) %C(dim white)(committer: %cn <%ce>)%C(reset)'
+  lg1-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)'
+  lg2-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)'
+  lg3-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset) %C(bold cyan)(committed: %cD)%C(reset) %C(auto)%d%C(reset)%n''          %C(white)%s%C(reset)%n''          %C(dim white)- %an <%ae> %C(reset) %C(dim white)(committer: %cn <%ce>)%C(reset)'
 [filter "lfs"]
-    clean = git-lfs clean -- %f
-    smudge = git-lfs smudge -- %f
-    process = git-lfs filter-process
-    required = true
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
 [init]
 	defaultBranch = main
+[push]
+	autoSetupRemote = true

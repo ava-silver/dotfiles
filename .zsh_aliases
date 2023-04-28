@@ -6,34 +6,22 @@ alias mv='mv -iv'                           # Preferred 'mv' implementation
 alias mkdir='mkdir -pv'                     # Preferred 'mkdir' implementation
 alias less='less -FSRXc'                    # Preferred 'less' implementation
 alias wget='wget -c'
-alias ccat=/usr/bin/cat                              # In case regular cat usage is preferred
+alias ccat=/usr/bin/cat                     # In case regular cat usage is preferred
 alias cat=bat                               # Preferred 'cat' implementation
 alias top=btm                               # Preferred 'top' implementation
 alias c=clear
+alias cd=z
 alias src='source /Users/ava.silver/.zshrc'
 alias g=git
 alias path='echo -e ${PATH//:/\\n}'         # path:         Echo all executable Paths
 alias fix_term='echo -e "\033c"'            # fix_term:     Reset the conosle.  Similar to the reset command
 alias qfind='find . -iname'                 # qfind:    Quickly search for file
 alias zip='zip -r'
-# alias open='xdg-open'
-alias cd=z
-alias rrm='/usr/bin/rm -rf'
 alias rm=rip
 alias rrm='/bin/rm -rf'
-alias restore='rip -u'
-alias ps=procs
-
-
-#  -------------------------------systemctl----------------------------------
-alias sctl=systemctl
-alias sctls="systemctl --type=service | grep -i"
-alias i2pd-start="sudo systemctl start i2pd"
-alias i2pd-stop="sudo systemctl stop i2pd"
 
 #  -------------------------------LS----------------------------------
 # Directory Listing aliases
-
 alias ls=lsd                    # Preferred ls implementation
 alias l=ls                      # short listing, all files
 alias l.='ls -d .*'             # short listing, only hidden files - .*
@@ -43,13 +31,52 @@ alias L='ls -lathF'             # long, sort by oldest to newest
 alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
 
 
+
+alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
+
+
 #  -------------------------------MISC----------------------------------
-alias xclip="xclip -selection c"
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
-alias celeste-pull='wd=$(pwd) ; cd ~/.local/share/Celeste && git pull ; cd $wd'
-alias celeste-push='wd=$(pwd) ; cd ~/.local/share/Celeste && g a && g c "Updated $(date)" && g pu ; cd $wd'
-alias aconfig='code /home/ava/.config/alacritty/alacritty.yml'
+alias xclip="pbcopy"
 
+alias brewi="brew install"
+alias brewr="brew uninstall"
+alias brewu="brew uninstall"
 
-alias netsec-vpn="cd /home/ava/repos/.netsecvpn/ ; sudo openvpn --config ./corp-sec-separate-keys.ovpn --auth-user-pass ./vpn_auth ; cd"
+#  -------------------------------K8s----------------------------------
+alias kgp="k get po -l service=delancie-crawler-azure"
+alias kgpa="kubectl get pods"
+alias kbash="kbash --pod"
+alias ksh='kbash $(eclair pod)'
+alias k=kubectl
+alias ktx=kubectx
+alias kdev="ktx devenv-avasilver"
 
+# dogweb
+alias format="git diff HEAD --name-only | xargs $HOME/venv3/bin/black"
+alias py2test="python2 -m gevent.monkey pytest --with-pylons=./workspace.ini"
+alias py3test="python3 -m gevent.monkey --module pytest"
+
+# store token function
+
+store_token() {
+  printf "Enter env var name (e.g. FOOBAR_TOKEN): " && \
+    read TOKEN_NAME && \
+    printf "Enter API token value: " && \
+    read TOKEN && \
+    security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} && \
+    unset TOKEN
+
+  TO_WRITE="\nexport ${TOKEN_NAME}="
+  TO_WRITE+='$(security find-generic-password -a ${USER}'
+  TO_WRITE+=" -s ${TOKEN_NAME} -w)"
+  echo -e "${TO_WRITE}" >> ~/.zshrc
+  unset TOKEN_NAME
+  source ~/.zshrc
+}
+
+fix_devkube() {
+  docker stop $(docker ps -aq)
+  docker system prune -a
+  tiltup delancie-crawler-azure
+}

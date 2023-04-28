@@ -1,14 +1,8 @@
 #!/usr/bin/bash
 
-export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
-
-# Set up shell
-
-## zsh
-sudo dnf install zsh -y
 
 ## oh-my-zsh
-export ZSH=$REPO_DIR/.oh-my-zsh
+export ZSH=$HOME/.oh-my-zsh
 export KEEP_ZSHRC=yes
 export RUNZSH=no
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -24,14 +18,9 @@ git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/z
 ## zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 
-## useful packages
-sudo dnf install lsd thefuck zoxide fzf bat bpytop -y
+## useful packagges 
+brew install lsd thefuck zoxide fzf bat bpytop rm-improved
 
-## link up everything else
-sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
+# link zshrc and zsh_aliases
 
-mkdir -p /home/ava/.ssh
-ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
-
-zsh ./install_apps.sh
 
