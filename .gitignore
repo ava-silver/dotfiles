@@ -5,3 +5,4 @@ config
 cache
 .zcompdump*
 .cargo_vars
+.DS_Store

@@ -24,8 +24,11 @@ brew install lsd thefuck zoxide fzf bat bpytop rm-improved
 # unnatural scroll wheels, rectangle, yubikey manager, clipy will all need to be installed as well.
 
 # link zshrc, .p10k.zsh and zsh_aliases
+[ -f /Users/ava.silver/.p10k.zsh ] && rm /Users/ava.silver/.p10k.zsh
 ln -s /Users/ava.silver/.dotfiles/.p10k.zsh /Users/ava.silver/.p10k.zsh
+[ -f /Users/ava.silver/.zshrc ] && rm /Users/ava.silver/.zshrc
 ln -s /Users/ava.silver/.dotfiles/.zshrc /Users/ava.silver/.zshrc
+[ -f /Users/ava.silver/.zsh_aliases ] && rm /Users/ava.silver/.zsh_aliases
 ln -s /Users/ava.silver/.dotfiles/.zsh_aliases /Users/ava.silver/.zsh_aliases
 
 # install fonts
