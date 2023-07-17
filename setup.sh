@@ -33,8 +33,11 @@ sudo dnf install lsd thefuck zoxide fzf bat bpytop -y
 ## link up everything else
 sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
 
-mkdir -p /home/ava/.ssh
-ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
-
 zsh ./install_apps.sh
+
+## set up symlinks
+[ ! -L "/home/ava/.ssh/.config" ] && mkdir -p /home/ava/.ssh && ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
+
+gradience_themes='/home/ava/.var/app/com.github.GradienceTeam.Gradience/config/presets/user/'
+[ ! -L "$gradience_themes/ava-purple.json" ] && mkdir -p $gradience_themes && ln -s $REPO_DIR/ava-purple.json $gradience_themes/ava-purple.json
 

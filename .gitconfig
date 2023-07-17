@@ -14,6 +14,8 @@
     cc = "!git commit -m \"updated $(date)\""
     ca = commit -am
     m = merge
+    mc = "!git add -A && git merge --continue"
+    cm = config pull.rebase false
     st = status
     sw = switch
     pl = pull
