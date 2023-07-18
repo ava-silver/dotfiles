@@ -14,6 +14,7 @@ sudo flatpak install flathub com.github.tchx84.Flatseal -y
 sudo flatpak install flathub com.mattjakeman.ExtensionManager -y
 sudo flatpak install flathub com.microsoft.Edge -y
 sudo flatpak install flathub com.github.GradienceTeam.Gradience -y
+sudo flatpak install flathub com.github.micahflee.torbrowser-launcher -y
 
 # Snap apps
 [ ! -L "/snap" ] && sudo ln -s /var/lib/snapd/snap /snap
@@ -21,9 +22,8 @@ sudo snap install code --classic
 
 
 ## Other:
-# Celeste
+# Celeste to /usr/games/celeste
+
 # Minecraft
-# Tor
 # Monero GUI
-# Discord (betterdiscord)
 
