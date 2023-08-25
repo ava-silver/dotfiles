@@ -39,23 +39,35 @@ alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
 alias xclip="pbcopy"
 
-alias brewi="brew install"
+alias brewi="brew update && brew install"
 alias brewr="brew uninstall"
-alias brewu="brew uninstall"
+alias brewu="brew upgrade"
+
+#  -------------------------------devc---------------------------------
+alias ds="devc start"
+alias dsh="devc shell"
+alias dx="devc stop"
+alias dr="devc stop && devc start"
+alias d="devc status"
+alias pc='devc pre_commit'
 
 #  -------------------------------K8s----------------------------------
-alias kgp="k get po -l service=delancie-crawler-azure"
+alias kgp="k get pod"
 alias kgpa="kubectl get pods"
 alias kbash="kbash --pod"
-alias ksh='kbash $(eclair pod)'
+alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- /bin/bash'
 alias k=kubectl
 alias ktx=kubectx
+alias kns=kubens
 alias kdev="ktx devenv-avasilver"
 
 # dogweb
-alias format="git diff HEAD --name-only | xargs $HOME/venv3/bin/black"
+alias format="git diff HEAD --name-only | xargs black"
 alias py2test="python2 -m gevent.monkey pytest --with-pylons=./workspace.ini"
 alias py3test="python3 -m gevent.monkey --module pytest"
+
+alias pr="gh pr create"
+alias dpr="pr -T ~/dogweb_pr.md"
 
 # store token function
 

@@ -84,10 +84,14 @@ source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completi
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${PATH?}"
 
 # Force certain more-secure behaviours from homebrew
+export HOMEBREW_NO_ENV_HINTS=1
 export HOMEBREW_NO_INSECURE_REDIRECT=1
 export HOMEBREW_CASK_OPTS=--require-sha
 export HOMEBREW_DIR=/opt/homebrew
 export HOMEBREW_BIN=/opt/homebrew/bin
+
+# Load python shims
+eval "$(pyenv init -)"
 
 # Load ruby shims
 eval "$(rbenv init -)"
@@ -129,20 +133,27 @@ export HELM_DRIVER=configmap
 # https://blog.golang.org/go116-module-changes
 export GO111MODULE=auto
 export GOPRIVATE=github.com/DataDog
+export GOPROXY=binaries.ddbuild.io,https://proxy.golang.org,direct
+export GONOSUMDB=github.com/DataDog,go.ddbuild.io
+
+# Configure Go to pull go.ddbuild.io packages.
+export GOPROXY="binaries.ddbuild.io,proxy.golang.org,direct"
+export GONOSUMDB="github.com/DataDog,go.ddbuild.io"
 # END ANSIBLE MANAGED BLOCK
 
-
-export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s gitlab_token -w)
-export DD_API_KEY=$(security find-generic-password -a ${USER} -s DD_API_KEY -w)
-
-# LOCAL DEV ENV
-export DOGWEB_DEFAULT_CONFIG_PATH=$HOME/dd/dogweb/local.ini
-export LOCAL=true
-export DATADOG_ENV=dev
-
-export WORKSPACE=avasilver
-
-# Load python shims
-eval "$(pyenv init -)"
-
 export DEVC_ADDITIONAL_COMPOSE_YML=$HOME/go/src/github.com/DataDog/eclair-scripts/eclair/docker/docker-compose.devc.yml
+export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s gitlab_token -w)
+export gitlab_token=$GITLAB_TOKEN
+export DD_API_KEY=$(security find-generic-password -a ${USER} -s DD_API_KEY -w)
+# export DD_TEST_CLIENT_APP_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_APP_KEY -w)
+# export DD_TEST_CLIENT_API_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_API_KEY -w)
+
+
+export HOST_HOOK_RUNNER=1
+export VOLTA_HOME="$HOME/.volta"
+export PATH="$VOLTA_HOME/bin:$PATH"
+
+# Created by `pipx` on 2023-07-17 19:29:37
+export PATH="$PATH:/Users/ava.silver/.local/bin"
+
+

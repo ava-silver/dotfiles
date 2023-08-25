@@ -4,7 +4,8 @@
 [core]
   editor = "code --wait"
   pager = diff-so-fancy | less --tabs=4 -RFX
-  hooksPath = /usr/local/dd/global_hooks
+	hooksPath = /usr/local/dd/global_hooks
+#   hooksPath = /usr/local/dd/global_hooks
 [alias]
   a = add -A
   co = checkout
@@ -50,3 +51,14 @@
   defaultBranch = main
 [push]
   autoSetupRemote = true
+# [credential "https://github.com"]
+#   helper = 
+#   helper = !/opt/homebrew/bin/gh auth git-credential
+# [credential "https://gist.github.com"]
+#   helper = 
+#   helper = !/opt/homebrew/bin/gh auth git-credential
+# [url "git@github.com:"]
+#     insteadOf = https://github.com/
+[url "git@github.com:"]
+	insteadOf = https://github.com/
+	insteadOf = git://github.com/
