@@ -24,7 +24,7 @@ alias rm=rip
 alias rrm='/bin/rm -rf'
 alias restore='rip -u'
 alias ps=procs
-
+alias r=ranger
 
 #  -------------------------------systemctl----------------------------------
 alias sctl=systemctl
@@ -49,8 +49,3 @@ alias xclip="xclip -selection c"
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
 alias celeste-pull='wd=$(pwd) ; cd ~/.local/share/Celeste && git pull ; cd $wd'
 alias celeste-push='wd=$(pwd) ; cd ~/.local/share/Celeste && g a && g c "Updated $(date)" && g pu ; cd $wd'
-alias aconfig='code /home/ava/.config/alacritty/alacritty.yml'
-
-
-alias netsec-vpn="cd /home/ava/repos/.netsecvpn/ ; sudo openvpn --config ./corp-sec-separate-keys.ovpn --auth-user-pass ./vpn_auth ; cd"
-

@@ -1,6 +1,11 @@
+Host localhost
+  HostName localhost
+  Port 2222
+  User ava
+
 Host pebble
   User ava
-  HostName 192.168.0.16 
+  HostName 192.168.0.16
   IdentityFile ~/.ssh/id_rock
 
 Host neu
@@ -12,3 +17,9 @@ Host netsec
   User pi
   HostName 10.10.79.10
   IdentityFile ~/.ssh/id_netsecpi
+
+
+Host mcserver
+  User ubuntu
+  HostName 141.148.94.64
+  IdentityFile ~/.ssh/id_mcserver
