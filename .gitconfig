@@ -14,7 +14,7 @@
   ac = "!f() { git a && git c ;}; f"
   cc = "!git commit -m \"updated $(date)\""
   ca = commit -am
-  m = merge
+  m = "merge --no-edit"
   mc = "!git add -A && git merge --continue"
   st = status
   sw = switch
