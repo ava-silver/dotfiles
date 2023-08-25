@@ -34,3 +34,9 @@ ln -s /Users/ava.silver/.dotfiles/.zsh_aliases /Users/ava.silver/.zsh_aliases
 # install fonts
 cp /Users/ava.silver/.dotfiles/fonts/* /Users/ava.silver/Library/Fonts/
 
+## set up symlinks
+[ ! -L "/home/ava/.ssh/.config" ] && mkdir -p /home/ava/.ssh && ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
+
+gradience_themes='/home/ava/.var/app/com.github.GradienceTeam.Gradience/config/presets/user/'
+[ ! -L "$gradience_themes/ava-purple.json" ] && mkdir -p $gradience_themes && ln -s $REPO_DIR/ava-purple.json $gradience_themes/ava-purple.json
+
