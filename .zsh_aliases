@@ -57,16 +57,11 @@ alias kgpa="kubectl get pods"
 alias kbash="kbash --pod"
 alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- /bin/bash'
 alias k=kubectl
-alias ktx=kubectx
+alias ktx="/Users/ava.silver/dd/eclair-scripts/kubectx-switcher"
 alias kns=kubens
-alias kdev="ktx devenv-avasilver"
+alias kdev="kubectx devenv-avasilver"
 
-alias kap1="ktx whiscash.ap1.prod.dog"
-alias keu1="ktx babar.eu1.prod.dog"
-alias kfed="ktx plain1.us1.fed.dog"
-alias kus1="ktx psyduck.us1.prod.dog"
-alias kus3="ktx torkoal.us3.prod.dog"
-alias kus5="ktx nidoking.us5.prod.dog"
+
 
 
 # dogweb
