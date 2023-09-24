@@ -9,8 +9,8 @@
     co = checkout
     b = branch
     nb = checkout -b
-    c = commit -m
-    ac = "!git add -A && git commit -m"
+    c = "!$HOME/.dotfiles/commit.sh"
+    ac = "!f() { git a && git c ;}; f"
     cc = "!git commit -m \"updated $(date)\""
     ca = commit -am
     m = merge
