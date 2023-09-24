@@ -152,8 +152,10 @@ export DD_API_KEY=$(security find-generic-password -a ${USER} -s DD_API_KEY -w)
 export HOST_HOOK_RUNNER=1
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
-
+path+=('/Users/ava.silver/dd/eclair-scripts')
 # Created by `pipx` on 2023-07-17 19:29:37
 export PATH="$PATH:/Users/ava.silver/.local/bin"
+
+
 
 

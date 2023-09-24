@@ -53,24 +53,38 @@ alias pc='devc pre_commit'
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
-alias kgpa="kubectl get pods"
 alias kbash="kbash --pod"
 alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- /bin/bash'
 alias k=kubectl
 alias ktx="/Users/ava.silver/dd/eclair-scripts/kubectx-switcher"
 alias kns=kubens
 alias kdev="kubectx devenv-avasilver"
+alias kedit="k edit wpa"
+alias kscale="chart=\$(gum choose --header='Choose a chart' azure-workers-main-azure-metrics-01 azure-workers-main-azure-meta); [ ! -z \$chart ] && kedit \$chart"
+alias kscale-metric="kedit azure-workers-main-azure-metrics-01"
+alias kscale-meta="kedit azure-workers-main-azure-meta"
 
 
 
 
 # dogweb
 alias format="git diff HEAD --name-only | xargs black"
-alias py2test="python2 -m gevent.monkey pytest --with-pylons=./workspace.ini"
-alias py3test="python3 -m gevent.monkey --module pytest"
+alias autoflake="autoflake --remove-unused-variables --remove-all-unused-imports --in-place"
+fix() {
+    cmp="${1:-HEAD}"
+    g dn $cmp | xargs sh -c 'black $@ ; autoflake --in-place --verbose --remove-unused-variables --remove-all-unused-imports $@; echo autoflake done!'
+}
 
-alias pr="gh pr create"
-alias dpr="pr -T ~/dogweb_pr.md"
+python() {
+    if [[ $# == 0 ]]
+    then
+        ipython
+    else
+        python3 $@
+    fi
+}
+
+alias pr="(xclip < ~/dogweb_pr.md); gh pr create"
 
 # store token function
 

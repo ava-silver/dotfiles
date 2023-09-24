@@ -12,7 +12,7 @@
   b = branch
   nb = checkout -b
   c = "!$HOME/.dotfiles/commit.sh"
-  ac = "!f() { git a && git c ;}; f"
+  ac = "!f() { git a && git c $@ ;}; f"
   cc = "!git commit -m \"updated $(date)\""
   ca = commit -am
   m = "merge --no-edit"
@@ -28,20 +28,15 @@
   # --select-1
   sta = stash
   sp = stash pop
-  unc = reset --hard HEAD~1
-  d = diff
-  dn = diff --name-only
-  dh = diff HEAD
-  dhn = diff HEAD --name-only
+  unc = reset --soft HEAD~1
+  d = diff --color-moved
+  dn = diff --color-moved --name-only
+  dh = diff HEAD --color-moved
+  dhn = diff HEAD --color-moved --name-only
   cf = !sh -c \"git diff --name-only | uniq | xargs code\"
-  lg = lg1
-  lg1 = lg1-specific --all
-  lg2 = lg2-specific --all
-  lg3 = lg3-specific --all
+  lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+  l = lg -n
 
-  lg1-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)'
-  lg2-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)'
-  lg3-specific = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset) %C(bold cyan)(committed: %cD)%C(reset) %C(auto)%d%C(reset)%n''          %C(white)%s%C(reset)%n''          %C(dim white)- %an <%ae> %C(reset) %C(dim white)(committer: %cn <%ce>)%C(reset)'
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f
