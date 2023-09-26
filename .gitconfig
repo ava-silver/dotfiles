@@ -14,7 +14,9 @@
   cc = "!git commit -m \"updated `date`\""
   ca = commit -am
   m = "merge --no-edit"
-  mc = "!git add -A && git merge --continue"
+  main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
+  mm = "!git m `git main`"
+  mc = "!git a && git merge --continue"
   st = status
   sw = switch
   pl = pull
@@ -28,9 +30,11 @@
   sp = stash pop
   unc = reset --soft HEAD~1
   d = diff --color-moved
-  dn = diff --color-moved --name-only
-  dh = diff HEAD --color-moved
-  dhn = diff HEAD --color-moved --name-only
+  dn = d --name-only
+  dm = "!git d `git main`"
+  dmn = "!git dn `git main`"
+  dh = d HEAD
+  dhn = dh --name-only
   cf = !sh -c \"git diff --name-only | uniq | xargs code\"
   lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
   l = lg -n
