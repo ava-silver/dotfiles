@@ -26,12 +26,12 @@
   # --select-1
   sta = stash
   sp = stash pop
-  unc = reset --hard HEAD~1
-  d = diff
-  dn = diff --name-only
-  dh = diff HEAD
-  dhn = diff HEAD --name-only
-  cf = !sh -c \"git diff --name-only | sort -u | xargs code\"
+  unc = reset --soft HEAD~1
+  d = diff --color-moved
+  dn = diff --color-moved --name-only
+  dh = diff HEAD --color-moved
+  dhn = diff HEAD --color-moved --name-only
+  cf = !sh -c \"git diff --name-only | uniq | xargs code\"
   lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
   l = lg -n
 [filter "lfs"]
