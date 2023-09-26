@@ -2,43 +2,43 @@
 	name = Ava Silver
 	email = avapsilver@gmail.com
 [core]
-    editor = "code --wait"
+  editor = "code --wait"
 	pager = diff-so-fancy | less --tabs=4 -RFX
 [alias]
-    a = add -A
-    co = checkout
-    b = branch
-    nb = checkout -b
-    c = "!$HOME/.dotfiles/commit.sh"
-    ac = "!f() { git a && git c $@ ;}; f"
-    cc = "!git commit -m \"updated `date`\""
-    ca = commit -am
-    m = "merge --no-edit"
-    mc = "!git add -A && git merge --continue"
-    st = status
-    sw = switch
-    pl = pull
-    pu = push origin HEAD
-    su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
-    pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
-    rst = reset --hard HEAD
-    s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
-    # --select-1
-    sta = stash
-    sp = stash pop
-    unc = reset --hard HEAD~1
-    d = diff
-    dn = diff --name-only
-    dh = diff HEAD
-    dhn = diff HEAD --name-only
-    cf = !sh -c \"git diff --name-only | sort -u | xargs code\"
-    lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
-    l = lg -n
+  a = add -A
+  co = checkout
+  b = branch
+  nb = checkout -b
+  c = "!$HOME/.dotfiles/commit.sh"
+  ac = "!f() { git a && git c $@ ;}; f"
+  cc = "!git commit -m \"updated `date`\""
+  ca = commit -am
+  m = "merge --no-edit"
+  mc = "!git add -A && git merge --continue"
+  st = status
+  sw = switch
+  pl = pull
+  pu = push origin HEAD
+  su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+  pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+  rst = reset --hard HEAD
+  s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+  # --select-1
+  sta = stash
+  sp = stash pop
+  unc = reset --hard HEAD~1
+  d = diff
+  dn = diff --name-only
+  dh = diff HEAD
+  dhn = diff HEAD --name-only
+  cf = !sh -c \"git diff --name-only | sort -u | xargs code\"
+  lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+  l = lg -n
 [filter "lfs"]
-    clean = git-lfs clean -- %f
-    smudge = git-lfs smudge -- %f
-    process = git-lfs filter-process
-    required = true
+  clean = git-lfs clean -- %f
+  smudge = git-lfs smudge -- %f
+  process = git-lfs filter-process
+  required = true
 [init]
 	defaultBranch = main
 [credential "https://github.com"]
