@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
 # DNF Apps
-sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ffmpeg ranger sqlite3 vim -y --allowerasing
+sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ranger sqlite3 vim -y --allowerasing
 
 
 # Flatpak apps

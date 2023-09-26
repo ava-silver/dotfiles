@@ -1,1 +1,0 @@
-. "/home/ava/.cargo/env"
