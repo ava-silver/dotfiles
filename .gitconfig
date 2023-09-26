@@ -19,6 +19,7 @@
   mc = "!git a && git merge --continue"
   st = status
   sw = switch
+  sm = "!git sw `git main`"
   pl = pull
   pu = push origin HEAD
   su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
