@@ -3,7 +3,7 @@
   email = ava.silver@datadoghq.com
 [core]
   editor = "code --wait"
-  pager = diff-so-fancy | less --tabs=4 -RFX
+	pager = diff-so-fancy | less --tabs=4 -RFX
 [alias]
   a = add -A
   co = checkout
@@ -11,7 +11,7 @@
   nb = checkout -b
   c = "!$HOME/.dotfiles/commit.sh"
   ac = "!f() { git a && git c $@ ;}; f"
-  cc = "!git commit -m \"updated $(date)\""
+  cc = "!git commit -m \"updated `date`\""
   ca = commit -am
   m = "merge --no-edit"
   mc = "!git add -A && git merge --continue"
@@ -44,14 +44,6 @@
   defaultBranch = main
 [push]
   autoSetupRemote = true
-# [credential "https://github.com"]
-#   helper = 
-#   helper = !/opt/homebrew/bin/gh auth git-credential
-# [credential "https://gist.github.com"]
-#   helper = 
-#   helper = !/opt/homebrew/bin/gh auth git-credential
-# [url "git@github.com:"]
-#     insteadOf = https://github.com/
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 	insteadOf = git://github.com/
