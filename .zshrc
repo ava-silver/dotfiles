@@ -56,10 +56,10 @@ plugins=(
   git
   zoxide
   fzf
-  zsh-syntax-highlighting
   zsh-autosuggestions
   dnf
   vscode
+  zsh-syntax-highlighting
 )
 
 source $ZSH/oh-my-zsh.sh
