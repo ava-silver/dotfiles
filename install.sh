@@ -2,42 +2,57 @@
 
 export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
-# set up dnf
-sudo bash -c "cat $REPO_DIR/dnf.conf > /etc/dnf/dnf.conf"
-
 # Set up shell
 
 ## zsh
-sudo dnf install zsh -y
+sudo apt update
+sudo apt install zsh git curl -y
 
 ## oh-my-zsh
 export ZSH=$REPO_DIR/.oh-my-zsh
 export KEEP_ZSHRC=yes
-export RUNZSH=no
-sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+if [ ! -d "$ZSH" ]; then
+    sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
 
 ZSH_CUSTOM=$ZSH/custom
 
 ## p10k
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $ZSH_CUSTOM/themes/powerlevel10k
+if [ ! -d "$ZSH_CUSTOM/themes/powerlevel10k" ]; then
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $ZSH_CUSTOM/themes/powerlevel10k
+fi
 
 ## zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
-
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
+fi
 ## zsh-syntax-highlighting
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
-
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+fi
 ## useful packages
-sudo dnf install lsd thefuck zoxide fzf bat bpytop -y
+sudo apt install lsd thefuck zoxide fzf bat -y
+sudo snap install diff-so-fancy
 
 ## link up everything else
-sudo bash -c "echo 'ZDOTDIR=$REPO_DIR' >> /etc/zshenv"
-
-zsh ./install_apps.sh
 
 ## set up symlinks
-[ ! -L "/home/ava/.ssh/.config" ] && mkdir -p /home/ava/.ssh && ln -s $REPO_DIR/ssh_config /home/ava/.ssh/config
+if [ ! -e "$HOME/.ssh/config" ]; then
+    mkdir -p $HOME/.ssh && ln -s $REPO_DIR/ssh_config $HOME/.ssh/config
+fi
+if [ ! -e "$HOME/.zshrc" ]; then
+    ln -s $REPO_DIR/.zshrc $HOME/.zshrc
+fi
+if [ ! -e "$HOME/.zsh_aliases" ]; then
+    ln -s $REPO_DIR/.zsh_aliases $HOME/.zsh_aliases
+fi
+if [ ! -e "$HOME/.p10k.zsh" ]; then
+    ln -s $REPO_DIR/.p10k.zsh $HOME/.p10k.zsh
+fi
+if [ -e "$HOME/.gitconfig" ]; then
+    rm $HOME/.gitconfig
+fi
+ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
 
-gradience_themes='/home/ava/.var/app/com.github.GradienceTeam.Gradience/config/presets/user/'
-[ ! -L "$gradience_themes/ava-purple.json" ] && mkdir -p $gradience_themes && ln -s $REPO_DIR/ava-purple.json $gradience_themes/ava-purple.json
+chsh -s `which zsh`
 
