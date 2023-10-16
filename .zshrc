@@ -9,7 +9,7 @@ fi
 
 
 ZSH_DISABLE_COMPFIX="true"
-
+# DISABLE_AUTO_TITLE="true"
 # Case-sensitive completion must be off. _ and - will be interchangeable.
 HYPHEN_INSENSITIVE="true"
 
@@ -159,3 +159,5 @@ export PATH="$PATH:/Users/ava.silver/.local/bin"
 
 
 
+
+source /Users/ava.silver/.config/dogweb.shellrc

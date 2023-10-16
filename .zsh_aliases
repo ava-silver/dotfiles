@@ -57,6 +57,7 @@ alias kbash="kbash --pod"
 alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- /bin/bash'
 alias k=kubectl
 alias ktx="/Users/ava.silver/dd/eclair-scripts/kubectx-switcher"
+alias psql="/Users/ava.silver/dd/eclair-scripts/psql"
 alias kns=kubens
 alias kdev="kubectx devenv-avasilver"
 alias kedit="k edit wpa"
