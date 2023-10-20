@@ -1,31 +1,40 @@
 #!/usr/bin/zsh
 
-# DNF Apps
-sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ranger sqlite3 vim -y --allowerasing
-
+# APT Apps
+sudo apt install flatpak gnome-software-plugin-flatpak solaar gimp\
+    gnome-tweaks python3 cargo imagemagick ranger sqlite3 vim -y
 
 # Flatpak apps
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-sudo flatpak install flathub com.spotify.Client -y
-sudo flatpak install flathub com.slack.Slack -y
-sudo flatpak install flathub com.bitwarden.desktop -y
 sudo flatpak install flathub com.github.tchx84.Flatseal -y
 sudo flatpak install flathub com.mattjakeman.ExtensionManager -y
-sudo flatpak install flathub com.microsoft.Edge -y
-sudo flatpak install flathub com.github.GradienceTeam.Gradience -y
 sudo flatpak install flathub com.github.micahflee.torbrowser-launcher -y
-sudo flatpak install flathub com.google.AndroidStudio -y
-sudo flatpak install flathub com.valvesoftware.Steam -y
 sudo flatpak install flathub com.mattjakeman.ExtensionManager -y
+sudo flatpak install flathub org.getmonero.Monero -y
 
 # Snap apps
-[ ! -L "/snap" ] && sudo ln -s /var/lib/snapd/snap /snap
 sudo snap install code --classic
+sudo snap install android-studio --classic
+sudo snap install spotify
+sudo snap install bitwarden
+sudo snap install discord
+sudo snap install steam
 
 
 ## Other:
-# Celeste to /usr/games/celeste
 
+# Gum
+sudo mkdir -p /etc/apt/keyrings
+if [ ! -f "/etc/apt/keyrings/charm.gpg" ]; then
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+fi
+if [ ! -f "/etc/apt/sources.list.d/charm.list" ]; then
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+fi
+sudo apt update
+sudo apt install gum
+
+# Celeste to /usr/games/celeste
 # Minecraft
-# Monero GUI
+
 
