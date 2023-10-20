@@ -85,8 +85,10 @@ python() {
     fi
 }
 
-alias pr="(xclip < ~/dogweb_pr.md); gh pr create"
-
+pr() {
+  sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
+  gh pr create
+}
 # store token function
 
 store_token() {
