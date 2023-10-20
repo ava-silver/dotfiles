@@ -25,6 +25,7 @@
   su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
   pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
   rst = reset --hard HEAD
+  rstm = "!f() { git co `git main` $@; }; f"
   s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
   # --select-1
   sta = stash
@@ -41,6 +42,7 @@
   l = lg -n
   sup = standup
   standies = standup
+  ticket = "!$HOME/.dotfiles/ticket.sh"
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f

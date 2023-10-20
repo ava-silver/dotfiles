@@ -6,9 +6,8 @@ else
     msg="$@"
 fi
 branch="$(git rev-parse --abbrev-ref HEAD)"
-if [[ $branch =~ ava.silver/.*/.* ]]; then 
-    ticket="[$(echo $branch | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')] " 
-else 
-    ticket='' 
+ticket=`$HOME/.dotfiles/ticket.sh`
+if [ ! -z "$ticket" ]; then
+    ticket="[$ticket] "
 fi
 git commit -m "$ticket$msg"
