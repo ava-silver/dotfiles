@@ -1,4 +1,4 @@
-export DOTFILES=/home/ava/.dotfiles
+export DOTFILES=$HOME/.dotfiles
 export ZSH=$DOTFILES/.oh-my-zsh
 
 [[ $- != *i* ]] && return
@@ -81,5 +81,5 @@ source $DOTFILES/.zsh_aliases
 eval $(thefuck --alias)
 [[ ! -f $DOTFILES/.cargo_vars ]] || source $DOTFILES/.cargo_vars
 
-path+=/home/ava/.local/bin
-path+=/home/ava/.cargo/bin
+path+=$HOME/.local/bin
+path+=$HOME/.cargo/bin
