@@ -83,3 +83,7 @@ eval $(thefuck --alias)
 
 path+=$HOME/.local/bin
 path+=$HOME/.cargo/bin
+
+if [ $(whoami) = "bits" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi

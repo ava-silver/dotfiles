@@ -31,8 +31,18 @@ if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
 ## useful packages
-sudo apt install lsd thefuck zoxide fzf bat -y
-sudo snap install diff-so-fancy
+sudo apt install thefuck fzf bat -y
+if [ $(whoami) = "bits" ]; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    brew install lsd
+    brew install zoxide
+    brew install diff-so-fancy
+else
+    sudo snap install diff-so-fancy
+    sudo apt install lsd zoxide -y
+fi
+
 
 ## link up everything else
 
