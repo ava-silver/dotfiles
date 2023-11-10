@@ -102,10 +102,6 @@ azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --place
         ;;
     esac
   }
-
-  get-key() {
-    yq '.services[0].key' ~/hotdog.yml
-  }
   announce() {
     gum style --border="rounded" --align center --margin="0 20" --padding="2 2" \
       --width=40 --bold --foreground 2 "Synced $1 :)"
@@ -115,7 +111,7 @@ azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --place
   elif [[ $1 == "sync" ]]; then
     if [[ $# == 1 ]]; then
       ## parse ~/hotdog.yml for key using yq
-      key=`get-key`
+      key=`yq '.services[0].key' ~/hotdog.yml`
       hotdog-cli sync -k $key
       announce $key
     elif [[ $# == 2 ]]; then
