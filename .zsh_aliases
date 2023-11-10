@@ -104,7 +104,7 @@ azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --place
   }
   announce() {
     gum style --border="rounded" --align center --margin="0 20" --padding="2 2" \
-      --width=40 --bold --foreground 2 "Synced $1 :)"
+      --width=40 --bold --foreground 2 $1
   }
   if [[ $# == 0 ]]; then
     hotdog-cli
@@ -113,10 +113,10 @@ azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --place
       ## parse ~/hotdog.yml for key using yq
       key=`yq '.services[0].key' ~/hotdog.yml`
       hotdog-cli sync -k $key
-      announce $key
+      announce "Synced $key"
     elif [[ $# == 2 ]]; then
       hotdog-cli sync -k "queue-group:$(queue-group $2)"
-      announce $2
+      announce "Synced $2"
     else
       gum style --bold --foreground 1 "Usage: hotdog sync [key]"
       return 1
@@ -128,6 +128,7 @@ azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --place
       gum style --bold --foreground 1 "No queue group selected"
       return 1
     fi
+    announce "Kbashing into pod for $group"
     kubectl exec --namespace azure-integrations \
       "deploy/azure-workers-hotdog-$group-$HOTDOG_USER" \
       -c delancie-worker -it -- /bin/bash
