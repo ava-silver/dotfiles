@@ -85,6 +85,61 @@ python() {
     fi
 }
 
+export HOTDOG_USER='ava'
+
+hotdog() {
+  queue-group() {
+    case $1 in
+      meta)
+        echo "azure-meta"
+        ;;
+      metrics)
+        echo "azure-metrics"
+        ;;
+      *)
+        echo 'azure-meta
+azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --placeholder="Search..."
+        ;;
+    esac
+  }
+
+  get-key() {
+    yq '.services[0].key' ~/hotdog.yml
+  }
+  announce() {
+    gum style --border="rounded" --align center --margin="0 20" --padding="2 2" \
+      --width=40 --bold --foreground 2 "Synced $1 :)"
+  }
+  if [[ $# == 0 ]]; then
+    hotdog-cli
+  elif [[ $1 == "sync" ]]; then
+    if [[ $# == 1 ]]; then
+      ## parse ~/hotdog.yml for key using yq
+      key=`get-key`
+      hotdog-cli sync -k $key
+      announce $key
+    elif [[ $# == 2 ]]; then
+      hotdog-cli sync -k "queue-group:$(queue-group $2)"
+      announce $2
+    else
+      gum style --bold --foreground 1 "Usage: hotdog sync [key]"
+      return 1
+    fi
+  elif [[ $1 == "pod" ]]; then
+    kubectx stripe.us1.staging.dog
+    group=`queue-group $2`
+    if [[ -z $group ]]; then
+      gum style --bold --foreground 1 "No queue group selected"
+      return 1
+    fi
+    kubectl exec --namespace azure-integrations \
+      "deploy/azure-workers-hotdog-$group-$HOTDOG_USER" \
+      -c delancie-worker -it -- /bin/bash
+  else
+    hotdog-cli $@
+  fi
+}
+
 pr() {
   sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
   gh pr create
