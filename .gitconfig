@@ -1,6 +1,7 @@
 [user]
   name = Ava Silver
   email = ava.silver@datadoghq.com
+	signingkey = 1A69E7A297D2775F
 [core]
   editor = "code --wait"
 	pager = diff-so-fancy | less --tabs=4 -RFX
@@ -44,6 +45,7 @@
   sup = standup
   standies = standup
   ticket = "!$HOME/.dotfiles/ticket.sh"
+  cln = "clean -fdx"
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f
@@ -56,3 +58,5 @@
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 	insteadOf = git://github.com/
+[commit]
+	gpgsign = true

@@ -54,10 +54,9 @@ alias pc='devc pre_commit'
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
 alias kbash="kbash --pod"
-alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- /bin/bash'
+alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- bash -c "cd /opt/dogweb && /bin/bash"'
 alias k=kubectl
-alias ktx="/Users/ava.silver/dd/eclair-scripts/kubectx-switcher"
-alias psql="/Users/ava.silver/dd/eclair-scripts/psql"
+alias ktx="kubectx-switcher"
 alias kns=kubens
 alias kdev="kubectx devenv-avasilver"
 alias kedit="k edit wpa"
@@ -65,10 +64,14 @@ alias kscale="chart=\$(gum choose --header='Choose a chart' azure-workers-main-a
 alias kscale-metric="kedit azure-workers-main-azure-metrics-01"
 alias kscale-meta="kedit azure-workers-main-azure-meta"
 
+alias hd=hotdog
 
+#  -------------------------------terraform---------------------------------
 
+alias tf="terraform"
 
-# dogweb
+#  -------------------------------dogweb---------------------------------
+
 alias format="git diff HEAD --name-only | xargs black"
 alias autoflake="autoflake --remove-unused-variables --remove-all-unused-imports --in-place"
 fix() {
@@ -85,62 +88,60 @@ python() {
     fi
 }
 
-export HOTDOG_USER='ava'
-
-hotdog() {
-  queue-group() {
-    case $1 in
-      meta)
-        echo "azure-meta"
-        ;;
-      metrics)
-        echo "azure-metrics"
-        ;;
-      *)
-        echo 'azure-meta
-azure-metrics' | gum filter --header="Choose a queue group:"  --height=3 --placeholder="Search..."
-        ;;
-    esac
-  }
-  announce() {
-    gum style --border="rounded" --align center --margin="0 20" --padding="2 2" \
-      --width=40 --bold --foreground 2 $1
-  }
-  if [[ $# == 0 ]]; then
-    hotdog-cli
-  elif [[ $1 == "sync" ]]; then
-    if [[ $# == 1 ]]; then
-      ## parse ~/hotdog.yml for key using yq
-      key=`yq '.services[0].key' ~/hotdog.yml`
-      hotdog-cli sync -k $key
-      announce "Synced $key"
-    elif [[ $# == 2 ]]; then
-      hotdog-cli sync -k "queue-group:$(queue-group $2)"
-      announce "Synced $2"
-    else
-      gum style --bold --foreground 1 "Usage: hotdog sync [key]"
-      return 1
-    fi
-  elif [[ $1 == "pod" ]]; then
-    kubectx stripe.us1.staging.dog
-    group=`queue-group $2`
-    if [[ -z $group ]]; then
-      gum style --bold --foreground 1 "No queue group selected"
-      return 1
-    fi
-    announce "Kbashing into pod for $group"
-    kubectl exec --namespace azure-integrations \
-      "deploy/azure-workers-hotdog-$group-$HOTDOG_USER" \
-      -c delancie-worker -it -- /bin/bash
-  else
-    hotdog-cli $@
-  fi
-}
 
 pr() {
   sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
   gh pr create
 }
+
+consul-prs() {
+  cd ~/dd/consul-config 
+  if [[ -n `g st --porcelain` ]]; then
+    gum style --bold --foreground 1 "Please commit/remove changes before running."
+    return 1
+  fi
+  ticket=`gum input --header="Enter the ticket number" --placeholder="azints-1234"`
+  if [[ ! $ticket =~ ^[a-z]+-[0-9]+$ ]]; then
+    gum style --bold --foreground 1 "Jira Ticket has an invalid format: $1"
+    return 1
+  fi
+  branch_name=`gum input --header="Enter a generic branch name" --placeholder="enable-some-feature" | sed 's/ /-/'`
+  commit_name=`gum input --header="Enter a commit/PR title" --placeholder="Enable Some New Feature"`
+  file_name=`gum input --header="Enter the path to an existing template file" --placeholder="path/to/file"`
+  if [[ ! -f $file_name ]]; then
+    gum style --bold --foreground 1 "$2 is not a valid path (relative to consul-config)"
+    return 1
+  fi
+
+  echo -n `gum format --template="markdown" "About to run the following commands, does everything look good?
+- \`g nb ava.silver/$ticket/$branch_name-dc\`
+- \`cp $file_name datadog/dc/features/\`
+Press enter to confirm [Y/n]:"`
+  read confirmation
+  if [[ ! -z $confirmation || ! $confirmation == y || ! $confirmation == Y ]]; then
+    return
+  fi
+  set -x
+  g sm
+  g pl
+  for dc in ap1 us5 us3 eu1 us1; do 
+    g sm
+    g nb ava.silver/$ticket/$branch_name-$dc
+    cp $file_name datadog/$dc.prod.dog/features/
+    g ac "[$(tr '[:lower:]' '[:upper:]' <<< $dc)]" $commit_name
+    g pu
+    dd-pr
+  done
+  g sm
+  g nb ava.silver/$ticket/$branch_name-fed
+  cp $file_name datadog/us1.fed.dog/features/
+  g ac "[FED]" $commit_name
+  g pu
+  dd-pr
+
+  set +x
+}
+
 # store token function
 
 store_token() {
