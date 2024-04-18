@@ -46,6 +46,7 @@
   standies = standup
   ticket = "!$HOME/.dotfiles/ticket.sh"
   cln = "clean -fdx"
+  cleanup-branches = !sh -c \"git b | grep -v `git main` | xargs git b -D\"
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f

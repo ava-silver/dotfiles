@@ -70,6 +70,10 @@ alias hd=hotdog
 
 alias tf="terraform"
 
+#  -------------------------------bazel------------------------------------
+
+alias gz='bazel run //:gazelle'
+
 #  -------------------------------dogweb---------------------------------
 
 alias format="git diff HEAD --name-only | xargs black"
@@ -95,7 +99,7 @@ pr() {
 }
 
 consul-prs() {
-  cd ~/dd/consul-config 
+  cd ~/dd/consul-config
   if [[ -n `g st --porcelain` ]]; then
     gum style --bold --foreground 1 "Please commit/remove changes before running."
     return 1
@@ -107,36 +111,34 @@ consul-prs() {
   fi
   branch_name=`gum input --header="Enter a generic branch name" --placeholder="enable-some-feature" | sed 's/ /-/'`
   commit_name=`gum input --header="Enter a commit/PR title" --placeholder="Enable Some New Feature"`
-  file_name=`gum input --header="Enter the path to an existing template file" --placeholder="path/to/file"`
+  file_name=`gum input --header="Enter the path to an existing template file" --placeholder="path/to/file" | awk '{$1=$1};1'`
+  config_type=`gum choose --header="Choose a config type" features delancie_schedule`
   if [[ ! -f $file_name ]]; then
     gum style --bold --foreground 1 "$2 is not a valid path (relative to consul-config)"
     return 1
   fi
 
-  echo -n `gum format --template="markdown" "About to run the following commands, does everything look good?
+  if ! gum confirm "$(gum format -- "About to run the following commands, does everything look good?
 - \`g nb ava.silver/$ticket/$branch_name-dc\`
-- \`cp $file_name datadog/dc/features/\`
-Press enter to confirm [Y/n]:"`
-  read confirmation
-  if [[ ! -z $confirmation || ! $confirmation == y || ! $confirmation == Y ]]; then
+- \`cp $file_name datadog/dc/$config_type/\`")"; then
     return
   fi
   set -x
   g sm
   g pl
-  for dc in ap1 us5 us3 eu1 us1; do 
+  for dc in ap1 us5 us3 eu1 us1; do
     g sm
     g nb ava.silver/$ticket/$branch_name-$dc
-    cp $file_name datadog/$dc.prod.dog/features/
+    \cp $file_name datadog/$dc.prod.dog/$config_type/
     g ac "[$(tr '[:lower:]' '[:upper:]' <<< $dc)]" $commit_name
-    g pu
+    g pu --force
     dd-pr
   done
   g sm
   g nb ava.silver/$ticket/$branch_name-fed
-  cp $file_name datadog/us1.fed.dog/features/
+  \cp $file_name datadog/us1.fed.dog/$config_type/
   g ac "[FED]" $commit_name
-  g pu
+  g pu --force
   dd-pr
 
   set +x

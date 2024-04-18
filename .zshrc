@@ -153,15 +153,14 @@ export HOST_HOOK_RUNNER=1
 export VOLTA_HOME="$HOME/.volta"
 path+=("$VOLTA_HOME/bin")
 
-path+=("$HOME/dd/eclair-scripts")
-path+=("$HOME/dd/eclair-scripts/azure")
+path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
 # Created by `pipx` on 2023-07-17 19:29:37
 export PATH="$PATH:/Users/ava.silver/.local/bin"
 
 
+[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
 
 
 source /Users/ava.silver/.config/dogweb.shellrc
 path+=($HOME/.cargo/bin)
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
-pyenv shell dogpy3
