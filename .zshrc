@@ -160,7 +160,7 @@ export PATH="$PATH:/Users/ava.silver/.local/bin"
 
 [[ $commands[kubectl] ]] && source <(kubectl completion zsh)
 
+[[ ! -f $HOME/.config/dogweb.shellrc ]] || source $HOME/.config/dogweb.shellrc
 
-source /Users/ava.silver/.config/dogweb.shellrc
-path+=($HOME/.cargo/bin)
+[[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
