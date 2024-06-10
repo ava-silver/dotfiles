@@ -53,5 +53,4 @@ if [ -e "$HOME/.gitconfig" ]; then
 fi
 ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
 
-chsh -s `which zsh`
 
