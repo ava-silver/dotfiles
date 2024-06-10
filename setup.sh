@@ -5,7 +5,7 @@ export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/nul
 # Set up shell
 
 ## oh-my-zsh
-export ZSH=$REPO_DIR/.oh-my-zsh
+export ZSH=$HOME/.oh-my-zsh
 export KEEP_ZSHRC=yes
 if [ ! -d "$ZSH" ]; then
     sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
