@@ -27,7 +27,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
 ## useful packages
-brew install lsd thefuck zoxide fzf bat diff-so-fancy
+brew install lsd thefuck zoxide fzf bat diff-so-fancy iterm2
 
 
 # unnatural scroll wheels, rectangle, yubikey manager, clipy will all need to be installed as well.
