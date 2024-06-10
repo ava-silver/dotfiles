@@ -4,10 +4,6 @@ export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/nul
 
 # Set up shell
 
-## zsh
-sudo apt update
-sudo apt install zsh git curl -y
-
 ## oh-my-zsh
 export ZSH=$REPO_DIR/.oh-my-zsh
 export KEEP_ZSHRC=yes
@@ -31,8 +27,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
 ## useful packages
-sudo apt install lsd thefuck zoxide fzf bat -y
-sudo snap install diff-so-fancy
+brew install lsd thefuck zoxide fzf bat diff-so-fancy
 
 
 # unnatural scroll wheels, rectangle, yubikey manager, clipy will all need to be installed as well.
