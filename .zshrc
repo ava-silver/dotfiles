@@ -164,3 +164,7 @@ export PATH="$PATH:/Users/ava.silver/.local/bin"
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
