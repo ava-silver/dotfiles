@@ -76,6 +76,7 @@ eval $(thefuck --alias)
 [[ ! -f $HOME/.cargo_vars ]] || source $HOME/.cargo_vars
 
 # google-cloud-sdk brew caveat
+export CLOUDSDK_PYTHON=$(which python3.11)
 source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc"
 source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc"
 
@@ -168,3 +169,4 @@ export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
