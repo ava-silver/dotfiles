@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
 # DNF Apps
-sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ranger sqlite3 vim -y --allowerasing
+sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ranger sqlite3 vim nodejs -y --allowerasing
 
 
 # Flatpak apps
@@ -22,6 +22,8 @@ sudo flatpak install flathub com.mattjakeman.ExtensionManager -y
 [ ! -L "/snap" ] && sudo ln -s /var/lib/snapd/snap /snap
 sudo snap install code --classic
 
+# npm apps
+sudo npm install -g @withgraphite/graphite-cli@stable
 
 ## Other:
 # Celeste to /usr/games/celeste
