@@ -82,5 +82,6 @@ source $DOTFILES/.zsh_aliases
 
 path+=/home/ava/.local/bin
 path+=/home/ava/.cargo/bin
+path+=/usr/local/go/bin
 
 [ $commands[gt] ] && source <(gt completion)

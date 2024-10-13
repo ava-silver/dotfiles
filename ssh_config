@@ -23,3 +23,7 @@ Host mcserver
   User ubuntu
   HostName 141.148.94.64
   IdentityFile ~/.ssh/id_mcserver
+
+Host wallmatrix
+  User pi
+  HostName 192.168.8.249
