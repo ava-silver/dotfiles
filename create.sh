@@ -13,3 +13,4 @@ branch="$ticket/$@"
 msg="[$(echo $ticket | tr '[:lower:]' '[:upper:]')] $@"
 
 gt create --all "$branch" -m "$msg"
+gt ss
