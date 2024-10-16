@@ -4,7 +4,7 @@ set -euo pipefail
 # create.sh ticket-1234 summary of this change, none of this needs to be quoted
 
 # you can also set this as a git alias with:
-# git config --global alias.cr '!bash /path/to/create.sh'
+# git config --global alias.cr '!/path/to/create.sh'
 # which will allow you to use it like `git cr ticket-1234 summary of change`
 
 ticket=`echo $1 | tr '[:upper:]' '[:lower:]'`
