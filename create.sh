@@ -7,9 +7,9 @@ set -euo pipefail
 # git config --global alias.c '!bash /path/to/commit.sh'
 # which will allow you to use it like `git c summary of change`
 
-ticket=`echo $1 | tr '[:lower:]' '[:upper:]'`
+ticket=`echo $1 | tr '[:upper:]' '[:lower:]'`
 shift
 branch="$ticket/$@"
-msg="[$ticket] $@"
+msg="[$(echo $ticket | tr '[:lower:]' '[:upper:]')] $@"
 
 gt create --all "$branch" -m "$msg"
