@@ -13,6 +13,9 @@ ZSH_DISABLE_COMPFIX="true"
 # Case-sensitive completion must be off. _ and - will be interchangeable.
 HYPHEN_INSENSITIVE="true"
 
+export _ZO_EXCLUDE_DIRS="$HOME/go"
+
+
 # Uncomment one of the following lines to change the auto-update behavior
 zstyle ':omz:update' mode reminder  # just remind me to update when it's time
 
@@ -159,7 +162,11 @@ path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
 export PATH="$PATH:/Users/ava.silver/.local/bin"
 
 
+
 [[ $commands[kubectl] ]] && source <(kubectl completion zsh)
+
+[[ $commands[gt] ]] && source <(gt completion)
+
 
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source $HOME/.config/dogweb.shellrc
 

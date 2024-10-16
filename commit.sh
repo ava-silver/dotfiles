@@ -22,4 +22,4 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ $branch =~ .*/.*/.* ]]; then
     ticket="[$(echo $branch | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')] "
 fi
-git commit -m "$ticket$msg"
+gt cm -m "$ticket$msg"

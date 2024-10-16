@@ -1,33 +1,34 @@
 [user]
   name = Ava Silver
   email = ava.silver@datadoghq.com
-	signingkey = 1A69E7A297D2775F
+  signingkey = 1A69E7A297D2775F
 [core]
   editor = "code --wait"
-	pager = diff-so-fancy | less --tabs=4 -RFX
-	hooksPath = /usr/local/dd/global_hooks
+  pager = diff-so-fancy | less --tabs=4 -RFX
+  hooksPath = /usr/local/dd/global_hooks
 [alias]
   a = add -A
   co = checkout
   b = branch
   nb = checkout -b
+  cr = "!$HOME/.dotfiles/create.sh"
   c = "!$HOME/.dotfiles/commit.sh"
   ac = "!f() { git a && git c $@ ;}; f"
-  cc = "!git commit -m \"updated `date`\""
+  cc = "!git commit -m \"updated $(date)\""
   ca = commit -am
   m = "merge --no-edit"
   main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
-  mm = "!git m `git main`"
+  mm = "!git m $(git main)"
   mc = "!git a && git merge --continue"
   st = status
   sw = switch
-  sm = "!git sw `git main`"
+  sm = "!git sw $(git main)"
   pl = pull
   pu = push origin HEAD
   su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
   pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
   rst = reset --hard HEAD
-  rstm = "!f() { git co `git main` $@; }; f"
+  rstm = "!f() { git co $(git main) $@; }; f"
   s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
   # --select-1
   sta = stash
@@ -35,8 +36,8 @@
   unc = reset --soft HEAD~1
   d = diff --color-moved
   dn = d --name-only
-  dm = "!git d `git main`"
-  dmn = "!git dn `git main`"
+  dm = "!git d $(git main)"
+  dmn = "!git dn $(git main)"
   dh = d HEAD
   dhn = dh --name-only
   cf = !sh -c \"git diff --name-only | uniq | xargs code\"
@@ -46,7 +47,8 @@
   standies = standup
   ticket = "!$HOME/.dotfiles/ticket.sh"
   cln = "clean -fdx"
-  cleanup-branches = !sh -c \"git b | grep -v `git main` | xargs git b -D\"
+  cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
+  ref-fix = pull --prune
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f
@@ -57,7 +59,8 @@
 [push]
   autoSetupRemote = true
 [url "git@github.com:"]
-	insteadOf = https://github.com/
-	insteadOf = git://github.com/
+  insteadOf = https://github.com/
+  insteadOf = git://github.com/
 [commit]
-	gpgsign = true
+  gpgsign = true
+[safe]
