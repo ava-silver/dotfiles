@@ -1,40 +1,40 @@
 #!/usr/bin/env zsh
 
 #  -------------------------------GENERAL----------------------------------
-alias cp='cp -riv'                          # Preferred 'cp' implementation
-alias mv='mv -iv'                           # Preferred 'mv' implementation
-alias mkdir='mkdir -pv'                     # Preferred 'mkdir' implementation
-alias less='less -FSRXc'                    # Preferred 'less' implementation
+alias cp='cp -riv'       # Preferred 'cp' implementation
+alias mv='mv -iv'        # Preferred 'mv' implementation
+alias mkdir='mkdir -pv'  # Preferred 'mkdir' implementation
+alias less='less -FSRXc' # Preferred 'less' implementation
 alias wget='wget -c'
-alias cat=bat                               # Preferred 'cat' implementation
-alias ccat='\cat'                           # In case regular cat usage is preferred
-alias top=btm                               # Preferred 'top' implementation
+alias cat=bat     # Preferred 'cat' implementation
+alias ccat='\cat' # In case regular cat usage is preferred
+alias top=btm     # Preferred 'top' implementation
 alias c=clear
 alias cd=z
 alias src='source /Users/ava.silver/.zshrc'
 alias g=git
-alias path='echo -e ${PATH//:/\\n}'         # path:         Echo all executable Paths
-alias fix_term='echo -e "\033c"'            # fix_term:     Reset the conosle.  Similar to the reset command
-alias qfind='find . -iname'                 # qfind:    Quickly search for file
+alias path='echo -e ${PATH//:/\\n}' # path:         Echo all executable Paths
+alias fix_term='echo -e "\033c"'    # fix_term:     Reset the conosle.  Similar to the reset command
+alias qfind='find . -iname'         # qfind:    Quickly search for file
 alias zip='zip -r'
 alias rm=rip
 alias rrm='/bin/rm -rf'
 alias time='=time'
-
+alias lower='tr "[:upper:]" "[:lower:]"'
+alias upper='tr "[:lower:]" "[:upper:]"'
+alias uuid='uuidgen | lower | tee /dev/tty | xclip'
+alias sed=gsed
 #  -------------------------------LS----------------------------------
 # Directory Listing aliases
-alias ls=lsd                    # Preferred ls implementation
-alias l=ls                      # short listing, all files
-alias l.='ls -d .*'             # short listing, only hidden files - .*
-alias la='ls -A'                # show hidden files
-alias ll='ls -lAh'              # long
-alias L='ls -lathF'             # long, sort by oldest to newest
+alias ls=lsd        # Preferred ls implementation
+alias l=ls          # short listing, all files
+alias l.='ls -d .*' # short listing, only hidden files - .*
+alias la='ls -A'    # show hidden files
+alias ll='ls -lAh'  # long
+alias L='ls -lathF' # long, sort by oldest to newest
 alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
 
-
-
 alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
-
 
 #  -------------------------------MISC----------------------------------
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
@@ -73,7 +73,7 @@ alias tf="terraform"
 
 #  -------------------------------bazel------------------------------------
 
-alias gz='bazel run //:gazelle'
+alias gz='bzl run //:gazelle'
 
 #  -------------------------------dogweb---------------------------------
 
@@ -88,33 +88,31 @@ python() {
     if [[ $# == 0 ]]; then ipython; else python3 $@; fi
 }
 
-
 pr() {
-  sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
-  gh pr create
+    sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
+    gh pr create
 }
-
 
 # store token function
 
 store_token() {
-  printf "Enter env var name (e.g. FOOBAR_TOKEN): " && \
-    read TOKEN_NAME && \
-    printf "Enter API token value: " && \
-    read TOKEN && \
-    security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} && \
-    unset TOKEN
+    printf "Enter env var name (e.g. FOOBAR_TOKEN): " &&
+        read TOKEN_NAME &&
+        printf "Enter API token value: " &&
+        read TOKEN &&
+        security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} &&
+        unset TOKEN
 
-  TO_WRITE="\nexport ${TOKEN_NAME}="
-  TO_WRITE+='$(security find-generic-password -a ${USER}'
-  TO_WRITE+=" -s ${TOKEN_NAME} -w)"
-  echo -e "${TO_WRITE}" >> ~/.zshrc
-  unset TOKEN_NAME
-  source ~/.zshrc
+    TO_WRITE="\nexport ${TOKEN_NAME}="
+    TO_WRITE+='$(security find-generic-password -a ${USER}'
+    TO_WRITE+=" -s ${TOKEN_NAME} -w)"
+    echo -e "${TO_WRITE}" >>~/.zshrc
+    unset TOKEN_NAME
+    source ~/.zshrc
 }
 
 fix_devkube() {
-  docker stop $(docker ps -aq)
-  docker system prune -a
-  tiltup delancie-crawler-azure
+    docker stop $(docker ps -aq)
+    docker system prune -a
+    tiltup delancie-crawler-azure
 }
