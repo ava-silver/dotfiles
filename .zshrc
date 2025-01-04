@@ -1,6 +1,6 @@
 export DOTFILES=/home/ava/.dotfiles
 export ZSH=$DOTFILES/.oh-my-zsh
-
+export NODE_NO_WARNINGS=1
 [[ $- != *i* ]] && return
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
@@ -82,6 +82,7 @@ source $DOTFILES/.zsh_aliases
 
 path+=/home/ava/.local/bin
 path+=/home/ava/.cargo/bin
+path+=/home/ava/.local/share/coursier/bin
 path+=/usr/local/go/bin
 
 [ $commands[gt] ] && source <(gt completion)
