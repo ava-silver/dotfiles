@@ -5,7 +5,6 @@
 [core]
   editor = "code --wait"
   pager = diff-so-fancy | less --tabs=4 -RFX
-  hooksPath = /usr/local/dd/global_hooks
 [alias]
   a = add -A
   co = checkout
@@ -23,7 +22,7 @@
   st = status
   sw = switch
   sm = "!git sw $(git main)"
-  pl = pull
+  pl = "!$HOME/.dotfiles/pull.sh"
   pu = push origin HEAD
   su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
   pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
@@ -48,7 +47,7 @@
   ticket = "!$HOME/.dotfiles/ticket.sh"
   cln = "clean -fdx"
   cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
-  ref-fix = pull --prune
+  sync = "!f() { branch=$(git b --show-current) && git sm && gt sync && gt ss && git sw $branch ; }; f"
 [filter "lfs"]
   clean = git-lfs clean -- %f
   smudge = git-lfs smudge -- %f

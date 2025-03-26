@@ -154,7 +154,7 @@ export DEVC_ADDITIONAL_COMPOSE_YML=$HOME/go/src/github.com/DataDog/eclair-script
 export GITLAB_TOKEN=$(security find-generic-password -a "${USER}" -s gitlab_token -w)
 export gitlab_token=$GITLAB_TOKEN
 export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
-export DD_APP_KEY=$(security find-generic-password -a "${USER}" -s DD_APP_KEY -w)
+export DD_SITE=datadoghq.com
 
 # export DD_TEST_CLIENT_APP_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_APP_KEY -w)
 # export DD_TEST_CLIENT_API_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_API_KEY -w)
@@ -184,5 +184,4 @@ export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
 

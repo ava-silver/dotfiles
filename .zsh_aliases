@@ -24,6 +24,8 @@ alias lower='tr "[:upper:]" "[:lower:]"'
 alias upper='tr "[:lower:]" "[:upper:]"'
 alias uuid='uuidgen | lower | tee /dev/tty | xclip'
 alias sed=gsed
+alias pinentry='pinentry-mac'
+alias gotest='gotestsum'
 #  -------------------------------LS----------------------------------
 # Directory Listing aliases
 alias ls=lsd        # Preferred ls implementation
@@ -82,6 +84,10 @@ alias autoflake="autoflake --remove-unused-variables --remove-all-unused-imports
 fix() {
     cmp="${1:-HEAD}"
     g dn $cmp | xargs sh -c 'black $@ ; autoflake --in-place --verbose --remove-unused-variables --remove-all-unused-imports $@; echo autoflake done!'
+}
+
+azrg() {
+    open -a "Google Chrome" https://portal.azure.com/#@devdatadoghq.onmicrosoft.com/resource/subscriptions/0b62a232-b8db-4380-9da6-640f7272ed6d/resourceGroups/$1/overview
 }
 
 python() {
