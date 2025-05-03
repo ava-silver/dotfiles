@@ -62,10 +62,6 @@ alias k=kubectl
 alias ktx="kubectx-switcher"
 alias kns=kubens
 alias kdev="kubectx devenv-avasilver"
-alias kedit="k edit wpa"
-alias kscale="chart=\$(gum choose --header='Choose a chart' azure-workers-main-azure-metrics-01 azure-workers-main-azure-meta); [ ! -z \$chart ] && kedit \$chart"
-alias kscale-metric="kedit azure-workers-main-azure-metrics-01"
-alias kscale-meta="kedit azure-workers-main-azure-meta"
 
 alias hd=hotdog
 
@@ -75,7 +71,7 @@ alias tf="terraform"
 
 #  -------------------------------bazel------------------------------------
 
-alias gz='bzl run //:gazelle'
+alias gz='bzl run //:gazelle -- domains/cloud_platform/ && g ac gazelle && gt ss'
 
 #  -------------------------------dogweb---------------------------------
 

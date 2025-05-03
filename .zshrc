@@ -162,7 +162,8 @@ export DD_SITE=datadoghq.com
 
 export HOST_HOOK_RUNNER=1
 export VOLTA_HOME="$HOME/.volta"
-path+=("$VOLTA_HOME/bin")
+export PATH="$VOLTA_HOME/bin:${PATH?}"
+export NODE_OPTIONS="--max-old-space-size=30000"
 
 path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
 # Created by `pipx` on 2023-07-17 19:29:37
@@ -184,4 +185,9 @@ export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+eval "$(direnv hook zsh)"
+
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /opt/homebrew/bin/terraform terraform
 
