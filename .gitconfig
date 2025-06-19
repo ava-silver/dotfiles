@@ -1,56 +1,65 @@
 [user]
-	name = Ava Silver
-	email = avapsilver@gmail.com
+name = Ava Silver
+email = ava@avasilver.dev
 [core]
-  editor = "code --wait"
-	pager = diff-so-fancy | less --tabs=4 -RFX
+editor = "code --wait"
+pager = delta
+[interactive]
+diffFilter = delta --color-only
+
+[delta]
+navigate = true # use n and N to move between diff sections
+dark = true     # or light = true, or omit for auto-detection
+
+[merge]
+conflictstyle = zdiff3
 [alias]
-  a = add -A
-  co = checkout
-  b = branch
-  nb = checkout -b
-  c = "!$HOME/.dotfiles/commit.sh"
-  ac = "!f() { git a && git c $@ ;}; f"
-  cc = "!git commit -m \"updated `date`\""
-  ca = commit -am
-  m = "merge --no-edit"
-  main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
-  mm = "!git m `git main`"
-  mc = "!git a && git merge --continue"
-  st = status
-  sw = switch
-  sm = "!git sw `git main`"
-  pl = pull
-  pu = push origin HEAD
-  su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
-  pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
-  rst = reset --hard HEAD
-  rstm = "!f() { git co `git main` $@; }; f"
-  s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
-  # --select-1
-  sta = stash
-  sp = stash pop
-  unc = reset --soft HEAD~1
-  d = diff --color-moved
-  dn = d --name-only
-  dm = "!git d `git main`"
-  dmn = "!git dn `git main`"
-  dh = d HEAD
-  dhn = dh --name-only
-  cf = !sh -c \"git diff --name-only | uniq | xargs code\"
-  lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
-  l = lg -n
-  sup = standup
-  standies = standup
-  ticket = "!$HOME/.dotfiles/ticket.sh"
+a = add -A
+co = checkout
+b = branch
+nb = checkout -b
+c = "!$HOME/.dotfiles/commit.sh"
+ac = "!f() { git a && git c $@ ;}; f"
+cc = "!git commit -m \"updated $(date)\""
+ca = commit -am
+m = "merge --no-edit"
+main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
+mm = "!git m $(git main)"
+mc = "!git a && git merge --continue"
+st = status
+sw = switch
+sm = "!git sw $(git main)"
+pl = pull
+pu = push origin HEAD
+su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+rst = reset --hard HEAD
+rstm = "!f() { git co $(git main) $@; }; f"
+s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+# --select-1
+sta = stash
+sp = stash pop
+unc = reset --soft HEAD~1
+d = diff --color-moved
+dn = d --name-only
+dm = "!git d $(git main)"
+dmn = "!git dn $(git main)"
+dh = d HEAD
+dhn = dh --name-only
+cf = !sh -c \"git diff --name-only | uniq | xargs code\"
+lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+l = lg -n
+sup = standup
+standies = standup
+ticket = "!$HOME/.dotfiles/ticket.sh"
 [filter "lfs"]
-  clean = git-lfs clean -- %f
-  smudge = git-lfs smudge -- %f
-  process = git-lfs filter-process
-  required = true
+clean = git-lfs clean -- %f
+smudge = git-lfs smudge -- %f
+process = git-lfs filter-process
+required = true
 [init]
-	defaultBranch = main
+defaultBranch = main
 [credential "https://github.com"]
-	helper = !/usr/bin/gh auth git-credential
+helper = !/usr/bin/gh auth git-credential
 [credential "https://gist.github.com"]
-	helper = !/usr/bin/gh auth git-credential
+helper = !/usr/bin/gh auth git-credential

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+export REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 
 # Set up shell
 
@@ -31,7 +31,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
 ## useful packages
-sudo apt install thefuck fzf bat -y
+sudo apt install git-delta fzf bat -y
 if [ $(whoami) = "bits" ]; then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
@@ -42,7 +42,6 @@ else
     sudo snap install diff-so-fancy
     sudo apt install lsd zoxide -y
 fi
-
 
 ## link up everything else
 
@@ -64,5 +63,4 @@ if [ -e "$HOME/.gitconfig" ]; then
 fi
 ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
 
-chsh -s `which zsh`
-
+chsh -s $(which zsh)
