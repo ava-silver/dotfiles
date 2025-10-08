@@ -16,9 +16,9 @@ cat ~/.zshrc.pre-oh-my-zsh ~/.zshrc > temp && mv temp ~/.zshrc
 
 ### Aesthetics
 
-1. Choose a custom nerd font to get icons in your terminal: https://www.nerdfonts.com/font-downloads <img src="https://github.com/ryanoasis/nerd-fonts/raw/master/images/sankey-glyphs-combined-diagram.svg" width="120">
+1. Choose a custom nerd font to get icons in your terminal: https://www.nerdfonts.com/font-downloads <img src="https://github.com/ryanoasis/nerd-fonts/raw/master/images/sankey-glyphs-combined-diagram.svg" width="500">
 2. Set it in your terminal as your font (in ITerm, this is under Cmd+, > Profiles > Text)
-3. Add powerlevel10k for a nice powerline theme: https://github.com/romkatv/powerlevel10k#oh-my-zsh
+3. Add powerlevel10k for a nice powerline theme: https://github.com/romkatv/powerlevel10k#oh-my-zsh <img src="https://raw.githubusercontent.com/romkatv/powerlevel10k-media/master/prompt-styles-high-contrast.png" width="500">
 
 
 ### Plugins
