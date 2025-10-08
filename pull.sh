@@ -1,9 +1,14 @@
 #!/bin/bash
 
-while ! git pull; do
+while true; do
+    PULL_OUTPUT=$(git pull 2>&1 | tee /dev/tty)
+    if [[ "${PIPESTATUS[0]}" == "0" ]]; then
+        break
+    fi
+
     echo "Git pull failed. Checking for locked references..."
 
-    LOCKED_REFS=$(git pull 2>&1 | grep -o "cannot lock ref '[^']*': '[^']*' exists" | awk -F "': '" '{print $2}' | awk -F "' exists" '{print $1}')
+    LOCKED_REFS=$(echo "$PULL_OUTPUT" | grep -o "cannot lock ref '[^']*'" | cut -d"'" -f2)
 
     if [ -n "$LOCKED_REFS" ]; then
         for LOCKED_REF in $LOCKED_REFS; do

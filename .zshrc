@@ -10,7 +10,7 @@ export HOMEBREW_DIR=/opt/homebrew
 export HOMEBREW_BIN=/opt/homebrew/bin
 
 # Load python shims
-eval "$(pyenv init -)"
+# eval "$(pyenv init -)"
 
 # Load ruby shims
 eval "$(rbenv init -)"
@@ -124,7 +124,6 @@ plugins=(
   dnf
   vscode
   zsh-syntax-highlighting
-  pyenv
 )
 
 source "$HOME/.oh-my-zsh/oh-my-zsh.sh"
@@ -152,7 +151,6 @@ source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completi
 
 export DEVC_ADDITIONAL_COMPOSE_YML=$HOME/go/src/github.com/DataDog/eclair-scripts/eclair/docker/docker-compose.devc.yml
 export GITLAB_TOKEN=$(security find-generic-password -a "${USER}" -s gitlab_token -w)
-export gitlab_token=$GITLAB_TOKEN
 export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
 export DD_SITE=datadoghq.com
 
@@ -182,12 +180,15 @@ export KUBE_EDITOR="code --wait"
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 
-#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
 eval "$(direnv hook zsh)"
 
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /opt/homebrew/bin/terraform terraform
 
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# Added by Yarn Switch
+source "/Users/ava.silver/.yarn/switch/env"

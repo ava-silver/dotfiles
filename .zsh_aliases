@@ -40,19 +40,12 @@ alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
 
 #  -------------------------------MISC----------------------------------
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
+alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
 alias xclip="pbcopy"
 
 alias brewi="brew update && brew install"
 alias brewr="brew uninstall"
 alias brewu="brew upgrade"
-
-#  -------------------------------devc---------------------------------
-alias ds="devc start"
-alias dsh="devc shell"
-alias dx="devc stop"
-alias dr="devc stop && devc start"
-alias d="devc status"
-alias pc='devc pre_commit'
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
@@ -61,41 +54,33 @@ alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main
 alias k=kubectl
 alias ktx="kubectx-switcher"
 alias kns=kubens
-alias kdev="kubectx devenv-avasilver"
-
 alias hd=hotdog
 
 #  -------------------------------terraform---------------------------------
 
 alias tf="terraform"
+alias tfa="terraform apply -var-file=test.tfvars -auto-approve"
+alias tfd="terraform destroy -var-file=test.tfvars -auto-approve"
+alias tfr="terraform destroy -var-file=test.tfvars -auto-approve && terraform apply -var-file=test.tfvars -auto-approve"
 
 #  -------------------------------bazel------------------------------------
 
 alias gz='bzl run //:gazelle -- domains/cloud_platform/ && g ac gazelle && gt ss'
 
-#  -------------------------------dogweb---------------------------------
-
-alias format="git diff HEAD --name-only | xargs black"
-alias autoflake="autoflake --remove-unused-variables --remove-all-unused-imports --in-place"
-fix() {
-    cmp="${1:-HEAD}"
-    g dn $cmp | xargs sh -c 'black $@ ; autoflake --in-place --verbose --remove-unused-variables --remove-all-unused-imports $@; echo autoflake done!'
-}
-
-azrg() {
-    open -a "Google Chrome" https://portal.azure.com/#@devdatadoghq.onmicrosoft.com/resource/subscriptions/0b62a232-b8db-4380-9da6-640f7272ed6d/resourceGroups/$1/overview
-}
 
 python() {
     if [[ $# == 0 ]]; then ipython; else python3 $@; fi
 }
 
-pr() {
-    sed "s/TODO/$($HOME/.dotfiles/ticket.sh)/" ~/dogweb_pr.md | xclip
-    gh pr create
+write_token() {
+    printf "Enter env var name (e.g. FOOBAR_TOKEN): " &&
+        read TOKEN_NAME &&
+        printf "Enter API token value: " &&
+        read TOKEN &&
+        security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} &&
+        unset TOKEN &&
+        unset TOKEN_NAME
 }
-
-# store token function
 
 store_token() {
     printf "Enter env var name (e.g. FOOBAR_TOKEN): " &&
@@ -104,7 +89,6 @@ store_token() {
         read TOKEN &&
         security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} &&
         unset TOKEN
-
     TO_WRITE="\nexport ${TOKEN_NAME}="
     TO_WRITE+='$(security find-generic-password -a ${USER}'
     TO_WRITE+=" -s ${TOKEN_NAME} -w)"
@@ -113,8 +97,13 @@ store_token() {
     source ~/.zshrc
 }
 
-fix_devkube() {
-    docker stop $(docker ps -aq)
-    docker system prune -a
-    tiltup delancie-crawler-azure
+alias auth='export $(dd-auth --output | xargs)'
+
+if [[ -f ~/.zsh_aliases.local ]]; then
+    source ~/.zsh_aliases.local
+fi
+
+awsopen() {
+    open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
+alias aws='aws-sso /opt/homebrew/bin/aws'

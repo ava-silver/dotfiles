@@ -1,74 +1,80 @@
 [user]
-  name = Ava Silver
-  email = ava.silver@datadoghq.com
-  signingkey = 1A69E7A297D2775F
+name = Ava Silver
+email = ava.silver@datadoghq.com
+signingkey = 1A69E7A297D2775F
 [core]
-  editor = "code --wait"
-  pager = delta
-  fsmonitor = true
-  untrackedCache = true
+editor = "code --wait"
+pager = delta
+fsmonitor = true
+untrackedCache = true
+hooksPath = /usr/local/dd/global_hooks
 [interactive]
-  diffFilter = delta --color-only
+diffFilter = delta --color-only
 [delta]
-  dark = true
+dark = true
 [merge]
-  conflictstyle = zdiff3
+conflictstyle = zdiff3
 [alias]
-  a = add -A
-  co = checkout
-  b = branch
-  nb = checkout -b
-  cr = "!$HOME/.dotfiles/create.sh"
-  c = "!$HOME/.dotfiles/commit.sh"
-  ac = "!f() { git a && git c $@ ;}; f"
-  cc = "!git commit -m \"updated $(date)\""
-  ca = commit -am
-  m = "merge --no-edit"
-  main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
-  mm = "!git m $(git main)"
-  mc = "!git a && git merge --continue"
-  st = "!dogsay speak \"$(git -c color.ui=always status)\""
-  sw = switch
-  sm = "!git sw $(git main)"
-  pl = "!$HOME/.dotfiles/pull.sh"
-  pu = push origin HEAD
-  su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
-  pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
-  rst = reset --hard HEAD
-  rstm = "!f() { git co $(git main) $@; }; f"
-  s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
-  # --select-1
-  sta = stash
-  sp = stash pop
-  unc = reset --soft HEAD~1
-  d = diff --color-moved
-  dn = d --name-only
-  dm = "!git d $(git main)"
-  dmn = "!git dn $(git main)"
-  dh = d HEAD
-  dhn = dh --name-only
-  cf = !sh -c \"git diff --name-only | uniq | xargs code\"
-  lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
-  l = lg -n
-  sup = standup
-  standies = standup
-  ticket = "!$HOME/.dotfiles/ticket.sh"
-  cln = "clean -fdx"
-  cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
-  sync = "!f() { branch=$(git b --show-current) && git sm && gt sync && gt ss && git sw $branch ; }; f"
+a = add -A
+co = checkout
+cm = "!f() { git checkout `git main` -- $@ ;}; f"
+b = branch
+nb = checkout -b
+cr = "!$HOME/.dotfiles/create.sh"
+c = "!$HOME/.dotfiles/commit.sh"
+ac = "!f() { git a && git c $@ ;}; f"
+cc = "!git commit -m \"updated $(date)\""
+ca = commit -am
+m = "merge --no-edit"
+main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
+mm = "!git m $(git main)"
+mc = "!git a && git merge --continue"
+st = status
+sw = switch
+sm = "!git sw $(git main)"
+pl = "!$HOME/.dotfiles/pull.sh"
+pu = push origin HEAD
+su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
+rst = reset --hard HEAD
+rstm = "!f() { git co $(git main) $@; }; f"
+s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+# --select-1
+sta = stash
+sp = stash pop
+unc = reset --soft HEAD~1
+d = diff --color-moved
+dn = d --name-only
+dm = "!git d $(git main)"
+dmn = "!git dn $(git main)"
+dh = d HEAD
+dhn = dh --name-only
+cf = !sh -c \"git diff --name-only | uniq | xargs code\"
+lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+l = lg -n
+sup = standup
+standies = standup
+ticket = "!$HOME/.dotfiles/ticket.sh"
+cln = "clean -fdx"
+cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
+sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"
 [filter "lfs"]
-  clean = git-lfs clean -- %f
-  smudge = git-lfs smudge -- %f
-  process = git-lfs filter-process
-  required = true
+clean = git-lfs clean -- %f
+smudge = git-lfs smudge -- %f
+process = git-lfs filter-process
+required = true
 [init]
-  defaultBranch = main
+defaultBranch = main
 [push]
-  autoSetupRemote = true
+autoSetupRemote = true
 [url "git@github.com:"]
-  insteadOf = https://github.com/
-  insteadOf = git://github.com/
+insteadOf = https://github.com/
+insteadOf = git://github.com/
 [commit]
-  gpgsign = true
+gpgsign = true
+[rerere]
+enabled = true
+autoupdate = true
+
 [safe]
-  directory = *
+directory = *

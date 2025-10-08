@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # usage:
-# commit.sh summary of this change, none of this needs to be quoted 
+# commit.sh summary of this change, none of this needs to be quoted
 # OR
 # commit.sh
 # and you will be prompted for the summary of this change (using `gum`)
@@ -14,12 +14,12 @@
 # which will allow you to use it like `git c summary of change`
 
 if [ $# -eq 0 ]; then
-    msg=`gum input --placeholder 'Summary of this change'`
+    msg=$(gum input --placeholder 'Summary of this change')
 else
-    msg="$@"
+    msg="$*"
 fi
 branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ $branch =~ .*/.*/.* ]]; then
-    ticket="[$(echo $branch | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')] "
+    ticket="[$(echo "$branch" | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')] "
 fi
 gt cm -m "$ticket$msg"
