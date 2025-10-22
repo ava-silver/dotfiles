@@ -59,9 +59,9 @@ alias hd=hotdog
 #  -------------------------------terraform---------------------------------
 
 alias tf="terraform"
-alias tfa="terraform apply -var-file=test.tfvars -auto-approve"
-alias tfd="terraform destroy -var-file=test.tfvars -auto-approve"
-alias tfr="terraform destroy -var-file=test.tfvars -auto-approve && terraform apply -var-file=test.tfvars -auto-approve"
+alias tfa="terraform apply -auto-approve"
+alias tfd="terraform destroy -auto-approve"
+alias tfr="terraform destroy -auto-approve && terraform apply -auto-approve"
 
 #  -------------------------------bazel------------------------------------
 
@@ -107,3 +107,7 @@ awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
 alias aws='aws-sso /opt/homebrew/bin/aws'
+
+dd-auth() {
+    eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
+}

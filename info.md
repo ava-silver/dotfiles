@@ -29,6 +29,8 @@ You can add the following plugins for an improved terminal experience:
    1. Provides an IDE-like syntax highlighting experience for your terminal
 2. zsh-autosuggestions: https://github.com/zsh-users/zsh-autosuggestions/blob/master/INSTALL.md#oh-my-zsh
    1. Provides autocomplete (by pressing the right arrow key) for your most recent/frequent commands based on the beginning of what you type
+3. zsh-autoswitch-virtualenv: https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv#installing
+   1. automatically activates and deactivates python virtualenvs as you `cd` around
 
 ### Util Commands
 
