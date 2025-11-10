@@ -7,10 +7,14 @@ set -euo pipefail
 # git config --global alias.cr '!/path/to/create.sh'
 # which will allow you to use it like `git cr ticket-1234 summary of change`
 
-ticket=$1
-shift
-branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
-msg="[$(echo "$ticket" | tr '[:lower:]' '[:upper:]')] $*"
+if [ "$#" -lt 2 ]; then
+    gt create --all -m "$*"
+else
+    ticket=$1
+    shift
+    branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
+    msg="[$(echo "$ticket" | tr '[:lower:]' '[:upper:]')] $*"
+    gt create --all "$branch" -m "$msg"
+fi
 
-gt create --all "$branch" -m "$msg"
 gt ss
