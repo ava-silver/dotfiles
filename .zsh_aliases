@@ -11,7 +11,7 @@ alias ccat='\cat' # In case regular cat usage is preferred
 alias top=btm     # Preferred 'top' implementation
 alias c=clear
 alias cd=z
-alias src='source /Users/ava.silver/.zshrc'
+alias src='exec zsh'
 alias g=git
 alias path='echo -e ${PATH//:/\\n}' # path:         Echo all executable Paths
 alias fix_term='echo -e "\033c"'    # fix_term:     Reset the conosle.  Similar to the reset command
@@ -68,7 +68,6 @@ alias tfr="terraform destroy -auto-approve && terraform apply -auto-approve"
 
 alias gz='bzl run //:gazelle -- domains/cloud_platform/ && g ac gazelle && gt ss'
 
-
 python() {
     if [[ $# == 0 ]]; then ipython; else python3 $@; fi
 }
@@ -104,6 +103,8 @@ if [[ -f ~/.zsh_aliases.local ]]; then
     source ~/.zsh_aliases.local
 fi
 
+alias subernetes='python3 ~/.dotfiles/subernetes.py'
+
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
@@ -115,3 +116,7 @@ dd-auth() {
 
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'
+
+code() {
+    /opt/homebrew/bin/code $(realpath $@)
+}

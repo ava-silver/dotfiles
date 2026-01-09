@@ -20,6 +20,11 @@ else
 fi
 branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ $branch =~ .*/.*/.* ]]; then
-    ticket="[$(echo "$branch" | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')] "
+    ticket="$(echo "$branch" | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')"
+    if [ "$ticket" != "CHORE" ]; then
+        ticket="[$ticket] "
+    else
+        ticket=""
+    fi
 fi
 gt cm -m "$ticket$msg"

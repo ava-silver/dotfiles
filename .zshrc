@@ -61,7 +61,6 @@ export GONOSUMDB="github.com/DataDog,go.ddbuild.io"
 # END ANSIBLE MANAGED BLOCK
 
 [[ $- != *i* ]] && return
-
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -127,6 +126,8 @@ plugins=(
   autoswitch_virtualenv
 )
 
+fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
+autoload -U compinit && compinit
 source "$HOME/.oh-my-zsh/oh-my-zsh.sh"
 
 # User configuration
@@ -186,6 +187,7 @@ eval "$(direnv hook zsh)"
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /opt/homebrew/bin/terraform terraform
 
+autoload -Uz _git_dd
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
@@ -193,3 +195,15 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 # Added by Yarn Switch
 source "/Users/ava.silver/.yarn/switch/env"
+
+# Added by Antigravity
+export PATH="/Users/ava.silver/.antigravity/antigravity/bin:$PATH"
+
+# BEGIN SCFW MANAGED BLOCK
+alias npm="scfw run npm"
+alias pip="scfw run pip"
+alias poetry="scfw run poetry"
+export SCFW_DD_AGENT_LOG_PORT="10365"
+export SCFW_DD_LOG_LEVEL="ALLOW"
+export SCFW_HOME="/Users/ava.silver/.scfw"
+# END SCFW MANAGED BLOCK

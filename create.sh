@@ -13,7 +13,11 @@ else
     ticket=$1
     shift
     branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
-    msg="[$(echo "$ticket" | tr '[:lower:]' '[:upper:]')] $*"
+    if [[ "$(tr '[:upper:]' '[:lower:]'<<<"$ticket")" = "chore" ]]; then
+        msg="chore: $*"
+    else
+        msg="[$(echo "$ticket" | tr '[:lower:]' '[:upper:]')] $*"
+    fi
     gt create --all "$branch" -m "$msg"
 fi
 
