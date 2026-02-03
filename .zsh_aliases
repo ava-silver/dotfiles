@@ -120,3 +120,6 @@ alias enablesleep='sudo pmset -a disablesleep 0'
 code() {
     /opt/homebrew/bin/code $(realpath $@)
 }
+
+alias oc=opencode
+alias cnp='claude --dangerously-skip-permissions'
