@@ -1,9 +1,8 @@
 # BEGIN ANSIBLE MANAGED BLOCK
-# Add homebrew binaries to the path.
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${PATH?}"
+# Load homebrew shell variables
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Force certain more-secure behaviours from homebrew
-export HOMEBREW_NO_ENV_HINTS=1
 export HOMEBREW_NO_INSECURE_REDIRECT=1
 export HOMEBREW_CASK_OPTS=--require-sha
 export HOMEBREW_DIR=/opt/homebrew
@@ -15,23 +14,26 @@ export HOMEBREW_BIN=/opt/homebrew/bin
 # Load ruby shims
 eval "$(rbenv init -)"
 
-# Prefer GNU binaries to Macintosh binaries.
-export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:${PATH}"
+# Load direnv hook
+eval "$(direnv hook zsh)"
 
-# Add AWS CLI to PATH
-export PATH="/opt/homebrew/opt/awscli@1/bin:$PATH"
+# Load git-dd completions for zsh
+autoload -Uz _git_dd
+
+# Prefer GNU binaries to Macintosh binaries.
+export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
 
 # Add datadog devtools binaries to the PATH
-export PATH="${HOME?}/dd/devtools/bin:${PATH?}"
+export PATH="$HOME/dd/devtools/bin:$PATH"
 
 # Point GOPATH to our go sources
-export GOPATH="${HOME?}/go"
+export GOPATH="$HOME/go"
 
 # Add binaries that are go install-ed to PATH
-export PATH="${GOPATH?}/bin:${PATH?}"
+export PATH="$GOPATH/bin:$PATH"
 
 # Point DATADOG_ROOT to ~/dd symlink
-export DATADOG_ROOT="${HOME?}/dd"
+export DATADOG_ROOT="$HOME/dd"
 
 # Tell the devenv vm to mount $GOPATH/src rather than just dd-go
 export MOUNT_ALL_GO_SRC=1
@@ -51,13 +53,10 @@ export HELM_DRIVER=configmap
 # remove it in Go 1.18, which breaks projects using the dep tool.
 # https://blog.golang.org/go116-module-changes
 export GO111MODULE=auto
-export GOPRIVATE=github.com/DataDog
-export GOPROXY=binaries.ddbuild.io,https://proxy.golang.org,direct
-export GONOSUMDB=github.com/DataDog,go.ddbuild.io
-
 # Configure Go to pull go.ddbuild.io packages.
-export GOPROXY="binaries.ddbuild.io,proxy.golang.org,direct"
-export GONOSUMDB="github.com/DataDog,go.ddbuild.io"
+export GONOSUMDB=github.com/DataDog,go.ddbuild.io
+export GOPRIVATE=
+export GOPROXY="https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/testing/@current/"
 # END ANSIBLE MANAGED BLOCK
 
 [[ $- != *i* ]] && return
@@ -144,15 +143,9 @@ source $HOME/.zsh_aliases
 eval $(thefuck --alias)
 [[ ! -f $HOME/.cargo_vars ]] || source $HOME/.cargo_vars
 
-# google-cloud-sdk brew caveat
-export CLOUDSDK_PYTHON=$(which python3.11)
-source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.zsh.inc"
-source "/opt/homebrew/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/completion.zsh.inc"
 
 
-
-export DEVC_ADDITIONAL_COMPOSE_YML=$HOME/go/src/github.com/DataDog/eclair-scripts/eclair/docker/docker-compose.devc.yml
-export GITLAB_TOKEN=$(security find-generic-password -a "${USER}" -s gitlab_token -w)
+export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s GITLAB_TOKEN -w)
 export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
 export DD_SITE=datadoghq.com
 
@@ -181,23 +174,11 @@ export KUBE_EDITOR="code --wait"
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
+export GPG_TTY=$(tty)
 
-eval "$(direnv hook zsh)"
 
 autoload -U +X bashcompinit && bashcompinit
 complete -o nospace -C /opt/homebrew/bin/terraform terraform
-
-autoload -Uz _git_dd
-
-#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
-# Added by Yarn Switch
-source "/Users/ava.silver/.yarn/switch/env"
-
-# Added by Antigravity
-export PATH="/Users/ava.silver/.antigravity/antigravity/bin:$PATH"
 
 # BEGIN SCFW MANAGED BLOCK
 alias npm="scfw run npm"

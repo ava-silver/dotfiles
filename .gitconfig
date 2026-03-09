@@ -1,7 +1,7 @@
 [user]
 name = Ava Silver
 email = ava.silver@datadoghq.com
-signingkey = 1A69E7A297D2775F
+signingkey = A58F15C1B3F896B9CAB9FD3E8A1F59A9B0DF37A4
 [core]
 editor = "code --wait"
 pager = delta
@@ -21,8 +21,8 @@ co = checkout
 cm = "!f() { git checkout `git main` -- $@ ;}; f"
 b = branch
 nb = checkout -b
-cr = "!$HOME/.dotfiles/create.sh"
-c = "!$HOME/.dotfiles/commit.sh"
+cr = "!$HOME/dotfiles/create.sh"
+c = "!$HOME/dotfiles/commit.sh"
 ac = "!f() { git a && git c $@ ;}; f"
 cc = "!git commit -m \"updated $(date)\""
 ca = commit -am
@@ -33,7 +33,7 @@ mc = "!git a && git merge --continue"
 st = status
 sw = switch
 sm = "!git sw $(git main)"
-pl = "!$HOME/.dotfiles/pull.sh"
+pl = "!$HOME/dotfiles/pull.sh"
 pu = push origin HEAD
 su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
 pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
@@ -55,7 +55,7 @@ lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=fo
 l = lg -n
 sup = standup
 standies = standup
-ticket = "!$HOME/.dotfiles/ticket.sh"
+ticket = "!$HOME/dotfiles/ticket.sh"
 cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
 sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"

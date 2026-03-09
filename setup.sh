@@ -26,11 +26,14 @@ fi
 if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 fi
+## autoswitch_virtualenv
+if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
+    git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git $ZSH_CUSTOM/plugins/autoswitch_virtualenv
+fi
+
 ## useful packages
-brew install lsd thefuck zoxide fzf bat diff-so-fancy iterm2
-
-
-# unnatural scroll wheels, rectangle, yubikey manager, clipy will all need to be installed as well.
+brew install lsd thefuck zoxide fzf bat git-delta pinentry-mac
+brew install --cask unnaturalscrollwheels
 
 
 ## link up everything else
