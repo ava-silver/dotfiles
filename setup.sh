@@ -35,6 +35,12 @@ fi
 brew install lsd thefuck zoxide fzf bat git-delta pinentry-mac gh
 brew install --cask unnaturalscrollwheels
 
+# dock/appswitcher config
+defaults write com.apple.dock appswitcher-all-displays -bool true
+defaults write com.apple.dock autohide-time-modifier -float 0.15
+defaults write com.apple.dock autohide-delay -float 0
+killall Dock
+
 
 ## link up everything else
 
