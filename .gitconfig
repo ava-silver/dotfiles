@@ -8,7 +8,7 @@ pager = delta
 fsmonitor = true
 untrackedCache = true
 hooksPath = /usr/local/dd/global_hooks
-excludesfile = /Users/ava.silver/.gitignore
+excludesfile = /Users/ava.silver/.gitignore_global
 [interactive]
 diffFilter = delta --color-only
 [delta]
