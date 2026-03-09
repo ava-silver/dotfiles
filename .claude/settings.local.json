@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(brew list pinentry-mac)",
-      "Read(//Users/ava.silver/.gnupg/**)"
-    ]
-  }
-}

@@ -32,7 +32,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
 fi
 
 ## useful packages
-brew install lsd thefuck zoxide fzf bat git-delta pinentry-mac
+brew install lsd thefuck zoxide fzf bat git-delta pinentry-mac gh
 brew install --cask unnaturalscrollwheels
 
 

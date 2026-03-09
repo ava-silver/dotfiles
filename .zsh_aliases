@@ -118,7 +118,7 @@ alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'
 
 code() {
-    /opt/homebrew/bin/code $(realpath $@)
+    /usr/local/bin/code $(realpath $@)
 }
 
 alias oc=opencode
