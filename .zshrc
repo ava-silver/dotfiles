@@ -140,7 +140,6 @@ source "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme"
 [[ ! -f $HOME/.p10k.zsh ]] || source $HOME/.p10k.zsh
 
 source $HOME/.zsh_aliases
-eval $(thefuck --alias)
 [[ ! -f $HOME/.cargo_vars ]] || source $HOME/.cargo_vars
 
 
