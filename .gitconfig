@@ -3,7 +3,7 @@
 	email = avapsilver@gmail.com
 [core]
   editor = "code --wait"
-	pager = diff-so-fancy | less --tabs=4 -RFX
+	pager = delta
 [alias]
   a = add -A
   co = checkout
@@ -19,6 +19,7 @@
   mc = "!git a && git merge --continue"
   st = status
   sw = switch
+  cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
   sm = "!git sw `git main`"
   pl = pull
   pu = push origin HEAD
