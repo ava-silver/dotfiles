@@ -84,5 +84,6 @@ path+=/home/ava/.local/bin
 path+=/home/ava/.cargo/bin
 path+=/home/ava/.local/share/coursier/bin
 path+=/usr/local/go/bin
+path+=/home/ava/.bun/bin
 
 [ $commands[gt] ] && source <(gt completion)
