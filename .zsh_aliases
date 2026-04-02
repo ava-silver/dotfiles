@@ -108,6 +108,7 @@ alias subernetes='python3 ~/dotfiles/subernetes.py'
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
+alias aws-sso='aws-vault exec sso-serverless-sandbox-account-admin --'
 alias aws='aws-sso /opt/homebrew/bin/aws'
 
 dd-auth() {
@@ -122,4 +123,5 @@ code() {
 }
 
 alias oc=opencode
-alias cnp='claude --dangerously-skip-permissions'
+alias cc='claude --dangerously-skip-permissions --effort high'
+alias cnp=cc

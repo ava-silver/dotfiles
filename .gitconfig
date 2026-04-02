@@ -59,6 +59,7 @@ ticket = "!$HOME/dotfiles/ticket.sh"
 cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
 sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"
+trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f
@@ -68,9 +69,6 @@ required = true
 defaultBranch = main
 [push]
 autoSetupRemote = true
-[url "git@github.com:"]
-insteadOf = https://github.com/
-insteadOf = git://github.com/
 [commit]
 gpgsign = true
 [rerere]
@@ -79,3 +77,8 @@ autoupdate = true
 
 [safe]
 directory = *
+[url "git@github.com:"]
+insteadOf = https://github.com/
+insteadOf = git://github.com/
+[maintenance]
+repo = /Users/ava.silver/go/src/github.com/DataDog/dd-source

@@ -10,7 +10,7 @@ set -euo pipefail
 if [ "$#" -lt 2 ]; then
     gt create --all -m "$*"
 else
-    ticket=$1
+    ticket=$(basename "$1")
     shift
     branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
     if [[ "$(tr '[:upper:]' '[:lower:]'<<<"$ticket")" = "chore" ]]; then
