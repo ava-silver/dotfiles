@@ -58,6 +58,7 @@ standies = standup
 ticket = "!$HOME/dotfiles/ticket.sh"
 cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
+restack = "!f() { gt restack || claude --dangerously-skip-permissions 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
 sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 [filter "lfs"]
