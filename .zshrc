@@ -197,3 +197,5 @@ source "/Users/ava.silver/.yarn/switch/env"
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+eval "$(cdd init)"

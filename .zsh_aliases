@@ -125,3 +125,27 @@ code() {
 alias oc=opencode
 alias cc='claude --dangerously-skip-permissions --effort high'
 alias cnp=cc
+
+wt() {
+    local branch repo_root repo_name wt_dir main_branch
+    branch=$(git rev-parse --abbrev-ref HEAD) || return 1
+    repo_root=$(git rev-parse --show-toplevel) || return 1
+    repo_name=$(basename "$repo_root")
+    local safe_branch="${branch//\//-}"
+    wt_dir="$HOME/dd/${repo_name}.worktrees/${safe_branch}"
+
+    if [[ "$branch" == main || "$branch" == master ]]; then
+        echo "already on main, nothing to eject"
+        return 1
+    fi
+    if [[ -d "$wt_dir" ]]; then
+        echo "worktree already exists at $wt_dir"
+        return 1
+    fi
+
+    git worktree add "$wt_dir" "$branch" || return 1
+    main_branch=$(git main)
+    git checkout "$main_branch"
+    echo "ejected '$branch' → $wt_dir"
+    cd "$wt_dir"
+}

@@ -61,5 +61,11 @@ if [ -e "$HOME/.gitconfig" ]; then
     rm $HOME/.gitconfig
 fi
 ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
+if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
+    mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/CLAUDE.md $HOME/.claude/CLAUDE.md
+fi
+if [ ! -e "$HOME/.claude/skills/git-workflow/SKILL.md" ]; then
+    mkdir -p $HOME/.claude/skills/git-workflow && ln -s $REPO_DIR/claude/git-workflow.skill.md $HOME/.claude/skills/git-workflow/SKILL.md
+fi
 
 
