@@ -1,0 +1,57 @@
+{
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "USE_BUILTIN_RIPGREP": "0",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/ava.silver/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bunx -y ccstatusline@latest",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "slack@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "dd@datadog-claude-plugins": true,
+    "deveng@datadog-claude-plugins": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "serverless@datadog-claude-plugins": true,
+    "go-code-reviewer@datadog-claude-plugins": true,
+    "cq@cq": true,
+    "osx-notifications@datadog-claude-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "datadog-claude-plugins": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/DataDog/claude-marketplace.git"
+      },
+      "autoUpdate": true
+    },
+    "cq": {
+      "source": {
+        "source": "github",
+        "repo": "mozilla-ai/cq"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "autoUpdatesChannel": "stable",
+  "skipDangerousModePermissionPrompt": true
+}

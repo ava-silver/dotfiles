@@ -143,9 +143,9 @@ wt() {
         return 1
     fi
 
-    git worktree add "$wt_dir" "$branch" || return 1
     main_branch=$(git main)
-    git checkout "$main_branch"
+    git checkout "$main_branch" || return 1
+    git worktree add "$wt_dir" "$branch" || return 1
     echo "ejected '$branch' → $wt_dir"
     cd "$wt_dir"
 }

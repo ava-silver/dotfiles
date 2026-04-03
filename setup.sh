@@ -67,5 +67,8 @@ fi
 if [ ! -e "$HOME/.claude/skills/git-workflow/SKILL.md" ]; then
     mkdir -p $HOME/.claude/skills/git-workflow && ln -s $REPO_DIR/claude/git-workflow.skill.md $HOME/.claude/skills/git-workflow/SKILL.md
 fi
+if [ ! -e "$HOME/.claude/settings.json" ]; then
+    mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/settings.json $HOME/.claude/settings.json
+fi
 
 
