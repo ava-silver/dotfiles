@@ -34,7 +34,8 @@
     "serverless@datadog-claude-plugins": true,
     "go-code-reviewer@datadog-claude-plugins": true,
     "cq@cq": true,
-    "osx-notifications@datadog-claude-plugins": true
+    "osx-notifications@datadog-claude-plugins": true,
+    "code-review@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "datadog-claude-plugins": {
