@@ -26,7 +26,6 @@
     "padding": 0
   },
   "enabledPlugins": {
-    "slack@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
     "dd@datadog-claude-plugins": true,
     "deveng@datadog-claude-plugins": true,
@@ -34,7 +33,6 @@
     "serverless@datadog-claude-plugins": true,
     "go-code-reviewer@datadog-claude-plugins": true,
     "cq@cq": true,
-    "osx-notifications@datadog-claude-plugins": true,
     "code-review@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {

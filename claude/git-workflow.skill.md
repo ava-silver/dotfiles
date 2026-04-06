@@ -1,6 +1,7 @@
 ---
 name: git-workflow
 description: Ava's git/Graphite workflow. Use this skill for context whenever doing any git operation — committing, branching, pushing, PRs, syncing.
+user_invocable: false
 ---
 
 # Git Workflow
@@ -18,6 +19,7 @@ Branches follow: `ava.silver/{TICKET}/{short-description}`
 git cr svls-1234 short description here
 ```
 - Stages ALL uncommitted changes, creates the branch, commits, and opens a PR
+- Also works when you need to create a new branch first -- just run `git cr ...` directly, it handles branch creation
 - Message becomes: `[SVLS-1234] short description here`
 - Chore: `git cr chore short description` → branch `ava.silver/chore/short-description`, message `chore: short description`
 
