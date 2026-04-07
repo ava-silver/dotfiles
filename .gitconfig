@@ -1,14 +1,11 @@
 [user]
 name = Ava Silver
-email = ava.silver@datadoghq.com
-signingkey = A58F15C1B3F896B9CAB9FD3E8A1F59A9B0DF37A4
+email = ava@avasilver.dev
 [core]
 editor = "code --wait"
 pager = delta
 fsmonitor = true
 untrackedCache = true
-hooksPath = /usr/local/dd/global_hooks
-excludesfile = /Users/ava.silver/.gitignore_global
 [interactive]
 diffFilter = delta --color-only
 [delta]
@@ -21,11 +18,9 @@ co = checkout
 cm = "!f() { git checkout `git main` -- $@ ;}; f"
 b = branch
 nb = checkout -b
-cr = "!$HOME/dotfiles/create.sh"
-c = "!$HOME/dotfiles/commit.sh"
+c = "!f() { git commit -m \"$*\" ;}; f"
 ac = "!f() { git a && git c $@ ;}; f"
 cc = "!git commit -m \"updated $(date)\""
-ca = commit -am
 m = "merge --no-edit"
 main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
 mm = "!git m $(git main)"
@@ -78,8 +73,3 @@ autoupdate = true
 
 [safe]
 directory = *
-[url "git@github.com:"]
-insteadOf = https://github.com/
-insteadOf = git://github.com/
-[maintenance]
-repo = /Users/ava.silver/go/src/github.com/DataDog/dd-source

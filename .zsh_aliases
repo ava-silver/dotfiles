@@ -37,8 +37,6 @@ alias ll='ls -lAh'  # long
 alias L='ls -lathF' # long, sort by oldest to newest
 alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
 
-alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
-
 #  -------------------------------MISC----------------------------------
 alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
 alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
