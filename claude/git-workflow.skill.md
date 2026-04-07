@@ -37,6 +37,9 @@ gt ss   # submit stack — always force-pushes, safe to run repeatedly
 ```
 Prefer over `git push` / `git pu` when working in a Graphite stack.
 
+## Creating PRs
+After creating a PR (via `git cr` or `gt ss`), update the PR description with `gh pr edit --body`. Check the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md` or similar) and fill it in. You should have enough context from the work done so far; if not, check the branch diff or the Jira ticket (if one was provided) for additional context.
+
 ## Syncing
 ```bash
 gt s    # sync branch from origin, never overwrites local changes

@@ -191,10 +191,8 @@ export SCFW_HOME="/Users/ava.silver/.scfw"
 # Added by Yarn Switch
 source "/Users/ava.silver/.yarn/switch/env"
 
-# bun completions
-[ -s "/Users/ava.silver/.bun/_bun" ] && source "/Users/ava.silver/.bun/_bun"
-
 # bun
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
