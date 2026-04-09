@@ -123,8 +123,7 @@ code() {
 }
 
 alias oc=opencode
-alias cc='claude --dangerously-skip-permissions --effort high'
-alias cnp=cc
+alias cc=claude
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch

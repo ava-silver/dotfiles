@@ -6,6 +6,9 @@
     "USE_BUILTIN_RIPGREP": "0",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
   "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
@@ -50,7 +53,31 @@
       }
     }
   },
+  "spinnerVerbs": {
+    "mode": "replace",
+    "verbs": [
+      "Making a fish",
+      "Batting yarn",
+      "Chasing the laser pointer",
+      "Knocking things off tables",
+      "Finding a sunbeam",
+      "Squeezing into a box",
+      "Ignoring you on purpose",
+      "Sharpening claws on furniture",
+      "Knocking over a glass",
+      "Stealing your chair",
+      "Sitting on the keyboard",
+      "Staring at the wall",
+      "Napping in a sunspot",
+      "Hiding in a paper bag",
+      "Chasing a moth",
+      "Pushing a pen off the desk",
+      "Claiming the warm laundry"
+    ]
+  },
   "effortLevel": "high",
+  "showClearContextOnPlanAccept": true,
   "autoUpdatesChannel": "stable",
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "voiceEnabled": true
 }
