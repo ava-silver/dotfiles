@@ -29,16 +29,37 @@ git ac short description here
 ```
 - Stages all + commits. Does NOT push.
 - `commit.sh` auto-prepends the ticket from the branch name: `[SVLS-1234] short description`
-- To push after: `gt ss`
+- To push after: `gt ss --no-edit -q`
 
 ## Pushing / submitting PRs
 ```bash
-gt ss   # submit stack — always force-pushes, safe to run repeatedly
+gt ss --no-edit -q   # submit full stack, no interactive prompts, minimal output
 ```
-Prefer over `git push` / `git pu` when working in a Graphite stack.
+- **Never use `git push`** -- always use `gt ss` so Graphite manages the stack and PRs correctly
+- `gt ss` = `gt submit --stack` -- pushes all branches in the stack (ancestors + descendants), creating/updating PRs for each
+- Uses `--force-with-lease` by default (safe to run repeatedly)
+- `--no-edit -q` skips interactive PR metadata prompts and minimizes output
 
 ## Creating PRs
 After creating a PR (via `git cr` or `gt ss`), update the PR description with `gh pr edit --body`. Check the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md` or similar) and fill it in. You should have enough context from the work done so far; if not, check the branch diff or the Jira ticket (if one was provided) for additional context.
+
+### QA Links
+
+When making PRs for the UI, always include clickable staging links in the QA Instructions section. Compute the hash from the branch name (same for all commits on the branch -- no network call needed):
+
+```bash
+HASH=$(git branch --show-current | tr -d '\n' | md5sum | awk '{print $1}')
+```
+
+**Serverless PRs** -- use judgement from the diff to classify:
+- **Serverless-only** (all changes are within the serverless product scope):
+  → `https://ddserverless-${HASH}.datadoghq.com/<inferred-path>`
+- **Cross-team** (serverless changes that also touch shared or non-serverless code):
+  → Both `https://ddserverless-${HASH}.datadoghq.com/<inferred-path>`
+    and `https://app-${HASH}.datadoghq.com/<inferred-path>`
+- If it's ambiguous whether a PR is serverless-only or cross-team, ask.
+
+Infer the path from the changed file paths (eg: `/serverless/aws/lambda?config_your-feature-flag=true`, `/serverless/settings`, `/integrations/amazon-web-services`, etc).
 
 ## Syncing
 ```bash
@@ -59,5 +80,6 @@ Note: the `wt` shell function does this + `cd`s into the worktree, but it's a sh
 ## Key rules
 - Prefer `gt` commands for everything except `git cr` and `git ac`
 - Prefer `git ac` over `git commit` directly, but manual `git commit` is fine — if used, run `gt track` afterwards so Graphite can manage the branch
-- Prefer `gt ss` over `git push`, and `gt s` over `git pull`
+- **Never use `git push`** -- always use `gt ss --no-edit -q` to push and submit PRs
+- Prefer `gt s` over `git pull`
 - Do not add Claude as a co-author to any commit

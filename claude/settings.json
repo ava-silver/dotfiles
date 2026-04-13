@@ -9,7 +9,7 @@
   "permissions": {
     "defaultMode": "bypassPermissions"
   },
-  "model": "opus[1m]",
+  "model": "sonnet[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -78,6 +78,6 @@
   "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
   "autoUpdatesChannel": "stable",
-  "skipDangerousModePermissionPrompt": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "skipDangerousModePermissionPrompt": true
 }

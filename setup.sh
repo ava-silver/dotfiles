@@ -32,7 +32,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
 fi
 
 ## useful packages
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum
 brew install --cask unnaturalscrollwheels macwhisper
 
 # dock/appswitcher config
