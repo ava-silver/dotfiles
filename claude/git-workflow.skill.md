@@ -23,6 +23,13 @@ git cr svls-1234 short description here
 - Message becomes: `[SVLS-1234] short description here`
 - Chore: `git cr chore short description` → branch `ava.silver/chore/short-description`, message `chore: short description`
 
+**Already on a branch (e.g. in a worktree)?** If the changes are already on a named branch with no commits yet (worktrees are typically set up this way), skip `git cr` -- just commit and push normally:
+```bash
+git ac short description here
+gt ss --no-edit -q
+```
+Then fill out the PR description as described below.
+
 ## Adding commits
 ```bash
 git ac short description here
@@ -59,7 +66,7 @@ HASH=$(git branch --show-current | tr -d '\n' | md5sum | awk '{print $1}')
     and `https://app-${HASH}.datadoghq.com/<inferred-path>`
 - If it's ambiguous whether a PR is serverless-only or cross-team, ask.
 
-Infer the path from the changed file paths (eg: `/serverless/aws/lambda?config_your-feature-flag=true`, `/serverless/settings`, `/integrations/amazon-web-services`, etc).
+Infer the path from the changed file paths (eg: `/serverless/aws/lambda?config_your-feature-flag=true`, `/serverless/settings`, `/integrations/amazon-web-services`, etc). Feature flags are set by the ?config_feature-flag-name=value URL param.
 
 ## Syncing
 ```bash

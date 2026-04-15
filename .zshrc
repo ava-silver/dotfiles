@@ -146,13 +146,12 @@ source $HOME/.zsh_aliases
 
 export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s GITLAB_TOKEN -w)
 export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
+export DD_APP_KEY=$(security find-generic-password -a ${USER} -s DD_APP_KEY -w)
 export DD_SITE=datadoghq.com
-
-# export DD_TEST_CLIENT_APP_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_APP_KEY -w)
-# export DD_TEST_CLIENT_API_KEY=$(security find-generic-password -a ${USER} -s DD_TEST_CLIENT_API_KEY -w)
 
 
 export HOST_HOOK_RUNNER=1
+
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:${PATH?}"
 export NODE_OPTIONS="--max-old-space-size=30000"

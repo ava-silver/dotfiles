@@ -40,6 +40,7 @@ while IFS= read -r line; do
             echo "Branch:   $branch ($reason)"
             if gum confirm "Remove this worktree?" </dev/tty; then
                 git worktree remove --force "$wt_path"
+                [[ -d "$wt_path" ]] && rm -rf "$wt_path"
                 echo "Removed."
             else
                 echo "Skipped."
