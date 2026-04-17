@@ -6,13 +6,24 @@ They're too slow and memory-intensive to run locally -- use CI instead.
 from __future__ import annotations
 import json, os, shlex, sys
 
-WEB_UI = "/Users/ava.silver/dd/web-ui"
-WEB_UI_WORKTREES = "/Users/ava.silver/dd/web-ui.worktrees"
+WEB_UI_PATHS = [
+    "/Users/ava.silver/dd/web-ui",
+    "/Users/ava.silver/go/src/github.com/DataDog/web-ui",
+]
+WEB_UI_WORKTREE_PATHS = [
+    "/Users/ava.silver/dd/web-ui.worktrees",
+    "/Users/ava.silver/go/src/github.com/DataDog/web-ui.worktrees",
+]
 
 def in_web_ui() -> bool:
     project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
-    return project_dir == WEB_UI or project_dir.startswith(WEB_UI + "/") \
-        or project_dir.startswith(WEB_UI_WORKTREES + "/")
+    for p in WEB_UI_PATHS:
+        if project_dir == p or project_dir.startswith(p + "/"):
+            return True
+    for p in WEB_UI_WORKTREE_PATHS:
+        if project_dir.startswith(p + "/"):
+            return True
+    return False
 
 BLOCK_MSG = (
     "BLOCKED: Typechecking is disabled locally -- it takes too long and uses too much memory.\n"

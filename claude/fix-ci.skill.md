@@ -13,10 +13,10 @@ Find and fix failing CI jobs on the current branch.
    - If any have `conclusion` = `failure`, get logs with `gh run view <id> --log-failed`.
    - If no runs exist or all passed, move to step 2.
 
-2. **Check GitLab CI** — the GitLab project is always `https://gitlab.ddbuild.io/DataDog/<repo>` where `<repo>` is `basename $(git remote get-url origin) .git`. Use `ddtool auth gitlab token` to get a token for auth.
-   - Get the project ID: `curl -s --header "PRIVATE-TOKEN: $(ddtool auth gitlab token)" "https://gitlab.ddbuild.io/api/v4/projects/DataDog%2F<repo>" | jq '.id'`
-   - Get failed jobs from the latest pipeline on this branch: `curl -s --header "PRIVATE-TOKEN: $(ddtool auth gitlab token)" "https://gitlab.ddbuild.io/api/v4/projects/<project_id>/pipelines?ref=<branch>&status=failed&per_page=1" | jq '.[0].id'`, then `curl -s --header "PRIVATE-TOKEN: $(ddtool auth gitlab token)" "https://gitlab.ddbuild.io/api/v4/projects/<project_id>/pipelines/<pipeline_id>/jobs?scope[]=failed" | jq '.[] | {id, name, stage}'`
-   - Get the job log: `curl -s --header "PRIVATE-TOKEN: $(ddtool auth gitlab token)" "https://gitlab.ddbuild.io/api/v4/projects/<project_id>/jobs/<job_id>/trace"`
+2. **Check GitLab CI** — use the `glab` CLI (auth is pre-configured). Since the git remote points to GitHub, pass `--repo DataDog/<repo>` (where `<repo>` is `basename $(git remote get-url origin) .git`) on all `glab` commands that need it.
+   - Get the latest failed pipeline on this branch: `glab ci list -b $(git branch --show-current) --status failed -p 1 -o json --repo DataDog/<repo> | jq '.[0].id'`
+   - Get failed jobs from that pipeline: `glab api "projects/DataDog%2F<repo>/pipelines/<pipeline_id>/jobs?scope[]=failed" | jq '.[] | {id, name, stage}'`
+   - Get the job log: `glab ci trace <job_id> --repo DataDog/<repo>`
 
 3. **Fix the code** — analyze the failure logs, identify root causes, and fix. Use existing project tools (formatters, linters) where possible.
 
