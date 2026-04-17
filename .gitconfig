@@ -5,8 +5,12 @@ signingkey = A58F15C1B3F896B9CAB9FD3E8A1F59A9B0DF37A4
 [core]
 editor = "code --wait"
 pager = delta
-fsmonitor = true
-untrackedCache = true
+# fsmonitor/untrackedCache/skipHash are all incompatible with gitstatus's
+# libgit2, causing stale dirty status in p10k on large repos.
+# feature.manyFiles implies both untrackedCache and skipHash.
+# See romkatv/gitstatus#474, romkatv/powerlevel10k#2473, libgit2/libgit2#6531
+fsmonitor = false
+untrackedCache = false
 # hooksPath = /usr/local/dd/global_hooks
 excludesfile = /Users/ava.silver/.gitignore_global
 [interactive]
@@ -82,5 +86,9 @@ directory = *
 [url "git@github.com:"]
 insteadOf = https://github.com/
 insteadOf = git://github.com/
+[index]
+# Explicit override -- feature.manyFiles (often set locally by repo setup
+# scripts) implies skipHash=true, which gitstatus/libgit2 cannot parse.
+skipHash = false
 [maintenance]
 repo = /Users/ava.silver/go/src/github.com/DataDog/dd-source
