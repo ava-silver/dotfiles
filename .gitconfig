@@ -11,8 +11,8 @@ pager = delta
 # See romkatv/gitstatus#474, romkatv/powerlevel10k#2473, libgit2/libgit2#6531
 fsmonitor = false
 untrackedCache = false
-# hooksPath = /usr/local/dd/global_hooks
 excludesfile = /Users/ava.silver/.gitignore_global
+	hooksPath = /usr/local/dd/global_hooks
 [interactive]
 diffFilter = delta --color-only
 [delta]
@@ -20,19 +20,11 @@ dark = true
 [merge]
 conflictstyle = zdiff3
 [alias]
-# Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
-# See romkatv/gitstatus#474
-fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
 a = add -A
-co = checkout
-cm = "!f() { git checkout `git main` -- $@ ;}; f"
-b = branch
-nb = checkout -b
-cr = "!$HOME/dotfiles/create.sh"
 c = "!$HOME/dotfiles/commit.sh"
 ac = "!f() { git a && git c $@ ;}; f"
+cr = "!$HOME/dotfiles/create.sh"
 cc = "!git commit -m \"updated $(date)\""
-ca = commit -am
 m = "merge --no-edit"
 main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
 mm = "!git m $(git main)"
@@ -43,11 +35,9 @@ sm = "!git sw $(git main)"
 pl = "!$HOME/dotfiles/pull.sh"
 pu = push origin HEAD
 su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
-pui = "!git push -u origin $(git rev-parse --abbrev-ref HEAD)"
 rst = reset --hard HEAD
-rstm = "!f() { git co $(git main) $@; }; f"
+rstm = "!f() { git checkout $(git main) -- $@; }; f"
 s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
-# --select-1
 sta = stash
 sp = stash pop
 unc = reset --soft HEAD~1
@@ -60,7 +50,6 @@ dhn = dh --name-only
 cf = !sh -c \"git diff --name-only | uniq | xargs code\"
 lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
 l = lg -n
-sup = standup
 standies = standup
 ticket = "!$HOME/dotfiles/ticket.sh"
 cln = "clean -fdx"
@@ -69,6 +58,9 @@ cwt = "!$HOME/dotfiles/clean-worktrees.sh"
 restack = "!f() { gt restack || claude --dangerously-skip-permissions 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
 sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
+# Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
+# See romkatv/gitstatus#474
+fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f

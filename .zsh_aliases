@@ -99,6 +99,15 @@ store_token() {
 
 alias auth='export $(dd-auth --output | xargs)'
 
+install-hooks() {
+    command -v prek &>/dev/null || brew install prek
+    local hooks_path
+    hooks_path=$(git config --global core.hooksPath)
+    [[ -n "$hooks_path" ]] && git config --global --unset core.hooksPath
+    prek install
+    [[ -n "$hooks_path" ]] && git config --global core.hooksPath "$hooks_path"
+}
+
 if [[ -f ~/.zsh_aliases.local ]]; then
     source ~/.zsh_aliases.local
 fi
