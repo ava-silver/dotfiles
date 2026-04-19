@@ -20,6 +20,9 @@ dark = true
 [merge]
 conflictstyle = zdiff3
 [alias]
+# Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
+# See romkatv/gitstatus#474
+fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
 a = add -A
 co = checkout
 cm = "!f() { git checkout `git main` -- $@ ;}; f"

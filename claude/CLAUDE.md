@@ -1,5 +1,6 @@
 - In all interactions, be extremely concise.
 - Don't use the word `art` when referring to work/research/examples/PoC, use a more normal synonym.
+- Don't say "genuinely" unnecessarily, it comes off as exaggerating/weird.
 - Use two dashes (`--`) over em-dashes
 - In general, opt for existing tools (formatters, linters, etc) for fixing problems where possible instead of manual edits
 - when planning, always ask any clarifying questions you may have
