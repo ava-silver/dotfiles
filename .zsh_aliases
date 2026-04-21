@@ -157,3 +157,4 @@ wt() {
     echo "ejected '$branch' → $wt_dir"
     cd "$wt_dir"
 }
+alias gt="HUSKY=0 gt"
