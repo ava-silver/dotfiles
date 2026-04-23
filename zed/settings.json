@@ -19,6 +19,8 @@
     "dock": "right"
   },
   "agent": {
+    "thinking_display": "always_collapsed",
+    "button": true,
     "dock": "left",
     "favorite_models": [],
     "model_parameters": []
@@ -71,6 +73,12 @@
   "show_edit_predictions": true,
   "agent_servers": {
     "claude-acp": {
+      "favorite_config_option_values": {
+        "mode": [
+          "plan",
+          "bypassPermissions"
+        ]
+      },
       "type": "registry"
     }
   },
