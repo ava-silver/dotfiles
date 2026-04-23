@@ -97,6 +97,15 @@ store_token() {
 
 alias auth='export $(dd-auth --output | xargs)'
 
+install-hooks() {
+    command -v prek &>/dev/null || brew install prek
+    local hooks_path
+    hooks_path=$(git config --global core.hooksPath)
+    [[ -n "$hooks_path" ]] && git config --global --unset core.hooksPath
+    prek install
+    [[ -n "$hooks_path" ]] && git config --global core.hooksPath "$hooks_path"
+}
+
 if [[ -f ~/.zsh_aliases.local ]]; then
     source ~/.zsh_aliases.local
 fi
@@ -121,8 +130,7 @@ code() {
 }
 
 alias oc=opencode
-alias cc='claude --dangerously-skip-permissions --effort high'
-alias cnp=cc
+alias cc=claude
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch
@@ -147,3 +155,4 @@ wt() {
     echo "ejected '$branch' → $wt_dir"
     cd "$wt_dir"
 }
+alias gt="HUSKY=0 gt"
