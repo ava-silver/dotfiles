@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Ava's git/Graphite workflow. Use this skill for context whenever doing any git operation — committing, branching, pushing, PRs, syncing.
+description: Ava's git/Graphite (gt) workflow at Datadog. Load BEFORE any git, gt, or gh pr command — including git commit, git push, git ac, git cr, gt ss, gt s, gt submit, creating branches, opening PRs, syncing, worktrees, or editing PR descriptions. Contains required aliases (git cr, git ac, gt ss --no-edit -q), branch naming (ava.silver/TICKET/desc), and the rule to never use git push.
 user_invocable: false
 ---
 

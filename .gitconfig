@@ -36,6 +36,7 @@ sm = "!git sw $(git main)"
 pl = "!$HOME/dotfiles/pull.sh"
 pu = push origin HEAD
 su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+co = checkout
 rst = reset --hard HEAD
 rstm = "!f() { git checkout $(git main) -- $@; }; f"
 s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"

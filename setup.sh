@@ -33,7 +33,7 @@ fi
 
 ## useful packages
 brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum
-brew install --cask unnaturalscrollwheels macwhisper
+brew install --cask unnaturalscrollwheels macwhisper zed
 
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true
@@ -76,6 +76,9 @@ if [ ! -e "$HOME/.claude/settings.json" ]; then
 fi
 if [ ! -e "$HOME/.config/ccstatusline/settings.json" ]; then
     mkdir -p $HOME/.config/ccstatusline && ln -s $REPO_DIR/claude/ccstatusline.json $HOME/.config/ccstatusline/settings.json
+fi
+if [ ! -e "$HOME/.config/zed/settings.json" ]; then
+    mkdir -p $HOME/.config/zed && ln -s $REPO_DIR/zed/settings.json $HOME/.config/zed/settings.json
 fi
 
 
