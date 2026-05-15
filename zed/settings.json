@@ -1,0 +1,79 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "icon_theme": "Material Icon Theme",
+  "cli_default_open_behavior": "new_window",
+  "project_panel": {
+    "dock": "left",
+  },
+  "outline_panel": {
+    "dock": "right",
+  },
+  "collaboration_panel": {
+    "dock": "right",
+  },
+  "agent": {
+    "thinking_display": "always_collapsed",
+    "button": true,
+    "dock": "left",
+    "favorite_models": [],
+    "model_parameters": [],
+  },
+  "git_panel": {
+    "dock": "left",
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "terminal": {
+    "font_size": 14.0,
+    "font_family": "MonoLisa Nerd Font",
+    "cursor_shape": "bar",
+    "blinking": "on",
+    "shell": "system",
+  },
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+  },
+  "base_keymap": "VSCode",
+  "minimap": {
+    "show": "never",
+  },
+  "cursor_blink": true,
+  "confirm_quit": true,
+  "buffer_font_fallbacks": [
+    "FiraCode NF Retina",
+    "JetBrains Mono",
+    "Comic Mono Code",
+    "Consolas",
+  ],
+  "buffer_font_family": "MonoLisa Nerd Font",
+  "file_types": {
+    "i3": ["**/.i3/config", "**/i3/config"],
+    "terraform": ["*.feature", ".tflint.hcl"],
+    "ocaml": ["*.ml"],
+  },
+  "colorize_brackets": true,
+  "auto_indent_on_paste": true,
+  "linked_edits": true,
+  "show_edit_predictions": true,
+  "agent_servers": {
+    "gemini": {
+      "type": "registry",
+    },
+  },
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": {
+    "mode": "system",
+    "light": "One Light",
+    "dark": "Catppuccin Macchiato",
+  },
+}
