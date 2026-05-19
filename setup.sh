@@ -64,6 +64,7 @@ ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
 if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
     mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/CLAUDE.md $HOME/.claude/CLAUDE.md
 fi
+gh repo clone skills "$HOME/skills"
 bunx skills add "$HOME/skills" -g -y
 if [ ! -e "$HOME/.claude/settings.json" ]; then
     mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/settings.json $HOME/.claude/settings.json
@@ -74,5 +75,3 @@ fi
 if [ ! -e "$HOME/.config/zed/settings.json" ]; then
     mkdir -p $HOME/.config/zed && ln -s $REPO_DIR/zed/settings.json $HOME/.config/zed/settings.json
 fi
-
-
