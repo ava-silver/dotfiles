@@ -3,9 +3,9 @@
   "lines": [
     [
       {
-        "id": "5",
-        "type": "git-branch",
-        "color": "magenta"
+        "id": "f19bea98-6583-43c6-8f84-6f1989603d16",
+        "type": "context-percentage-usable",
+        "backgroundColor": "bgMagenta"
       },
       {
         "id": "7",
@@ -13,9 +13,9 @@
         "color": "yellow"
       },
       {
-        "id": "f19bea98-6583-43c6-8f84-6f1989603d16",
-        "type": "context-percentage-usable",
-        "backgroundColor": "bgMagenta"
+        "id": "5",
+        "type": "git-branch",
+        "color": "magenta"
       },
       {
         "id": "1",
@@ -37,6 +37,7 @@
   "defaultPadding": " ",
   "inheritSeparatorColors": false,
   "globalBold": false,
+  "minimalistMode": false,
   "powerline": {
     "enabled": true,
     "separators": [
@@ -52,6 +53,7 @@
       ""
     ],
     "theme": "monokai",
-    "autoAlign": false
+    "autoAlign": false,
+    "continueThemeAcrossLines": false
   }
 }

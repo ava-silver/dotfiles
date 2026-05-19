@@ -40,7 +40,7 @@ git ac short description here
 
 ## Pushing / submitting PRs
 ```bash
-gt ss --no-edit -q   # submit full stack, no interactive prompts, minimal output
+gt ss --no-edit -q   # submit full stack, no interactive prompts, minimal/no ouput 
 ```
 - **Never use `git push`** -- always use `gt ss` so Graphite manages the stack and PRs correctly
 - `gt ss` = `gt submit --stack` -- pushes all branches in the stack (ancestors + descendants), creating/updating PRs for each
@@ -49,6 +49,8 @@ gt ss --no-edit -q   # submit full stack, no interactive prompts, minimal output
 
 ## Creating PRs
 After creating a PR (via `git cr` or `gt ss`), update the PR description with `gh pr edit --body`. Check the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md` or similar) and fill it in. You should have enough context from the work done so far; if not, check the branch diff or the Jira ticket (if one was provided) for additional context.
+
+**Passing the body:** Use a `<<'EOF'` heredoc (single-quoted delimiter -- everything inside is literal, no escaping needed). Do NOT escape backticks with `\`` inside a single-quoted heredoc; they are already literal and the backslashes will appear verbatim in the PR body.
 
 ### QA Links
 

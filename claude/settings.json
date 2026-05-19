@@ -10,7 +10,6 @@
     "defaultMode": "bypassPermissions",
     "disableAutoMode": "disable"
   },
-  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -76,10 +75,13 @@
       "Claiming the warm laundry"
     ]
   },
-  "effortLevel": "medium",
+  "effortLevel": "high",
+  "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
+  "preferredNotifChannel": "iterm2",
+  "teammateMode": "auto",
   "voiceEnabled": true,
-  "awaySummaryEnabled": false
+  "model": "sonnet[1m]"
 }

@@ -46,7 +46,7 @@ alias xclip="pbcopy"
 
 alias brewi="brew update && brew install"
 alias brewr="brew uninstall"
-alias brewu="brew upgrade"
+alias brewu="brew update && brew upgrade"
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
@@ -123,6 +123,7 @@ alias aws='aws-sso /opt/homebrew/bin/aws'
 dd-auth() {
     eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
 }
+
 
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'

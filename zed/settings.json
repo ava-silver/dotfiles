@@ -8,42 +8,44 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "icon_theme": "Material Icon Theme",
-  "cli_default_open_behavior": "new_window",
+  "cli_default_open_behavior": "existing_window",
   "project_panel": {
-    "dock": "left"
+    "dock": "left",
   },
   "outline_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "collaboration_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "agent": {
     "thinking_display": "always_collapsed",
     "button": true,
-    "dock": "left",
+    "dock": "right",
     "favorite_models": [],
-    "model_parameters": []
+    "model_parameters": [],
   },
   "git_panel": {
-    "dock": "left"
+    "dock": "right",
   },
   "session": {
-    "trust_all_worktrees": true
+    "trust_all_worktrees": true,
   },
   "terminal": {
-    "font_size": 14.0,
+    "dock": "right",
+    "font_size": 12.0,
     "font_family": "MonoLisa Nerd Font",
     "cursor_shape": "bar",
-    "blinking": "on"
+    "line_height": "standard",
+    "blinking": "on",
   },
   "telemetry": {
     "diagnostics": false,
-    "metrics": false
+    "metrics": false,
   },
   "base_keymap": "VSCode",
   "minimap": {
-    "show": "never"
+    "show": "never",
   },
   "cursor_blink": true,
   "confirm_quit": true,
@@ -51,21 +53,13 @@
     "FiraCode NF Retina",
     "JetBrains Mono",
     "Comic Mono Code",
-    "Consolas"
+    "Consolas",
   ],
   "buffer_font_family": "MonoLisa Nerd Font",
   "file_types": {
-    "i3": [
-      "**/.i3/config",
-      "**/i3/config"
-    ],
-    "terraform": [
-      "*.feature",
-      ".tflint.hcl"
-    ],
-    "ocaml": [
-      "*.ml"
-    ]
+    "i3": ["**/.i3/config", "**/i3/config"],
+    "terraform": ["*.feature", ".tflint.hcl"],
+    "ocaml": ["*.ml"],
   },
   "colorize_brackets": true,
   "auto_indent_on_paste": true,
@@ -74,13 +68,10 @@
   "agent_servers": {
     "claude-acp": {
       "favorite_config_option_values": {
-        "mode": [
-          "plan",
-          "bypassPermissions"
-        ]
+        "mode": ["plan", "bypassPermissions"],
       },
-      "type": "registry"
-    }
+      "type": "registry",
+    },
   },
   "ui_font_size": 16,
   "buffer_font_size": 15,

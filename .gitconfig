@@ -3,7 +3,7 @@ name = Ava Silver
 email = ava.silver@datadoghq.com
 signingkey = A58F15C1B3F896B9CAB9FD3E8A1F59A9B0DF37A4
 [core]
-editor = "code --wait"
+editor = "zed --wait"
 pager = delta
 # fsmonitor/untrackedCache/skipHash are all incompatible with gitstatus's
 # libgit2, causing stale dirty status in p10k on large repos.
@@ -63,6 +63,7 @@ trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 # Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
 # See romkatv/gitstatus#474
 fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
+	wt = !$HOME/dotfiles/worktree.sh
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f
