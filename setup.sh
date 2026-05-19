@@ -64,13 +64,7 @@ ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
 if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
     mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/CLAUDE.md $HOME/.claude/CLAUDE.md
 fi
-for skill_file in $REPO_DIR/claude/*.skill.md; do
-    skill_name=$(basename "$skill_file" .skill.md)
-    skill_dir="$HOME/.claude/skills/$skill_name"
-    if [ ! -e "$skill_dir/SKILL.md" ]; then
-        mkdir -p "$skill_dir" && ln -s "$skill_file" "$skill_dir/SKILL.md"
-    fi
-done
+bunx skills add "$HOME/skills" -g -y
 if [ ! -e "$HOME/.claude/settings.json" ]; then
     mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/settings.json $HOME/.claude/settings.json
 fi
