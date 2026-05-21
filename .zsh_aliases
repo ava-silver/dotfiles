@@ -134,6 +134,7 @@ code() {
 
 alias oc=opencode
 alias cc=claude
+alias cx=codex
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch

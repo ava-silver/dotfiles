@@ -72,6 +72,10 @@ fi
 if [ ! -e "$HOME/.config/ccstatusline/settings.json" ]; then
     mkdir -p $HOME/.config/ccstatusline && ln -s $REPO_DIR/claude/ccstatusline.json $HOME/.config/ccstatusline/settings.json
 fi
-if [ ! -e "$HOME/.config/zed/settings.json" ]; then
-    mkdir -p $HOME/.config/zed && ln -s $REPO_DIR/zed/settings.json $HOME/.config/zed/settings.json
-fi
+mkdir -p $HOME/.config/zed
+for f in $REPO_DIR/zed/*; do
+    target="$HOME/.config/zed/$(basename $f)"
+    if [ ! -e "$target" ]; then
+        ln -s $f $target
+    fi
+done

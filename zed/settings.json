@@ -7,6 +7,7 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "diff_view_style": "unified",
   "icon_theme": "Material Icon Theme",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
@@ -32,7 +33,7 @@
     "trust_all_worktrees": true,
   },
   "terminal": {
-    "dock": "right",
+    "dock": "bottom",
     "font_size": 12.0,
     "font_family": "MonoLisa Nerd Font",
     "cursor_shape": "bar",
@@ -65,14 +66,7 @@
   "auto_indent_on_paste": true,
   "linked_edits": true,
   "show_edit_predictions": true,
-  "agent_servers": {
-    "claude-acp": {
-      "favorite_config_option_values": {
-        "mode": ["plan", "bypassPermissions"],
-      },
-      "type": "registry",
-    },
-  },
+  "agent_servers": {},
   "ui_font_size": 16,
   "buffer_font_size": 15,
   "theme": {
