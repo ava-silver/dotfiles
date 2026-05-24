@@ -82,34 +82,13 @@ source $HOME/.zsh_aliases
 
 
 
-export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s GITLAB_TOKEN -w)
-export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
-export DD_APP_KEY=$(security find-generic-password -a ${USER} -s DD_APP_KEY -w)
-export DD_SITE=datadoghq.com
 
 
-export HOST_HOOK_RUNNER=1
-
-export VOLTA_HOME="$HOME/.volta"
-export PATH="$VOLTA_HOME/bin:${PATH?}"
-export NODE_OPTIONS="--max-old-space-size=30000"
-
-path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
-# Created by `pipx` on 2023-07-17 19:29:37
-export PATH="$PATH:/Users/ava.silver/.local/bin"
-
-
-export KUBE_EDITOR="code --wait"
-
-[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
-
-[[ $commands[gt] ]] && source <(gt completion)
-
+export KUBE_EDITOR="zed --wait"
 
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
-export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 export GPG_TTY=$(tty)
 
 
