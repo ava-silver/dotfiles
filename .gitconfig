@@ -11,12 +11,14 @@ pager = delta
 fsmonitor = false
 untrackedCache = false
 excludesfile = /Users/ava.silver/.gitignore_global
-[interactive]
-diffFilter = delta --color-only
-[delta]
-dark = true
+attributesFile = /Users/ava.silver/.gitattributes
+[diff]
+external = difft
 [merge]
-conflictstyle = zdiff3
+conflictstyle = diff3
+[merge "mergiraf"]
+name = mergiraf
+driver = mergiraf merge --git %O %A %B -s %S -x %X -y %Y -p %P -l %L
 [alias]
 a = add -A
 b = branch

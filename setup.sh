@@ -32,7 +32,7 @@ if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
 fi
 
 ## useful packages
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf
 brew install --cask unnaturalscrollwheels macwhisper zed
 
 # dock/appswitcher config
@@ -61,6 +61,11 @@ if [ -e "$HOME/.gitconfig" ]; then
     rm $HOME/.gitconfig
 fi
 ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
+if [ -e "$HOME/.gitattributes" ]; then
+    rm $HOME/.gitattributes
+fi
+ln -s $REPO_DIR/.gitattributes $HOME/.gitattributes
+
 if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
     mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/CLAUDE.md $HOME/.claude/CLAUDE.md
 fi
