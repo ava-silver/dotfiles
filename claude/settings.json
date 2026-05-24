@@ -10,7 +10,6 @@
     "defaultMode": "bypassPermissions",
     "disableAutoMode": "disable"
   },
-  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -27,7 +26,8 @@
   "statusLine": {
     "type": "command",
     "command": "bunx -y ccstatusline@latest",
-    "padding": 0
+    "padding": 0,
+    "refreshInterval": 30
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
@@ -76,10 +76,13 @@
       "Claiming the warm laundry"
     ]
   },
-  "effortLevel": "medium",
+  "effortLevel": "high",
+  "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
+  "preferredNotifChannel": "terminal_bell",
+  "teammateMode": "auto",
   "voiceEnabled": true,
-  "awaySummaryEnabled": false
+  "model": "sonnet[1m]"
 }

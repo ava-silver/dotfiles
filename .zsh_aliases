@@ -44,7 +44,7 @@ alias xclip="pbcopy"
 
 alias brewi="brew update && brew install"
 alias brewr="brew uninstall"
-alias brewu="brew upgrade"
+alias brewu="brew update && brew upgrade"
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
@@ -122,6 +122,7 @@ dd-auth() {
     eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
 }
 
+
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'
 
@@ -131,13 +132,22 @@ code() {
 
 alias oc=opencode
 alias cc=claude
+alias cx=codex
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch
     branch=$(git rev-parse --abbrev-ref HEAD) || return 1
     repo_root=$(git rev-parse --show-toplevel) || return 1
     repo_name=$(basename "$repo_root")
-    local safe_branch="${branch//\//-}"
+    local safe_branch
+    if [[ "$branch" == */*/* ]]; then
+        safe_branch="${branch#*/*/}"
+    elif [[ "$branch" == */* ]]; then
+        safe_branch="${branch#*/}"
+    else
+        safe_branch="$branch"
+    fi
+    safe_branch="${safe_branch//\//-}"
     wt_dir="$HOME/dd/${repo_name}.worktrees/${safe_branch}"
 
     if [[ "$branch" == main || "$branch" == master ]]; then
@@ -155,4 +165,3 @@ wt() {
     echo "ejected '$branch' → $wt_dir"
     cd "$wt_dir"
 }
-alias gt="HUSKY=0 gt"

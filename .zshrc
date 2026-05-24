@@ -83,6 +83,8 @@ source $HOME/.zsh_aliases
 
 
 
+export DO_NOT_TRACK=true
+export GH_TELEMETRY=false
 
 export KUBE_EDITOR="zed --wait"
 

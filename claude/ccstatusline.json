@@ -3,16 +3,6 @@
   "lines": [
     [
       {
-        "id": "5",
-        "type": "git-branch",
-        "color": "magenta"
-      },
-      {
-        "id": "7",
-        "type": "git-changes",
-        "color": "yellow"
-      },
-      {
         "id": "f19bea98-6583-43c6-8f84-6f1989603d16",
         "type": "context-percentage-usable",
         "backgroundColor": "bgMagenta"
@@ -23,6 +13,16 @@
         "color": "cyan"
       },
       {
+        "id": "7",
+        "type": "git-changes",
+        "color": "yellow"
+      },
+      {
+        "id": "5",
+        "type": "git-branch",
+        "color": "magenta"
+      },
+      {
         "id": "b5e9a090-8e67-4915-8e5b-8255eefd63e1",
         "type": "thinking-effort",
         "backgroundColor": "bgBrightRed"
@@ -31,16 +31,18 @@
     [],
     []
   ],
-  "flexMode": "full-minus-40",
+  "flexMode": "full",
   "compactThreshold": 60,
   "colorLevel": 2,
   "defaultPadding": " ",
   "inheritSeparatorColors": false,
   "globalBold": false,
+  "gitCacheTtlSeconds": 5,
+  "minimalistMode": false,
   "powerline": {
     "enabled": true,
     "separators": [
-      ""
+      ""
     ],
     "separatorInvertBackground": [
       false
@@ -51,7 +53,8 @@
     "endCaps": [
       ""
     ],
-    "theme": "monokai",
-    "autoAlign": false
+    "theme": "catppuccin",
+    "autoAlign": false,
+    "continueThemeAcrossLines": false
   }
 }

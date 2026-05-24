@@ -23,15 +23,18 @@ while IFS= read -r line; do
 
         reason=""
 
-        if git branch --merged "$main_branch" --format='%(refname:short)' 2>/dev/null | grep -qxF "$branch"; then
-            reason="merged into $main_branch"
-        elif command -v gh &>/dev/null; then
+        if command -v gh &>/dev/null; then
             pr_state=$(gh pr view "$branch" --json state --jq '.state' 2>/dev/null || true)
-            if [[ "$pr_state" = "MERGED" ]]; then
+            if [[ -z "$pr_state" ]]; then
+                # No PR for this branch — leave it alone.
+                continue
+            elif [[ "$pr_state" = "MERGED" ]]; then
                 reason="PR merged"
             elif [[ "$pr_state" = "CLOSED" ]]; then
                 reason="PR closed"
             fi
+        elif git branch --merged "$main_branch" --format='%(refname:short)' 2>/dev/null | grep -qxF "$branch"; then
+            reason="merged into $main_branch"
         fi
 
         if [[ -n "$reason" ]]; then
