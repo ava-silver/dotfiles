@@ -71,12 +71,6 @@ if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
 fi
 gh repo clone skills "$HOME/skills"
 bunx skills add "$HOME/skills" -g -y
-if [ ! -e "$HOME/.claude/settings.json" ]; then
-    mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/settings.json $HOME/.claude/settings.json
-fi
-if [ ! -e "$HOME/.config/ccstatusline/settings.json" ]; then
-    mkdir -p $HOME/.config/ccstatusline && ln -s $REPO_DIR/claude/ccstatusline.json $HOME/.config/ccstatusline/settings.json
-fi
 mkdir -p $HOME/.config/zed
 for f in $REPO_DIR/zed/*; do
     target="$HOME/.config/zed/$(basename $f)"
