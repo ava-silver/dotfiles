@@ -1,11 +1,12 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 # Set up shell
 
 ## oh-my-zsh
+echo -n "Installing oh-my-zsh..."
 export ZSH=$HOME/.oh-my-zsh
 export KEEP_ZSHRC=yes
 if [ ! -d "$ZSH" ]; then
@@ -32,6 +33,8 @@ if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git $ZSH_CUSTOM/plugins/autoswitch_virtualenv
 fi
 
+echo " done ✅"
+
 ## useful packages
 brew tap oven-sh/bun
 brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun
@@ -53,6 +56,7 @@ link() {
         rm "$dst"
     fi
     ln -s "$src" "$dst"
+    echo "Linked $src -> $dst"
 }
 
 home_link() {
@@ -66,6 +70,7 @@ link_all() {
 }
 
 ## set up symlinks
+echo "Setting up symlinks..."
 link "$REPO_DIR/ssh_config" "$HOME/.ssh/config"
 home_link .zshrc
 home_link .zsh_aliases
@@ -76,4 +81,5 @@ link_all zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 
 [ ! -e "$HOME/skills" ] && gh repo clone skills "$HOME/skills"
-bunx skills add "$HOME/skills" -g -y
+bunx skills add "$HOME/skills" -g -y > /dev/null
+echo "Done ✅"
