@@ -8,9 +8,6 @@ export HOMEBREW_CASK_OPTS=--require-sha
 export HOMEBREW_DIR=/opt/homebrew
 export HOMEBREW_BIN=/opt/homebrew/bin
 
-# Load python shims
-# eval "$(pyenv init -)"
-
 # Load ruby shims
 eval "$(rbenv init -)"
 
@@ -69,57 +66,21 @@ fi
 
 
 ZSH_DISABLE_COMPFIX="true"
-# DISABLE_AUTO_TITLE="true"
-# Case-sensitive completion must be off. _ and - will be interchangeable.
 HYPHEN_INSENSITIVE="true"
 
-export _ZO_EXCLUDE_DIRS="$HOME/go"
-
-
-# Uncomment one of the following lines to change the auto-update behavior
-zstyle ':omz:update' mode reminder  # just remind me to update when it's time
-
-# Uncomment the following line to change how often to auto-update (in days).
+zstyle ':omz:update' mode reminder
 zstyle ':omz:update' frequency 13
 
-# Uncomment the following line if pasting URLs and other text is messed up.
-# DISABLE_MAGIC_FUNCTIONS="true"
-
-# Uncomment the following line to enable command auto-correction.
-# ENABLE_CORRECTION="true"
-
-# Uncomment the following line to display red dots whilst waiting for completion.
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
 COMPLETION_WAITING_DOTS="true"
-
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
-
-# Uncomment the following line if you want to change the command execution time
-# stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
 HIST_STAMPS="mm/dd/yyyy"
 
-_ZO_EXCLUDE_DIRS="/Users/ava.silver/go/src/github.com/DataDog"
+export _ZO_EXCLUDE_DIRS="$HOME/go/src/github.com/DataDog"
 
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
 plugins=(
   git
   zoxide
   fzf
   zsh-autosuggestions
-  dnf
   vscode
   zsh-syntax-highlighting
   autoswitch_virtualenv
@@ -159,8 +120,7 @@ export PATH="$VOLTA_HOME/bin:${PATH?}"
 export NODE_OPTIONS="--max-old-space-size=30000"
 
 path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
-# Created by `pipx` on 2023-07-17 19:29:37
-export PATH="$PATH:/Users/ava.silver/.local/bin"
+export PATH="$PATH:$HOME/.local/bin"
 
 
 export KUBE_EDITOR="code --wait"
