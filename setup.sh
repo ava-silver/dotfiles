@@ -32,8 +32,9 @@ if [ ! -d "$ZSH_CUSTOM/plugins/autoswitch_virtualenv" ]; then
 fi
 
 ## useful packages
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf
-brew install --cask unnaturalscrollwheels macwhisper zed
+brew tap oven-sh/bun
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf oven-sh/bun/bun
+brew install --cask linearmouse macwhisper zed
 
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true
@@ -43,38 +44,34 @@ killall Dock
 
 
 ## link up everything else
+link() {
+    local src="$1"
+    local dst="$2"
+    mkdir -p "$(dirname "$dst")"
+    if [ -e "$dst" ]; then
+        rm "$dst"
+    fi
+    ln -s "$src" "$dst"
+}
+
+home_link() {
+    link "$REPO_DIR/$1" "$HOME/$1"
+}
+
+link_all() {
+    for f in "$REPO_DIR/$1"/*; do
+        link "$f" "$HOME/$1/$(basename $f)"
+    done
+}
 
 ## set up symlinks
-if [ ! -e "$HOME/.ssh/config" ]; then
-    mkdir -p $HOME/.ssh && ln -s $REPO_DIR/ssh_config $HOME/.ssh/config
-fi
-if [ ! -e "$HOME/.zshrc" ]; then
-    ln -s $REPO_DIR/.zshrc $HOME/.zshrc
-fi
-if [ ! -e "$HOME/.zsh_aliases" ]; then
-    ln -s $REPO_DIR/.zsh_aliases $HOME/.zsh_aliases
-fi
-if [ ! -e "$HOME/.p10k.zsh" ]; then
-    ln -s $REPO_DIR/.p10k.zsh $HOME/.p10k.zsh
-fi
-if [ -e "$HOME/.gitconfig" ]; then
-    rm $HOME/.gitconfig
-fi
-ln -s $REPO_DIR/.gitconfig $HOME/.gitconfig
-if [ -e "$HOME/.gitattributes" ]; then
-    rm $HOME/.gitattributes
-fi
-ln -s $REPO_DIR/.gitattributes $HOME/.gitattributes
+link "$REPO_DIR/ssh_config" "$HOME/.ssh/config"
+home_link .zshrc
+home_link .zsh_aliases
+home_link .p10k.zsh
+home_link .gitconfig
+home_link .gitattributes
+link_all zed
 
-if [ ! -e "$HOME/.claude/CLAUDE.md" ]; then
-    mkdir -p $HOME/.claude && ln -s $REPO_DIR/claude/CLAUDE.md $HOME/.claude/CLAUDE.md
-fi
-gh repo clone skills "$HOME/skills"
+[ ! -e "$HOME/skills" ] && gh repo clone skills "$HOME/skills"
 bunx skills add "$HOME/skills" -g -y
-mkdir -p $HOME/.config/zed
-for f in $REPO_DIR/zed/*; do
-    target="$HOME/.config/zed/$(basename $f)"
-    if [ ! -e "$target" ]; then
-        ln -s $f $target
-    fi
-done
