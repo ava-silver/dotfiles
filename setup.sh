@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euxo pipefail
 
 export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
@@ -33,7 +34,7 @@ fi
 
 ## useful packages
 brew tap oven-sh/bun
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf oven-sh/bun/bun
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun
 brew install --cask linearmouse macwhisper zed
 
 # dock/appswitcher config
@@ -72,6 +73,7 @@ home_link .p10k.zsh
 home_link .gitconfig
 home_link .gitattributes
 link_all zed
+link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 
 [ ! -e "$HOME/skills" ] && gh repo clone skills "$HOME/skills"
 bunx skills add "$HOME/skills" -g -y

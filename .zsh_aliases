@@ -26,7 +26,6 @@ alias uuid='uuidgen | lower | tee /dev/tty | xclip'
 alias sed=gsed
 alias pinentry='pinentry-mac'
 alias gotest='gotestsum'
-alias pip=pip3
 #  -------------------------------LS----------------------------------
 # Directory Listing aliases
 alias ls=lsd        # Preferred ls implementation
@@ -49,7 +48,6 @@ alias brewu="brew update && brew upgrade"
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
 alias kbash="kbash --pod"
-alias ksh='kubectl exec --namespace azure-integrations deploy/azure-workers-main-azure-metrics-01 -c delancie-worker -it -- bash -c "cd /opt/dogweb && /bin/bash"'
 alias k=kubectl
 alias ktx="kubectx-switcher"
 alias kns=kubens

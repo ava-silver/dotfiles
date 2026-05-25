@@ -7,3 +7,4 @@ cache
 .cargo_vars
 .DS_Store
 .claude
+p10k-instant-prompt-*.zsh
