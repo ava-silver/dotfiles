@@ -37,7 +37,14 @@
     "serverless@datadog-claude-plugins": true,
     "go-code-reviewer@datadog-claude-plugins": true,
     "cq@cq": true,
-    "code-review@claude-plugins-official": true
+    "code-review@claude-plugins-official": true,
+    "figma@claude-plugins-official": true,
+    "atlassian@claude-plugins-official": true,
+    "slack@claude-plugins-official": true,
+    "microsoft-docs@claude-plugins-official": true,
+    "terraform@claude-plugins-official": true,
+    "azure@claude-plugins-official": true,
+    "datadog@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "datadog-claude-plugins": {
@@ -83,6 +90,5 @@
   "skipDangerousModePermissionPrompt": true,
   "preferredNotifChannel": "terminal_bell",
   "teammateMode": "auto",
-  "voiceEnabled": true,
-  "model": "sonnet[1m]"
+  "voiceEnabled": true
 }
