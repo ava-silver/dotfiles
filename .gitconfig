@@ -60,12 +60,12 @@ cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
 cwt = "!$HOME/dotfiles/clean-worktrees.sh"
 restack = "!f() { gt restack || claude --dangerously-skip-permissions 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
-sync = "!f() { branch=$(git b --show-current) && git sm && gt sync -f && gt ss && git sw $branch ; }; f"
+sync = "!gt s && gt ss"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 # Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
 # See romkatv/gitstatus#474
 fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
-	wt = !$HOME/dotfiles/worktree.sh
+wt = !$HOME/dotfiles/worktree.sh
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f

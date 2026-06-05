@@ -19,10 +19,14 @@ branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
 
 repo_root=$(git rev-parse --show-toplevel)
 repo_name=$(basename "$repo_root")
+starting_branch=$(git symbolic-ref --quiet --short HEAD) || {
+    echo "git wt must be run from a named branch, not detached HEAD" >&2
+    exit 1
+}
 
 gt create "$branch"
 
-actual_branch=$(git rev-parse --abbrev-ref HEAD)
+actual_branch=$(git symbolic-ref --quiet --short HEAD)
 
 if [[ "$actual_branch" == */*/* ]]; then
     safe_branch="${actual_branch#*/*/}"
@@ -39,7 +43,6 @@ if [[ -d "$wt_dir" ]]; then
     exit 1
 fi
 
-main_branch=$(git main)
-git checkout "$main_branch"
-git worktree add "$wt_dir" "$actual_branch"
+git checkout --quiet "$starting_branch"
+git worktree add --quiet "$wt_dir" "$actual_branch"
 echo "$wt_dir"
