@@ -37,7 +37,9 @@ echo " done ✅"
 
 ## useful packages
 brew tap oven-sh/bun
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh \
+    uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun \
+    mq
 brew install --cask linearmouse macwhisper zed
 
 # dock/appswitcher config
@@ -80,8 +82,15 @@ home_link .gitattributes
 link_all claude
 link_all zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
-
-[ ! -e "$HOME/skills" ] && gh repo clone skills "$HOME/skills"
-bunx skills add "$HOME/skills" -g -a claude-code -y > /dev/null
-
 echo "Done ✅"
+
+echo -n "Installing skills..."
+skills_repos=(
+    "https://github.com/ava-silver/skills"
+    "https://github.com/mattpocock/skills"
+    "https://github.com/harehare/mq/tree/main/skills"
+)
+for repo in "${skills_repos[@]}"; do
+    bunx skills add "$repo" -g -a claude-code -y > /dev/null
+done
+echo " done ✅"

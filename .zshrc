@@ -113,6 +113,8 @@ export DD_SITE=datadoghq.com
 export DO_NOT_TRACK=true
 export GH_TELEMETRY=false
 
+export HOMEBREW_NO_ENV_HINTS=1
+
 export HOST_HOOK_RUNNER=1
 
 export VOLTA_HOME="$HOME/.volta"
@@ -123,7 +125,7 @@ path+=("$HOME/dd/eclair-scripts/bin" "$HOME/dd/eclair-scripts/azure/bin")
 export PATH="$PATH:$HOME/.local/bin"
 
 
-export KUBE_EDITOR="code --wait"
+export EDITOR="zed --wait"
 
 [[ $commands[kubectl] ]] && source <(kubectl completion zsh)
 

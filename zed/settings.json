@@ -66,7 +66,17 @@
   "auto_indent_on_paste": true,
   "linked_edits": true,
   "show_edit_predictions": true,
-  "agent_servers": {},
+  "agent_servers": {
+    "codex-acp": {
+      "type": "registry"
+    },
+    "claude-acp": {
+      "default_config_options": {
+        "model": "sonnet"
+      },
+      "type": "registry"
+    }
+  },
   "ui_font_size": 16,
   "buffer_font_size": 15,
   "theme": {
