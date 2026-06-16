@@ -14,7 +14,6 @@
 ## RTK
 Shell commands are automatically rewritten by the PreToolUse hook (`git status` → `rtk git status`). Call `rtk` directly only for meta commands such as `rtk gain`, `rtk gain --history`, `rtk discover`, or `rtk proxy <cmd>`.
 
-@RTK.md
 
 ## Style
 - In all interactions, be extremely concise.
