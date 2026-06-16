@@ -47,7 +47,7 @@ brew install --cask linearmouse macwhisper zed
 defaults write com.apple.dock appswitcher-all-displays -bool true
 defaults write com.apple.dock autohide-time-modifier -float 0.15
 defaults write com.apple.dock autohide-delay -float 0
-killall Dock
+killall Dock 2>/dev/null || true
 
 
 ## link up everything else
