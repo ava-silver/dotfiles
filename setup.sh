@@ -37,9 +37,9 @@ echo " done ✅"
 
 ## useful packages
 brew tap oven-sh/bun
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh \
+brew install lsd zoxide fzf bat git-delta pinentry-mac gh jq \
     uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun \
-    mq
+    mq rtk
 brew install --cask linearmouse macwhisper zed
 
 # dock/appswitcher config
@@ -83,19 +83,32 @@ home_link .p10k.zsh
 home_link .gitconfig
 home_link .gitattributes
 
-# Agent config
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.claude/AGENTS.md"
+# Agent config (shared instructions + per-harness hooks)
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 link "$REPO_DIR/agents/RTK.md" "$HOME/.claude/RTK.md"
 config_link_all agents/claude .claude
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
+link "$REPO_DIR/agents/RTK.md" "$HOME/.codex/RTK.md"
 link "$REPO_DIR/agents/codex/config.toml" "$HOME/.codex/config.toml"
+link "$REPO_DIR/agents/codex/hooks.json" "$HOME/.codex/hooks.json"
 link "$REPO_DIR/agents/codex/computer-use-config.json" "$HOME/.codex/computer-use/config.json"
+
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
+link "$REPO_DIR/agents/RTK.md" "$HOME/.cursor/RTK.md"
+config_link_all agents/cursor .cursor
 
 config_link_all zed .config/zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
+
+echo -n "Verifying RTK hooks..."
+if command -v rtk >/dev/null; then
+    rtk init --show
+else
+    echo " skipped (rtk not on PATH)"
+fi
+echo " done ✅"
 
 echo -n "Installing skills..."
 skills_repos=(

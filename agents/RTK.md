@@ -21,9 +21,7 @@ which rtk             # Verify correct binary
 
 ⚠️ **Name collision**: If `rtk gain` fails, you may have reachingforthejack/rtk (Rust Type Kit) installed instead.
 
-## Hook-Based Usage (Claude Code only)
+## Hook-Based Usage
 
-All other commands are automatically rewritten by the Claude Code hook.
+All other commands are automatically rewritten by the PreToolUse hook.
 Example: `git status` → `rtk git status` (transparent, 0 tokens overhead)
-
-See AGENTS.md for harness-specific RTK guidance.
