@@ -1,6 +1,7 @@
 ## Behavior
 - In general, opt for existing tools (formatters, linters, etc) for fixing problems where possible instead of manual edits
-- when planning, always ask any clarifying questions you may have
+- When planning, always ask any clarifying questions you may have.
+- Avoid meta commentary when writing docs, comments, or PR descriptions. Don't make arguments against previous iterations that used to exist -- keep text artifacts grounded in the present.
 - For all Atlassian operations (Jira, Confluence), load the `atlassian` skill for cloud ID, field IDs, and SVLS ticket defaults.
 - For all git operations, load the `git-workflow` skill for full context on branching, committing, and pushing conventions.
 - All commands needing AWS auth should be prefixed with `aws-vault exec sso-serverless-sandbox-account-admin --`
