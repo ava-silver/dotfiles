@@ -1,4 +1,5 @@
 #!/bin/bash
+# THIS SCRIPT MUST REMAIN IDEMPOTENT
 set -euo pipefail
 
 export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
@@ -83,19 +84,19 @@ home_link .p10k.zsh
 home_link .gitconfig
 home_link .gitattributes
 
-# Agent config (shared instructions + per-harness hooks)
+# Agent config. RTK guidance lives in AGENTS.md (idempotent `rtk` prefix works on
+# every harness); Claude/Cursor additionally rewrite via a PreToolUse hook, Codex
+# is instruction-only (rtk has no Codex hook).
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
-link "$REPO_DIR/agents/RTK.md" "$HOME/.claude/RTK.md"
 config_link_all agents/claude .claude
+# ccstatusline reads the XDG path first; keep it pointed at the repo config.
+link "$REPO_DIR/agents/claude/ccstatusline.json" "$HOME/.config/ccstatusline/settings.json"
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
-link "$REPO_DIR/agents/RTK.md" "$HOME/.codex/RTK.md"
 link "$REPO_DIR/agents/codex/config.toml" "$HOME/.codex/config.toml"
-link "$REPO_DIR/agents/codex/hooks.json" "$HOME/.codex/hooks.json"
 link "$REPO_DIR/agents/codex/computer-use-config.json" "$HOME/.codex/computer-use/config.json"
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
-link "$REPO_DIR/agents/RTK.md" "$HOME/.cursor/RTK.md"
 config_link_all agents/cursor .cursor
 
 config_link_all zed .config/zed

@@ -33,6 +33,7 @@ source_type = "local"
 source = "/Users/ava.silver/.codex/.tmp/bundled-marketplaces/openai-bundled"
 
 [marketplaces.openai-primary-runtime]
+last_updated = "2026-06-16T17:44:00Z"
 source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
@@ -65,12 +66,21 @@ CODEX_CLI_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/co
 "browser@openai-bundled" = { enabled = true }
 "chrome@openai-bundled" = { enabled = true }
 "dd@datadog-claude-plugins" = { enabled = true }
-"documents@openai-primary-runtime" = { enabled = true }
 "google-calendar@openai-curated" = { enabled = true }
 "marketplace-auto-update@datadog-claude-plugins" = { enabled = true }
-"presentations@openai-primary-runtime" = { enabled = true }
 "sites@openai-bundled" = { enabled = true }
-"spreadsheets@openai-primary-runtime" = { enabled = true }
+
+[plugins."presentations@openai-primary-runtime" ]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime" ]
+enabled = true
+
+[plugins."documents@openai-primary-runtime" ]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
 
 [desktop]
 conversationDetailMode = "STEPS_COMMANDS"

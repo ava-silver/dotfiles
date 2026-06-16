@@ -11,8 +11,9 @@
 - Use `rg` instead of `grep`
 - Use `jq` for querying json files
 
-## RTK
-Shell commands are automatically rewritten by the PreToolUse hook (`git status` → `rtk git status`). Call `rtk` directly only for meta commands such as `rtk gain`, `rtk gain --history`, `rtk discover`, or `rtk proxy <cmd>`.
+## RTK (token-optimized command wrapper)
+- Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe.
+- Use `rtk` directly for meta commands: `rtk gain`, `rtk gain --history`, `rtk discover`, `rtk proxy <cmd>`.
 
 
 ## Style
