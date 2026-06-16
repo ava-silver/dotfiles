@@ -1,0 +1,117 @@
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+project_doc_fallback_filenames = []
+service_tier = "default"
+
+[projects."/Users/ava.silver"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/web-ui"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/serverless-remote-instrumentation"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/datadog-api-spec"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/datadog-ci"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/dd-source"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/skills"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/go/src/github.com/DataDog/serverless-ci"]
+trust_level = "trusted"
+
+[projects."/Users/ava.silver/dotfiles"]
+trust_level = "trusted"
+
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "pull-request-number", "context-used", "context-window-size"]
+status_line_use_colors = true
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
+
+[marketplaces.openai-bundled]
+last_updated = "2026-06-09T16:28:16Z"
+source_type = "local"
+source = "/Users/ava.silver/.codex/.tmp/bundled-marketplaces/openai-bundled"
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-06-04T21:44:58Z"
+source_type = "local"
+source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
+
+[marketplaces.datadog-claude-plugins]
+last_updated = "2026-06-09T16:28:21Z"
+last_revision = "345524c54f9d3cfcff382193023b168d5fff690c"
+source_type = "git"
+source = "https://github.com/DataDog/claude-marketplace.git"
+
+[mcp_servers.atlassian]
+url = "https://mcp.atlassian.com/v1/mcp/authv2"
+
+[mcp_servers.node_repl]
+args = []
+command = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/node_repl"
+startup_timeout_sec = 120
+
+[mcp_servers.node_repl.env]
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = ""
+NODE_REPL_NODE_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/node"
+NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ava.silver/.codex"
+CODEX_HOME = "/Users/ava.silver/.codex"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "4946b004b23af02244ece97240aceb8d123475207fa6a6fc399486bd7086049f"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
+NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.602.71036"
+CODEX_CLI_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/codex"
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."google-calendar@openai-curated"]
+enabled = true
+
+[plugins."dd@datadog-claude-plugins"]
+enabled = true
+
+[plugins."marketplace-auto-update@datadog-claude-plugins"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[plugins."chrome@openai-bundled"]
+enabled = true
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[desktop]
+conversationDetailMode = "STEPS_COMMANDS"
+ambient-suggestions-enabled = false
+default-service-tier = "priority"
+
+[desktop.open-in-target-preferences]
+global = "zed"
+
+[desktop.open-in-target-preferences.perPath]
+"/Users/ava.silver/go/src/github.com/DataDog/web-ui.worktrees/add-cloud-run-onboarding-instructions" = "zed"
+
+[features]
+js_repl = false

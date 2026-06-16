@@ -11,7 +11,10 @@
 - Use `rg` instead of `grep`
 - Use `jq` for querying json files
 
-@RTK.md
+## RTK
+- Use `rtk` directly only when explicitly useful, such as `rtk gain`, `rtk gain --history`, `rtk discover`, or `rtk proxy <cmd>`.
+- In Claude Code, other commands are automatically rewritten by the PreToolUse hook (`git status` → `rtk git status`).
+- In Codex, Cursor, and other harnesses, invoke `rtk` explicitly when you want token-optimized command wrappers.
 
 ## Style
 - In all interactions, be extremely concise.

@@ -54,8 +54,8 @@ link() {
     local src="$1"
     local dst="$2"
     mkdir -p "$(dirname "$dst")"
-    if [ -e "$dst" ]; then
-        rm "$dst"
+    if [ -e "$dst" ] || [ -L "$dst" ]; then
+        /bin/rm -rf "$dst"
     fi
     ln -s "$src" "$dst"
     echo "Linked $src -> $dst"
@@ -65,9 +65,12 @@ home_link() {
     link "$REPO_DIR/$1" "$HOME/$1"
 }
 
-link_all() {
-    for f in "$REPO_DIR/$1"/*; do
-        link "$f" "$HOME/$1/$(basename $f)"
+config_link_all() {
+    local src="$1"
+    local dst="$2"
+    mkdir -p "$HOME/$dst"
+    for f in "$REPO_DIR/$src"/*; do
+        link "$f" "$HOME/$dst/$(basename "$f")"
     done
 }
 
@@ -79,8 +82,18 @@ home_link .zsh_aliases
 home_link .p10k.zsh
 home_link .gitconfig
 home_link .gitattributes
-link_all claude
-link_all zed
+
+# Agent config
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.claude/AGENTS.md"
+link "$REPO_DIR/agents/RTK.md" "$HOME/.claude/RTK.md"
+config_link_all agents/claude .claude
+
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
+link "$REPO_DIR/agents/codex/config.toml" "$HOME/.codex/config.toml"
+link "$REPO_DIR/agents/codex/computer-use-config.json" "$HOME/.codex/computer-use/config.json"
+
+config_link_all zed .config/zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
 
