@@ -43,6 +43,9 @@ brew install lsd zoxide fzf bat git-delta pinentry-mac gh jq \
     mq rtk
 brew install --cask linearmouse macwhisper zed
 
+## mcp-cli: shell bridge to MCP servers (no brew formula; install via bun)
+bun install -g https://github.com/philschmid/mcp-cli
+
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true
 defaults write com.apple.dock autohide-time-modifier -float 0.15
@@ -100,6 +103,8 @@ link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
 config_link_all agents/cursor .cursor
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
+# pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
+link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 
 # Shared MCP server config, consumed by mcp-cli (pi has no native MCP).
 link "$REPO_DIR/agents/mcp/mcp_servers.json" "$HOME/.config/mcp/mcp_servers.json"
