@@ -1,3 +1,5 @@
+Include /Users/ava.silver/.colima/ssh_config
+
 Host localhost
   HostName localhost
   Port 2222

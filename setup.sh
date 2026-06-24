@@ -99,6 +99,8 @@ link "$REPO_DIR/agents/codex/computer-use-config.json" "$HOME/.codex/computer-us
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
 config_link_all agents/cursor .cursor
 
+link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
+
 config_link_all zed .config/zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
