@@ -101,6 +101,9 @@ config_link_all agents/cursor .cursor
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 
+# Shared MCP server config, consumed by mcp-cli (pi has no native MCP).
+link "$REPO_DIR/agents/mcp/mcp_servers.json" "$HOME/.config/mcp/mcp_servers.json"
+
 config_link_all zed .config/zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
