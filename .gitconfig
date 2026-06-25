@@ -92,3 +92,5 @@ insteadOf = git://github.com/
 skipHash = false
 [maintenance]
 repo = /Users/ava.silver/go/src/github.com/DataDog/dd-source
+[include]
+	path = /Users/ava.silver/.config/datadog/git/config

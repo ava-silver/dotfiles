@@ -1,0 +1,8 @@
+{
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "lastChangelogVersion": "0.80.2",
+  "theme": "dark",
+  "defaultThinkingLevel": "medium"
+}
