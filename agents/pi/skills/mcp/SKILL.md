@@ -1,17 +1,18 @@
 ---
 name: mcp
-description: Call MCP servers (Atlassian/Jira/Confluence, Datadog metrics on staging and prod) from the shell via the mcp-cli bridge. Load this whenever a task needs Jira, Confluence, or Datadog metrics, or when the user mentions MCP, mcp-cli, or a specific MCP server.
+description: Call MCP servers (Atlassian/Jira/Confluence, Datadog metrics on staging and prod) from pi via the pi-mcp-adapter `mcp` tool. Load this whenever a task needs Jira, Confluence, or Datadog metrics, or when the user mentions MCP, pi-mcp-adapter, or a specific MCP server.
 ---
 
-# MCP via mcp-cli
+# MCP via pi-mcp-adapter
 
-pi has no built-in MCP. Reach MCP servers through the `mcp-cli` bridge, which
-exposes dynamic discovery + tool calls over the shell. This keeps tool schemas
-out of context until you actually need them.
+MCP is reached through the `pi-mcp-adapter` extension, which exposes a single
+`mcp` tool (~200 tokens) instead of dumping every server's schema into context.
+Servers are **lazy** -- they only start when you first call one of their tools.
+Tool metadata is cached, so search/describe work without a live connection.
 
-Config lives at `~/.config/mcp/mcp_servers.json`. Remote OAuth servers are
-proxied through `mcp-remote`, which handles the browser login and caches tokens
-in `~/.mcp-auth` (per server URL).
+Shared config lives at `~/.config/mcp/mcp.json` (`mcpServers` schema). Remote
+OAuth servers are proxied through `mcp-remote`, which handles the browser login
+and caches tokens in `~/.mcp-auth` (per server URL).
 
 ## Servers
 
@@ -29,31 +30,42 @@ keychain token, so no OAuth round-trip happens at call time.
 
 ## Workflow
 
-```sh
-mcp-cli                       # list all servers + tool names
-mcp-cli info <server>         # tools for one server, with params
-mcp-cli info <server> <tool>  # full JSON input schema for a tool
-mcp-cli grep "<glob>"         # search tools by name across servers, e.g. "*metric*"
-mcp-cli call <server> <tool> '{"arg": "value"}'   # execute
+The `mcp` tool is called with a single object. Mode precedence:
+`action > tool (call) > server (list) > describe > search > nothing (status)`.
+
+```
+mcp({})                                  # status: servers + connection state
+mcp({ server: "datadog-prod" })          # list tools from one server
+mcp({ search: "metric" })                # search tools by name/description
+mcp({ describe: "<tool_name>" })         # full params for a tool
+mcp({ tool: "<tool_name>", args: '{"arg": "value"}' })   # call (args is a JSON string)
+mcp({ tool: "<tool_name>", server: "datadog-prod", args: '{...}' })  # disambiguate same-named tools
 ```
 
-Always `info` a tool to confirm its schema before `call`. Pipe complex JSON via
-stdin or build it with `jq -n`.
+`args` is always a **JSON string**, not an object. Always `describe` a tool to
+confirm its schema before calling it.
 
-## First-time auth
+## Auth
 
-The first `mcp-cli info <server>` against a remote server triggers an
-`mcp-remote` OAuth browser flow. Run it once interactively per server (and
-once each for `datadog-staging` and `datadog-prod`). Tokens are cached
-afterward.
+First call to a remote server triggers `mcp-remote`'s OAuth browser flow; tokens
+cache afterward. If the adapter reports `auth_required`, either:
+
+```
+mcp({ action: "auth-start", server: "<name>" })    # returns a browser URL
+mcp({ action: "auth-complete", server: "<name>", args: '{"redirectUrl":"..."}' })
+```
+
+Or, in an interactive local session, use the `/mcp-auth <server>` slash command.
+Run OAuth once per server (and once each for `datadog-staging` and
+`datadog-prod`).
 
 ## Notes
 
+- Manage servers interactively with the `/mcp` slash command (`/mcp setup` to
+  import host configs).
 - Datadog entries use toolsets `metrics,logs,monitors,dashboards`. Edit the URL
-  in the config to change them.
+  in `~/.config/mcp/mcp.json` to change them.
 - For Jira/Confluence specifics (cloud ID, SVLS ticket fields), also load the
   `atlassian` skill.
 - If Slack calls return a 401 the proxy auto-refreshes; if that fails, re-run
   `python3 ~/.claude/skills/slack-mcp/scripts/slack-mcp-auth.py`.
-- Force a fresh connection with `MCP_NO_DAEMON=1 mcp-cli ...` if a daemon goes
-  stale after a config change.

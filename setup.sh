@@ -43,8 +43,20 @@ brew install lsd zoxide fzf bat git-delta pinentry-mac gh jq \
     mq rtk
 brew install --cask linearmouse macwhisper zed
 
-## mcp-cli: shell bridge to MCP servers (no brew formula; install via bun)
-bun install -g https://github.com/philschmid/mcp-cli
+# pi
+bun install -g --ignore-scripts @earendil-works/pi-coding-agent
+pi_plugins=(
+    pi-btw
+    @hypabolic/pi-hypa
+    pi-web-access
+    pi-subagents
+    @juicesharp/rpiv-todo
+    pi-mcp-adapter
+)
+for plugin in "${pi_plugins[@]}"; do
+    pi install "npm:$plugin"
+done
+
 
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true
@@ -107,8 +119,8 @@ link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 
-# Shared MCP server config, consumed by mcp-cli (pi has no native MCP).
-link "$REPO_DIR/agents/mcp/mcp_servers.json" "$HOME/.config/mcp/mcp_servers.json"
+# Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
+link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
 
 config_link_all zed .config/zed
 link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
@@ -122,7 +134,7 @@ else
 fi
 echo " done ✅"
 
-echo -n "Installing skills..."
+echo "Installing skills..."
 skills_repos=(
     "https://github.com/ava-silver/skills"
     "https://github.com/mattpocock/skills"
