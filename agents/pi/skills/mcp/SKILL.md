@@ -47,17 +47,26 @@ confirm its schema before calling it.
 
 ## Auth
 
-First call to a remote server triggers `mcp-remote`'s OAuth browser flow; tokens
-cache afterward. If the adapter reports `auth_required`, either:
+Two auth paths depending on transport:
 
-```
-mcp({ action: "auth-start", server: "<name>" })    # returns a browser URL
-mcp({ action: "auth-complete", server: "<name>", args: '{"redirectUrl":"..."}' })
-```
+- **Native HTTP OAuth** (server has a `url` + `auth: "oauth"`, e.g. `datadog-staging`,
+  `datadog-prod`): the adapter manages OAuth. Use `/mcp-auth <server>` interactively,
+  or the headless paste-the-code fallback:
+  ```
+  mcp({ action: "auth-start", server: "<name>" })    # returns a browser URL
+  mcp({ action: "auth-complete", server: "<name>", args: '{"redirectUrl":"..."}' })
+  ```
+- **stdio via `mcp-remote`** (server has `command`/`args`, e.g. `atlassian`):
+  the adapter does NOT manage OAuth -- `/mcp-auth` will reject it ("does not use
+  OAuth"). `mcp-remote` runs its own browser flow on first connect; just call a
+  tool or `/mcp reconnect <server>`. Tokens cache in `~/.mcp-auth`.
 
-Or, in an interactive local session, use the `/mcp-auth <server>` slash command.
-Run OAuth once per server (and once each for `datadog-staging` and
-`datadog-prod`).
+Run OAuth once per server (and once each for `datadog-staging` and `datadog-prod`).
+
+`mcp-remote` binds a **deterministic callback port** derived from the server URL.
+If login fails with `No authorization code received`, a stale `mcp-remote` process
+is likely squatting that port: `pgrep -fl mcp-remote`, kill the offenders, then
+retry.
 
 ## Notes
 

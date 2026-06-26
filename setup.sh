@@ -47,7 +47,6 @@ brew install --cask linearmouse macwhisper zed
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi_plugins=(
     pi-btw
-    @hypabolic/pi-hypa
     pi-web-access
     pi-subagents
     @juicesharp/rpiv-todo

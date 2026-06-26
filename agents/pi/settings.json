@@ -7,7 +7,6 @@
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:pi-btw",
-    "npm:@hypabolic/pi-hypa",
     "npm:pi-web-access",
     "npm:pi-subagents",
     "npm:@juicesharp/rpiv-todo",
