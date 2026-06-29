@@ -110,8 +110,6 @@ if [[ -f ~/.zsh_aliases.local ]]; then
     source ~/.zsh_aliases.local
 fi
 
-alias subernetes='python3 ~/dotfiles/misc/subernetes.py'
-
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }

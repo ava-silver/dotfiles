@@ -93,6 +93,10 @@ dot_link shell/zsh_aliases.zsh .zsh_aliases
 dot_link shell/p10k.zsh .p10k.zsh
 dot_link git/.gitconfig .gitconfig
 dot_link git/.gitattributes .gitattributes
+dot_link git/gitignore_global .gitignore_global
+
+# gh/gt wrappers and subernetes live in bin/; zshrc puts that dir on PATH ahead
+# of /opt/homebrew/bin, so no symlinking is needed here.
 
 # Agent config. RTK guidance lives in AGENTS.md (idempotent `rtk` prefix works on
 # every harness); Claude/Cursor additionally rewrite via a PreToolUse hook, Codex

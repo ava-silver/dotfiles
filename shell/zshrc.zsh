@@ -56,6 +56,11 @@ export GOPRIVATE=
 export GOPROXY="https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/testing/@current/"
 # END ANSIBLE MANAGED BLOCK
 
+# Dotfiles bin (gh/gt wrappers, subernetes) -- gh/gt must precede
+# /opt/homebrew/bin so both interactive shells and agents pick up the shims.
+# Kept above the interactive guard so non-interactive agent shells get it too.
+export PATH="$HOME/dotfiles/bin:$PATH"
+
 [[ $- != *i* ]] && return
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]

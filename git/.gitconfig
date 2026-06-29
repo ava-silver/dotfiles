@@ -13,7 +13,7 @@ fsmonitor = false
 untrackedCache = false
 excludesfile = /Users/ava.silver/.gitignore_global
 attributesFile = /Users/ava.silver/.gitattributes
-	hooksPath = /usr/local/dd/global_hooks
+hooksPath = /usr/local/dd/global_hooks
 [diff]
 external = difft
 [merge]
