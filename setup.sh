@@ -36,12 +36,7 @@ fi
 
 echo " done ✅"
 
-## useful packages
-brew tap oven-sh/bun
-brew install lsd zoxide fzf bat git-delta pinentry-mac gh jq \
-    uv ruff rm-improved ripgrep gum difftastic mergiraf bottom oven-sh/bun/bun \
-    mq rtk
-brew install --cask linearmouse macwhisper zed
+brew bundle --file="$REPO_DIR/Brewfile"
 
 # pi
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
@@ -76,8 +71,9 @@ link() {
     echo "Linked $src -> $dst"
 }
 
-home_link() {
-    link "$REPO_DIR/$1" "$HOME/$1"
+# Link a repo file to a dotfile in $HOME (repo stores names without the leading dot).
+dot_link() {
+    link "$REPO_DIR/$1" "$HOME/$2"
 }
 
 config_link_all() {
@@ -91,12 +87,12 @@ config_link_all() {
 
 ## set up symlinks
 echo "Setting up symlinks..."
-link "$REPO_DIR/ssh_config" "$HOME/.ssh/config"
-home_link .zshrc
-home_link .zsh_aliases
-home_link .p10k.zsh
-home_link .gitconfig
-home_link .gitattributes
+link "$REPO_DIR/tools/ssh_config" "$HOME/.ssh/config"
+dot_link shell/zshrc.zsh .zshrc
+dot_link shell/zsh_aliases.zsh .zsh_aliases
+dot_link shell/p10k.zsh .p10k.zsh
+dot_link git/.gitconfig .gitconfig
+dot_link git/.gitattributes .gitattributes
 
 # Agent config. RTK guidance lives in AGENTS.md (idempotent `rtk` prefix works on
 # every harness); Claude/Cursor additionally rewrite via a PreToolUse hook, Codex
@@ -121,8 +117,8 @@ link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
 link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
 
-config_link_all zed .config/zed
-link "$REPO_DIR/lsd_config.yaml" "$HOME/.config/lsd/config.yaml"
+config_link_all editor/zed .config/zed
+link "$REPO_DIR/tools/lsd.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
 
 echo -n "Verifying RTK hooks..."

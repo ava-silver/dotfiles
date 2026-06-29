@@ -3,7 +3,7 @@ set -euo pipefail
 # usage:
 # worktree.sh ticket-1234 summary of this change
 #
-# git config --global alias.wt '!$HOME/dotfiles/worktree.sh'
+# git config --global alias.wt '!$HOME/dotfiles/git/scripts/worktree.sh'
 #
 # Creates a gt-tracked branch and sets up a worktree for it.
 # Prints the worktree path on success.
