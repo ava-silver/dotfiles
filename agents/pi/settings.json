@@ -3,7 +3,7 @@
     "anthropicExtraUsage": false
   },
   "lastChangelogVersion": "0.80.2",
-  "theme": "dark",
+  "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:pi-btw",
