@@ -2,7 +2,7 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
-  "lastChangelogVersion": "0.80.2",
+  "lastChangelogVersion": "0.80.3",
   "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "medium",
   "packages": [

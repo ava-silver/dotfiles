@@ -41,6 +41,8 @@ You are on feature branch \`${branch}\`, so add to it:
 1. \`git ac <short description>\` -- write a concise description of the diff (the ticket prefix is added automatically from the branch name).
 2. \`gt ss --no-edit -q\` to push.
 
+If this push created a brand-new PR (there wasn't one for this branch already), run \`/skill:pr-description\` afterward to fill in the description.
+
 ${COMMON}`;
 }
 
@@ -51,6 +53,8 @@ You are on the main branch \`${branch}\`, so create a new branch with the first 
 - With a ticket: \`git cr <ticket> <short description>\` (e.g. \`git cr svls-1234 fix the timeout\`).
 - No ticket: \`git cr chore <short description>\`.
 Infer a concise description from the diff. If the user supplied a ticket below, use it; otherwise use the chore form.
+
+This creates a new PR, so run \`/skill:pr-description\` afterward to fill in the description.
 
 ${COMMON}`;
 }

@@ -37,7 +37,10 @@ fi
 
 echo " done ✅"
 
-brew bundle --file="$REPO_DIR/Brewfile"
+# Skip the (serial, slow) bundle when everything is already installed.
+if ! brew bundle check --file="$REPO_DIR/Brewfile" >/dev/null 2>&1; then
+    brew bundle --file="$REPO_DIR/Brewfile"
+fi
 
 # pi
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
@@ -49,8 +52,11 @@ pi_plugins=(
     pi-mcp-adapter
     pi-auto-rename
 )
+installed_pi="$(pi list 2>/dev/null || true)"
 for plugin in "${pi_plugins[@]}"; do
-    pi install "npm:$plugin"
+    if ! grep -qF "npm:$plugin" <<<"$installed_pi"; then
+        pi install "npm:$plugin"
+    fi
 done
 
 
@@ -139,12 +145,18 @@ fi
 echo " done ✅"
 
 echo "Installing skills..."
+# repo => a distinctive skill it provides; skip the (network) add when present.
 skills_repos=(
-    "https://github.com/ava-silver/skills"
-    "https://github.com/mattpocock/skills"
-    "https://github.com/harehare/mq/tree/main/skills"
+    "https://github.com/ava-silver/skills|daily-brief"
+    "https://github.com/mattpocock/skills|tdd"
+    "https://github.com/harehare/mq/tree/main/skills|processing-markdown"
 )
-for repo in "${skills_repos[@]}"; do
+for entry in "${skills_repos[@]}"; do
+    repo="${entry%%|*}"
+    marker="${entry##*|}"
+    if [ -d "$HOME/.agents/skills/$marker" ] || [ -d "$HOME/.claude/skills/$marker" ]; then
+        continue
+    fi
     bunx skills add "$repo" -g -a claude-code -y > /dev/null
 done
 echo " done ✅"
