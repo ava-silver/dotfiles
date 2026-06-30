@@ -2,7 +2,8 @@
 # THIS SCRIPT MUST REMAIN IDEMPOTENT
 set -euo pipefail
 
-export REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+export REPO_DIR
+REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
 # Set up shell
 
@@ -46,7 +47,7 @@ pi_plugins=(
     pi-subagents
     @juicesharp/rpiv-todo
     pi-mcp-adapter
-    pi-title-renamer
+    pi-auto-rename
 )
 for plugin in "${pi_plugins[@]}"; do
     pi install "npm:$plugin"
