@@ -15,7 +15,7 @@ while IFS= read -r b; do
     [[ "$(jq -r '.state' <<<"$json")" != "OPEN" ]] && continue
     title=$(jq -r '.title' <<<"$json")
     url=$(jq -r '.url' <<<"$json")
-    out+="- [${title}](${url}/s)"$'\n'
+    out+=":pr: [${title}](${url}/s)"$'\n'
 done <<<"$branches"
 
 if [[ -z "$out" ]]; then

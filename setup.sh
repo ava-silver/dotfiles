@@ -46,6 +46,7 @@ pi_plugins=(
     pi-subagents
     @juicesharp/rpiv-todo
     pi-mcp-adapter
+    pi-title-renamer
 )
 for plugin in "${pi_plugins[@]}"; do
     pi install "npm:$plugin"
@@ -117,6 +118,8 @@ link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
+# pi extensions (symlinks every entry so new ones need no setup.sh changes).
+config_link_all agents/pi/extensions .pi/agent/extensions
 
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
 link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
