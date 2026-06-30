@@ -1,13 +1,13 @@
 // Invoke skills (and get autocomplete) anywhere in a prompt, not just at the start.
 //
-// pi only expands `/skill:name` when it is the very first thing in the prompt, and
-// only offers `/skill:` autocomplete at the start of a line. This extension:
-//   1. Adds an autocomplete provider that completes `/skill:` tokens anywhere.
-//   2. Intercepts input and expands `/skill:name` tokens that appear mid-prompt,
-//      replacing each with the skill's `<skill>` block (same format pi uses).
+// pi only offers `/skill:` autocomplete at the start of a line. This extension adds
+// an autocomplete provider that completes `/skill:` tokens anywhere in a prompt.
 //
-// The pure start-of-prompt case is left to pi's built-in expansion so behavior there
-// is unchanged.
+// The `/skill:name` token is left inline as literal text -- the agent already has every
+// skill's name, description, and location in its system prompt, so a bare token is a
+// sufficient signal to load the skill. We deliberately do NOT paste the full skill body
+// mid-prompt (that bloats the UI); the start-of-prompt case is still handled by pi's
+// built-in expansion.
 
 import {
 	CONFIG_DIR_NAME,
@@ -15,7 +15,6 @@ import {
 	getAgentDir,
 	loadSkills,
 	type Skill,
-	stripFrontmatter,
 } from "@earendil-works/pi-coding-agent";
 import {
 	type AutocompleteItem,
@@ -24,7 +23,7 @@ import {
 	Editor,
 	fuzzyFilter,
 } from "@earendil-works/pi-tui";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -57,8 +56,6 @@ function patchEditorTriggerSlash(): void {
 	};
 }
 
-// Matches `/skill:<name>` preceded by start-of-string or whitespace (used for expansion).
-const SKILL_TOKEN = /(^|\s)\/skill:([A-Za-z0-9_.-]+)/g;
 // Matches a space-then-`/<query>` token immediately before the cursor (query may be empty).
 // The leading whitespace requirement means start-of-line `/` is left to pi's built-in
 // command menu; this only fires mid-prompt. An explicit `skill:` is optional.
@@ -94,12 +91,6 @@ function loadSkillMap(cwd: string): Map<string, Skill> {
 		if (!map.has(skill.name)) map.set(skill.name, skill);
 	}
 	return map;
-}
-
-function buildSkillBlock(skill: Skill): string {
-	const content = readFileSync(skill.filePath, "utf-8");
-	const body = stripFrontmatter(content).trim();
-	return `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
 }
 
 function createSkillAutocompleteProvider(
@@ -176,35 +167,5 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("resources_discover", async (event) => {
 		refresh(event.cwd);
-	});
-
-	pi.on("input", async (event) => {
-		if (event.source === "extension") return { action: "continue" as const };
-
-		const text = event.text;
-		let sawMidPromptSkill = false;
-		SKILL_TOKEN.lastIndex = 0;
-		for (let m = SKILL_TOKEN.exec(text); m; m = SKILL_TOKEN.exec(text)) {
-			const atStart = m.index === 0 && m[1] === "";
-			if (skillMap.has(m[2]) && !atStart) {
-				sawMidPromptSkill = true;
-				break;
-			}
-		}
-
-		// Pure start-of-prompt invocation: let pi's built-in expansion handle it.
-		if (!sawMidPromptSkill) return { action: "continue" as const };
-
-		const expanded = text.replace(SKILL_TOKEN, (whole, pre: string, name: string) => {
-			const skill = skillMap.get(name);
-			if (!skill) return whole;
-			try {
-				return `${pre}${buildSkillBlock(skill)}`;
-			} catch {
-				return whole;
-			}
-		});
-
-		return { action: "transform" as const, text: expanded };
 	});
 }
