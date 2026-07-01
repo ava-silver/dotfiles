@@ -29,15 +29,18 @@ status_line = [
 status_line_use_colors = true
 
 [marketplaces.openai-bundled]
+last_updated = "2026-07-01T15:32:05Z"
 source_type = "local"
 source = "/Users/ava.silver/.codex/.tmp/bundled-marketplaces/openai-bundled"
 
 [marketplaces.openai-primary-runtime]
-last_updated = "2026-06-23T02:44:57Z"
+last_updated = "2026-07-01T16:44:24Z"
 source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
+last_updated = "2026-07-01T15:28:30Z"
+last_revision = "33b917418410c88699c799019066ea970a76bba5"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 
@@ -45,6 +48,7 @@ source = "https://github.com/DataDog/claude-marketplace.git"
 url = "https://mcp.atlassian.com/v1/mcp/authv2"
 
 [mcp_servers.node_repl]
+args = []
 command = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/cua_node/bin/node_repl"
 startup_timeout_sec = 120
 
@@ -54,21 +58,27 @@ NODE_REPL_NODE_MODULE_DIRS = "/Users/ava.silver/Applications/Codex.app/Contents/
 NODE_REPL_NODE_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/cua_node/bin/node"
 NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ava.silver/.codex"
 CODEX_HOME = "/Users/ava.silver/.codex"
-NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "a3f3ca79fe2bff56076b895f1f13a8f673168160bd79d880cc34b4500e08a71c"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "cb79053fda6deb0f3b5d6f0d90d4257305ebdbd1e378a12e8fbc5bde782eb59b"
 BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
 NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
 NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
 BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
-BROWSER_USE_CODEX_APP_VERSION = "26.609.30741"
+BROWSER_USE_CODEX_APP_VERSION = "26.623.81905"
 CODEX_CLI_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/codex"
 
 [plugins]
-"browser@openai-bundled" = { enabled = true }
-"chrome@openai-bundled" = { enabled = true }
 "dd@datadog-claude-plugins" = { enabled = true }
 "google-calendar@openai-curated" = { enabled = true }
 "marketplace-auto-update@datadog-claude-plugins" = { enabled = true }
-"sites@openai-bundled" = { enabled = true }
+
+[plugins."chrome@openai-bundled" ]
+enabled = true
+
+[plugins."browser@openai-bundled" ]
+enabled = true
+
+[plugins."sites@openai-bundled" ]
+enabled = true
 
 [plugins."presentations@openai-primary-runtime" ]
 enabled = true
@@ -89,6 +99,7 @@ enabled = true
 conversationDetailMode = "STEPS_COMMANDS"
 ambient-suggestions-enabled = false
 default-service-tier = "priority"
+followUpQueueMode = "queue"
 
 [desktop.open-in-target-preferences]
 global = "zed"

@@ -145,18 +145,13 @@ fi
 echo " done ✅"
 
 echo "Installing skills..."
-# repo => a distinctive skill it provides; skip the (network) add when present.
-skills_repos=(
-    "https://github.com/ava-silver/skills|daily-brief"
-    "https://github.com/mattpocock/skills|tdd"
-    "https://github.com/harehare/mq/tree/main/skills|processing-markdown"
+skills_paths=(
+    "ava-silver/skills"
+    "mattpocock/skills/tree/main/skills/engineering/code-review"
+    "harehare/mq/tree/main/skills"
+    "DataDog/claude-marketplace/tree/main/serverless/skills"
 )
-for entry in "${skills_repos[@]}"; do
-    repo="${entry%%|*}"
-    marker="${entry##*|}"
-    if [ -d "$HOME/.agents/skills/$marker" ] || [ -d "$HOME/.claude/skills/$marker" ]; then
-        continue
-    fi
-    bunx skills add "$repo" -g -a claude-code -y > /dev/null
+for skill in "${skills_paths[@]}"; do
+    bunx skills add "https://github.com/$skill" -g -a universal claude-code -y > /dev/null
 done
 echo " done ✅"
