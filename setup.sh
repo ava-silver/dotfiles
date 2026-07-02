@@ -87,8 +87,9 @@ dot_link() {
 config_link_all() {
     local src="$1"
     local dst="$2"
+    local pattern="${3:-*}"
     mkdir -p "$HOME/$dst"
-    for f in "$REPO_DIR/$src"/*; do
+    for f in "$REPO_DIR/$src"/$pattern; do
         link "$f" "$HOME/$dst/$(basename "$f")"
     done
 }
@@ -126,7 +127,9 @@ link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 # pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
-config_link_all agents/pi/extensions .pi/agent/extensions
+# Extensions dir also holds bun.lock/node_modules/package.json/tsconfig.json for local
+# type-checking -- only the *.ts sources should be linked into pi's extensions dir.
+config_link_all agents/pi/extensions .pi/agent/extensions "*.ts"
 config_link_all agents/pi/themes .pi/agent/themes
 
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
