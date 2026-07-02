@@ -4,14 +4,18 @@
 //
 // This deliberately stops short of committing/pushing -- that's `/yeet`'s job.
 
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-function gh(cwd: string, args: string[]): string {
-  return execFileSync("gh", args, { cwd, encoding: "utf-8" }).trim();
+const execFileAsync = promisify(execFile);
+
+async function gh(cwd: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("gh", args, { cwd, encoding: "utf-8" });
+  return stdout.trim();
 }
 
-function repoSlug(cwd: string): string {
+function repoSlug(cwd: string): Promise<string> {
   return gh(cwd, [
     "repo",
     "view",
@@ -22,19 +26,19 @@ function repoSlug(cwd: string): string {
   ]);
 }
 
-function resolvePrNumber(cwd: string, args: string): string {
+function resolvePrNumber(cwd: string, args: string): Promise<string> {
   const explicit = args.trim().match(/\d+/);
-  if (explicit) return explicit[0];
+  if (explicit) return Promise.resolve(explicit[0]);
   return gh(cwd, ["pr", "view", "--json", "number", "-q", ".number"]);
 }
 
-function ghApiJson<T>(
+async function ghApiJson<T>(
   cwd: string,
   repo: string,
   path: string,
   jq: string,
-): T[] {
-  const out = gh(cwd, [
+): Promise<T[]> {
+  const out = await gh(cwd, [
     "api",
     `repos/${repo}/${path}`,
     "--paginate",
@@ -74,21 +78,26 @@ interface Feedback {
 // stack-list bots, CI placeholder comments, and perf-report bots -- never
 // actionable review feedback. Real review feedback comes in as inline comments
 // or review bodies.
-function fetchFeedback(cwd: string, repo: string, pr: string): Feedback {
-  return {
-    inlineComments: ghApiJson<InlineComment>(
+async function fetchFeedback(
+  cwd: string,
+  repo: string,
+  pr: string,
+): Promise<Feedback> {
+  const [inlineComments, reviews] = await Promise.all([
+    ghApiJson<InlineComment>(
       cwd,
       repo,
       `pulls/${pr}/comments`,
       "[.[] | {id, path, line: .original_line, body, user: .user.login, in_reply_to_id}]",
     ),
-    reviews: ghApiJson<Review>(
+    ghApiJson<Review>(
       cwd,
       repo,
       `pulls/${pr}/reviews`,
       "[.[] | {state, user: .user.login, body}]",
     ),
-  };
+  ]);
+  return { inlineComments, reviews };
 }
 
 function isEmpty(feedback: Feedback): boolean {
@@ -208,11 +217,27 @@ export default function (pi: ExtensionAPI): void {
     description:
       "Fetch PR review feedback and fix valid issues in the code (no commit)",
     handler: async (args, ctx) => {
+      const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+      let frame = 0;
+      const tick = () => {
+        ctx.ui.setStatus(
+          "pr-feedback",
+          ctx.ui.theme.fg("accent", SPINNER_FRAMES[frame++ % SPINNER_FRAMES.length]) +
+            ctx.ui.theme.fg("dim", " Fetching PR feedback..."),
+        );
+      };
+      tick();
+      const spinner = setInterval(tick, 80);
+
       let prompt: string;
       try {
-        const repo = repoSlug(ctx.cwd);
-        const pr = resolvePrNumber(ctx.cwd, args ?? "");
-        const feedback = fetchFeedback(ctx.cwd, repo, pr);
+        // Repo/PR resolution and the two feedback fetches are independent `gh`
+        // calls -- run them concurrently instead of one at a time.
+        const [repo, pr] = await Promise.all([
+          repoSlug(ctx.cwd),
+          resolvePrNumber(ctx.cwd, args ?? ""),
+        ]);
+        const feedback = await fetchFeedback(ctx.cwd, repo, pr);
         if (isEmpty(feedback)) {
           ctx.ui.notify(
             `/pr-feedback: no review feedback found on ${repo}#${pr}`,
@@ -227,6 +252,9 @@ export default function (pi: ExtensionAPI): void {
           "error",
         );
         return;
+      } finally {
+        clearInterval(spinner);
+        ctx.ui.setStatus("pr-feedback", undefined);
       }
 
       if (ctx.isIdle()) {
