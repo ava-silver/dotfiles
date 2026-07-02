@@ -12,5 +12,7 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-mcp-adapter",
     "npm:pi-auto-rename"
-  ]
+  ],
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-5"
 }
