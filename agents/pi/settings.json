@@ -11,8 +11,10 @@
     "npm:pi-subagents",
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-mcp-adapter",
-    "npm:pi-auto-rename"
+    "npm:pi-auto-rename",
+    "npm:pi-intercom",
+    "npm:pi-prompt-template-model"
   ],
   "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-5"
+  "defaultModel": "claude-opus-4-8"
 }

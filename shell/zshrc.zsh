@@ -111,9 +111,6 @@ source $HOME/.zsh_aliases
 
 
 export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s GITLAB_TOKEN -w)
-export DD_API_KEY=$(security find-generic-password -a "${USER}" -s DD_API_KEY -w)
-export DD_APP_KEY=$(security find-generic-password -a ${USER} -s DD_APP_KEY -w)
-export DD_SITE=datadoghq.com
 
 export DO_NOT_TRACK=true
 export GH_TELEMETRY=false

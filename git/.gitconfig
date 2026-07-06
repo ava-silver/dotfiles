@@ -62,7 +62,7 @@ cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
 cwt = "!$HOME/dotfiles/git/scripts/clean-worktrees.sh"
 copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
 cs = copy-stack
-restack = "!f() { gt restack || claude --dangerously-skip-permissions 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
+restack = "!f() { gt restack || pi -p 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
 sync = "!gt s && gt ss"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 # Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.

@@ -69,6 +69,34 @@ interface Review {
   body: string;
 }
 
+// Resolution status lives only on GraphQL `reviewThreads.isResolved`, not on the
+// REST comments endpoint -- fetch the set of comment IDs that belong to resolved
+// threads so we can drop them.
+async function fetchResolvedCommentIds(
+  cwd: string,
+  repo: string,
+  pr: string,
+): Promise<Set<number>> {
+  const [owner, name] = repo.split("/");
+  const query = `query($owner:String!,$name:String!,$pr:Int!){repository(owner:$owner,name:$name){pullRequest(number:$pr){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{databaseId}}}}}}}`;
+  const out = await gh(cwd, [
+    "api",
+    "graphql",
+    "-f",
+    `query=${query}`,
+    "-F",
+    `owner=${owner}`,
+    "-F",
+    `name=${name}`,
+    "-F",
+    `pr=${pr}`,
+    "--jq",
+    "[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved) | .comments.nodes[].databaseId]",
+  ]);
+  if (!out.trim()) return new Set();
+  return new Set(JSON.parse(out) as number[]);
+}
+
 interface Feedback {
   inlineComments: InlineComment[];
   reviews: Review[];
@@ -83,7 +111,7 @@ async function fetchFeedback(
   repo: string,
   pr: string,
 ): Promise<Feedback> {
-  const [inlineComments, reviews] = await Promise.all([
+  const [inlineComments, reviews, resolvedIds] = await Promise.all([
     ghApiJson<InlineComment>(
       cwd,
       repo,
@@ -96,8 +124,12 @@ async function fetchFeedback(
       `pulls/${pr}/reviews`,
       "[.[] | {state, user: .user.login, body}]",
     ),
+    fetchResolvedCommentIds(cwd, repo, pr),
   ]);
-  return { inlineComments, reviews };
+  return {
+    inlineComments: inlineComments.filter((c) => !resolvedIds.has(c.id)),
+    reviews,
+  };
 }
 
 function isEmpty(feedback: Feedback): boolean {
