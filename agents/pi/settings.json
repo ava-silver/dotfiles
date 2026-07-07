@@ -5,6 +5,7 @@
   "lastChangelogVersion": "0.80.3",
   "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "medium",
+  "quietStartup": true,
   "packages": [
     "npm:pi-btw",
     "npm:pi-web-access",
