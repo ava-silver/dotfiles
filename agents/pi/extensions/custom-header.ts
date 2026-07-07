@@ -20,9 +20,9 @@ const HI_AVA = [
 // A little sitting cat.
 const CAT = ["  ／l、    ", "（ﾟ､ ｡７   ", "  l  ~ヽ   ", "  じしf_,)ノ"];
 
-// Speech bubble sits to the cat's left; the tail connects at the mouth row.
-const BUBBLE = ["╭─────────╮", "│ meow :3 │", "╰─────────╯"];
-const BUBBLE_W = 11;
+// Speech bubble sits to the cat's left; a tail elbows down toward the cat.
+// Each row is padded to a fixed width so the cat art stays aligned.
+const BUBBLE = ["        ╭───", "╭───────┴─╮ ", "│ meow :3 │ ", "╰─────────╯ "];
 
 // The lil claude mascot.
 const CLAUDE = ["         ", " ▐▛███▜▌ ", "▝▜█████▛▘", "  ▘▘ ▝▝  "];
@@ -51,11 +51,9 @@ function buildHeader(theme: Theme): string[] {
   }
   lines.push("");
 
-  // Speech bubble on the left, cat on the right, tail joining at the mouth.
+  // Speech bubble on the left, cat on the right, tail elbowing toward it.
   for (let i = 0; i < CAT.length; i++) {
-    const left = i < BUBBLE.length ? BUBBLE[i] : " ".repeat(BUBBLE_W);
-    const tail = i === 1 ? "──" : "  ";
-    lines.push("    " + muted(left + tail + CAT[i]));
+    lines.push("    " + muted(BUBBLE[i] + CAT[i]));
   }
 
   lines.push("");
