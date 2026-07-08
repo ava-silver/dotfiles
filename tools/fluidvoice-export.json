@@ -1,0 +1,121 @@
+{
+  "appPromptBindings" : [
+
+  ],
+  "appVersion" : "1.5.15",
+  "exportedAt" : "2026-06-10T16:08:24Z",
+  "promptProfiles" : [
+
+  ],
+  "schemaVersion" : {
+    "major" : 1,
+    "minor" : 0
+  },
+  "settings" : {
+    "accentColorOption" : "Purple",
+    "autoUpdateCheckEnabled" : false,
+    "betaReleasesEnabled" : false,
+    "cancelRecordingHotkeyShortcut" : {
+      "keyCode" : 53,
+      "modifierFlagsRawValue" : 0
+    },
+    "commandModeConfirmBeforeExecute" : true,
+    "commandModeHotkeyShortcut" : {
+      "keyCode" : 29,
+      "modifierFlagsRawValue" : 0
+    },
+    "commandModeLinkedToGlobal" : true,
+    "commandModeSelectedProviderID" : "openai",
+    "commandModeShortcutEnabled" : false,
+    "copyTranscriptionToClipboard" : false,
+    "customDictionaryEntries" : [
+
+    ],
+    "dictationPromptOff" : true,
+    "dictationPromptRoutingScope" : "allApps",
+    "editPromptRoutingScope" : "allApps",
+    "enableAIStreaming" : true,
+    "enableDebugLogs" : true,
+    "enableStreamingPreview" : true,
+    "fillerWords" : [
+      "um",
+      "uh",
+      "er",
+      "ah",
+      "eh",
+      "umm",
+      "uhh",
+      "err",
+      "ahh",
+      "ehh",
+      "hmm",
+      "hm",
+      "mm",
+      "mmm",
+      "erm",
+      "urm",
+      "ugh"
+    ],
+    "gaavModeEnabled" : true,
+    "hideFromDockAndAppSwitcher" : true,
+    "hotkeyMode" : "hold",
+    "hotkeyShortcut" : {
+      "keyCode" : 54,
+      "modifierFlagsRawValue" : 0,
+      "modifierKeyCodes" : [
+        54
+      ]
+    },
+    "modelReasoningConfigs" : {
+
+    },
+    "notifyAIProcessingFailures" : true,
+    "overlayBottomOffset" : 50,
+    "overlayPosition" : "bottom",
+    "overlaySize" : "medium",
+    "pauseMediaDuringTranscription" : true,
+    "pressAndHoldMode" : true,
+    "promptModeHotkeyShortcut" : {
+      "keyCode" : 60,
+      "modifierFlagsRawValue" : 0,
+      "modifierKeyCodes" : [
+        60
+      ]
+    },
+    "promptModeShortcutEnabled" : false,
+    "removeFillerWordsEnabled" : true,
+    "rewriteModeHotkeyShortcut" : {
+      "keyCode" : 15,
+      "modifierFlagsRawValue" : 524288
+    },
+    "rewriteModeLinkedToGlobal" : true,
+    "rewriteModeSelectedProviderID" : "openai",
+    "rewriteModeShortcutEnabled" : false,
+    "saveTranscriptionHistory" : false,
+    "savedProviders" : [
+
+    ],
+    "secondaryDictationPromptOff" : false,
+    "selectedCohereLanguage" : "en",
+    "selectedModelByProvider" : {
+      "openai" : ""
+    },
+    "selectedNemotronLanguage" : "en",
+    "selectedProviderID" : "openai",
+    "selectedSpeechModel" : "parakeet-tdt",
+    "shareAnonymousAnalytics" : true,
+    "showThinkingTokens" : true,
+    "textInsertionMode" : "reliablePaste",
+    "transcriptionPreviewCharLimit" : 150,
+    "transcriptionSoundIndependentVolume" : false,
+    "transcriptionSoundVolume" : 1,
+    "transcriptionStartSound" : "none",
+    "userTypingWPM" : 40,
+    "visualizerNoiseThreshold" : 0.4,
+    "vocabularyBoostingEnabled" : false,
+    "weekendsDontBreakStreak" : true
+  },
+  "transcriptionHistory" : [
+
+  ]
+}

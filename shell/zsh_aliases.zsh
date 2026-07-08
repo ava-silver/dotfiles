@@ -43,7 +43,7 @@ alias xclip="pbcopy"
 
 alias brewi="brew update && brew install"
 alias brewr="brew uninstall"
-alias brewu="brew update && brew upgrade"
+alias brewu="brew update && brew upgrade -y"
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
@@ -108,8 +108,6 @@ if [[ -f ~/.zsh_aliases.local ]]; then
     source ~/.zsh_aliases.local
 fi
 
-alias subernetes='python3 ~/dotfiles/subernetes.py'
-
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
@@ -132,6 +130,7 @@ alias oc=opencode
 alias cc='claude --model "sonnet[1m]"'
 alias cco='claude --model "opus[1m]"'
 alias cx=codex
+alias cu=cursor-agent
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch

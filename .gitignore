@@ -7,4 +7,6 @@ cache
 .cargo_vars
 .DS_Store
 .claude
+.codex
 p10k-instant-prompt-*.zsh
+agents/pi/extensions/node_modules

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Wrapper: pick the gh account from the origin remote's GitHub org so ddoghq
+# repos use the ava-silver_ddog account and everything else uses ava-silver.
+# Sets GH_TOKEN per-invocation (no global `gh auth switch`, so it never clobbers
+# the active account in other shells). Lives on PATH ahead of the real gh so
+# interactive shells AND agents pick it up.
+GH=/opt/homebrew/bin/gh
+# Don't inject a token for `gh auth ...` -- GH_TOKEN disables auth login/switch/logout.
+if [[ -z "${GH_TOKEN:-}${GITHUB_TOKEN:-}" && "${1:-}" != "auth" ]]; then
+  url=$(git remote get-url origin 2>/dev/null)
+  case "$url" in
+    *ddoghq*) user=ava-silver_ddog ;;
+    *)        user=ava-silver ;;
+  esac
+  token=$("$GH" auth token --user "$user" 2>/dev/null)
+  [[ -n "$token" ]] && export GH_TOKEN="$token"
+fi
+exec "$GH" "$@"

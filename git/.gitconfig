@@ -12,6 +12,7 @@ fsmonitor = false
 untrackedCache = false
 excludesfile = /Users/ava.silver/.gitignore_global
 attributesFile = /Users/ava.silver/.gitattributes
+hooksPath = /usr/local/dd/global_hooks
 [diff]
 external = difft
 [merge]
@@ -24,9 +25,9 @@ a = add -A
 b = branch
 c = "!f() { git commit -m \"$*\" ;}; f"
 nb = checkout -b
-cr = "!$HOME/dotfiles/create.sh"
 ac = "!f() { git a && git c $@ ;}; f"
-cr = "!$HOME/dotfiles/create.sh"
+cr = "!$HOME/dotfiles/git/scripts/create.sh"
+pr = "!gh pr view --web"
 cc = "!git commit -m \"updated $(date)\""
 m = "merge --no-edit"
 main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
@@ -35,7 +36,7 @@ mc = "!git a && git merge --continue"
 st = status
 sw = switch
 sm = "!git sw $(git main)"
-pl = "!$HOME/dotfiles/pull.sh"
+pl = "!$HOME/dotfiles/git/scripts/pull.sh"
 pu = push origin HEAD
 su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
 co = checkout
@@ -55,17 +56,19 @@ cf = !sh -c \"git diff --name-only | uniq | xargs code\"
 lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
 l = lg -n
 standies = standup
-ticket = "!$HOME/dotfiles/ticket.sh"
+ticket = "!$HOME/dotfiles/git/scripts/ticket.sh"
 cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
-cwt = "!$HOME/dotfiles/clean-worktrees.sh"
-restack = "!f() { gt restack || claude --dangerously-skip-permissions 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
+cwt = "!$HOME/dotfiles/git/scripts/clean-worktrees.sh"
+copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
+cs = copy-stack
+restack = "!f() { gt restack || pi 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
 sync = "!gt s && gt ss"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 # Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
 # See romkatv/gitstatus#474
 fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
-wt = !$HOME/dotfiles/worktree.sh
+wt = !$HOME/dotfiles/git/scripts/worktree.sh
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f

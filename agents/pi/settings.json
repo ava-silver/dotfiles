@@ -1,0 +1,21 @@
+{
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "lastChangelogVersion": "0.80.3",
+  "theme": "catppuccin-frappe",
+  "defaultThinkingLevel": "medium",
+  "quietStartup": true,
+  "packages": [
+    "npm:pi-btw",
+    "npm:pi-web-access",
+    "npm:pi-subagents",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-mcp-adapter",
+    "npm:pi-auto-rename",
+    "npm:pi-intercom",
+    "npm:pi-prompt-template-model"
+  ],
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-8"
+}

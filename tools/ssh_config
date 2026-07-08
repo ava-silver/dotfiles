@@ -1,3 +1,7 @@
+Include /Users/ava.silver/.config/datadog/git/ssh_config
+
+Include /Users/ava.silver/.colima/ssh_config
+
 Host localhost
   HostName localhost
   Port 2222
@@ -23,3 +27,5 @@ Host mcserver
   User ubuntu
   HostName 141.148.94.64
   IdentityFile ~/.ssh/id_mcserver
+Host *
+  IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"

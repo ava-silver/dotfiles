@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "atlassian": {
+      "command": "bunx",
+      "args": ["mcp-remote", "https://mcp.atlassian.com/v1/mcp"]
+    },
+    "datadog-staging": {
+      "url": "https://mcp.datad0g.com/api/unstable/mcp-server/mcp?toolsets=metrics,logs,monitors,dashboards",
+      "auth": "oauth"
+    },
+    "datadog-prod": {
+      "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=metrics,logs,monitors,dashboards",
+      "auth": "oauth"
+    },
+    "slack": {
+      "command": "python3",
+      "args": ["/Users/ava.silver/.claude/skills/slack-mcp/scripts/slack-mcp-proxy.py"]
+    }
+  }
+}

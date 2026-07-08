@@ -1,4 +1,9 @@
 
+# Dotfiles bin (gh/gt wrappers, subernetes) -- gh/gt must precede
+# /opt/homebrew/bin so both interactive shells and agents pick up the shims.
+# Kept above the interactive guard so non-interactive agent shells get it too.
+export PATH="$HOME/dotfiles/bin:$PATH"
+
 [[ $- != *i* ]] && return
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -53,9 +58,10 @@ source $HOME/.zsh_aliases
 
 
 
-
 export DO_NOT_TRACK=true
 export GH_TELEMETRY=false
+
+export HOMEBREW_NO_ENV_HINTS=1
 
 export KUBE_EDITOR="zed --wait"
 
