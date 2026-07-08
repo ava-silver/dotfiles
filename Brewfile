@@ -19,6 +19,7 @@ brew "difftastic"
 brew "mergiraf"
 brew "bottom"
 brew "oven-sh/bun/bun"
+brew "node"
 brew "mq"
 brew "rtk"
 

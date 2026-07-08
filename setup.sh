@@ -5,7 +5,41 @@ set -euo pipefail
 export REPO_DIR
 REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
-# Set up shell
+
+link() {
+    local src="$1"
+    local dst="$2"
+    mkdir -p "$(dirname "$dst")"
+    if [ -e "$dst" ] || [ -L "$dst" ]; then
+        /bin/rm -rf "$dst"
+    fi
+    ln -s "$src" "$dst"
+    echo "Linked $src -> $dst"
+}
+
+# Link a repo file to a dotfile in $HOME (repo stores names without the leading dot).
+dot_link() {
+    link "$REPO_DIR/$1" "$HOME/$2"
+}
+
+config_link_all() {
+    local src="$1"
+    local dst="$2"
+    local pattern="${3:-*}"
+    mkdir -p "$HOME/$dst"
+    for f in "$REPO_DIR/$src"/$pattern; do
+        link "$f" "$HOME/$dst/$(basename "$f")"
+    done
+}
+
+echo "Setting up symlinks..."
+link "$REPO_DIR/tools/ssh_config" "$HOME/.ssh/config"
+dot_link shell/zshrc.zsh .zshrc
+dot_link shell/zsh_aliases.zsh .zsh_aliases
+dot_link shell/p10k.zsh .p10k.zsh
+dot_link git/.gitconfig .gitconfig
+dot_link git/.gitattributes .gitattributes
+dot_link git/gitignore_global .gitignore_global
 
 ## oh-my-zsh
 echo -n "Installing oh-my-zsh..."
@@ -67,42 +101,7 @@ defaults write com.apple.dock autohide-delay -float 0
 killall Dock 2>/dev/null || true
 
 
-## link up everything else
-link() {
-    local src="$1"
-    local dst="$2"
-    mkdir -p "$(dirname "$dst")"
-    if [ -e "$dst" ] || [ -L "$dst" ]; then
-        /bin/rm -rf "$dst"
-    fi
-    ln -s "$src" "$dst"
-    echo "Linked $src -> $dst"
-}
-
-# Link a repo file to a dotfile in $HOME (repo stores names without the leading dot).
-dot_link() {
-    link "$REPO_DIR/$1" "$HOME/$2"
-}
-
-config_link_all() {
-    local src="$1"
-    local dst="$2"
-    local pattern="${3:-*}"
-    mkdir -p "$HOME/$dst"
-    for f in "$REPO_DIR/$src"/$pattern; do
-        link "$f" "$HOME/$dst/$(basename "$f")"
-    done
-}
-
 ## set up symlinks
-echo "Setting up symlinks..."
-link "$REPO_DIR/tools/ssh_config" "$HOME/.ssh/config"
-dot_link shell/zshrc.zsh .zshrc
-dot_link shell/zsh_aliases.zsh .zsh_aliases
-dot_link shell/p10k.zsh .p10k.zsh
-dot_link git/.gitconfig .gitconfig
-dot_link git/.gitattributes .gitattributes
-dot_link git/gitignore_global .gitignore_global
 
 # gh/gt wrappers and subernetes live in bin/; zshrc puts that dir on PATH ahead
 # of /opt/homebrew/bin, so no symlinking is needed here.
