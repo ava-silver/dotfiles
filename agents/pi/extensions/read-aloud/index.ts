@@ -6,8 +6,9 @@ import type { KokoroTTS } from "kokoro-js";
 
 const KOKORO_MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const REWRITE_MODEL = { provider: "anthropic", id: "claude-haiku-4-5" };
-const KOKORO_VOICE = "af_sky";
-const DEFAULT_SPEED = 2.0;
+const KOKORO_VOICE = "af_heart";
+const SYNTHESIS_SPEED = 1.1;
+const DEFAULT_PLAYBACK_SPEED = 2.0;
 const MIN_SPEED = 1.0;
 const MAX_SPEED = 2.5;
 const PRESENCE_IDLE_LIMIT_MS = 5 * 60 * 1000;
@@ -170,13 +171,46 @@ type ActiveSpeech = {
 };
 
 export default function readAloudExtension(pi: ExtensionAPI): void {
-	let speed = DEFAULT_SPEED;
+	let playbackSpeed = DEFAULT_PLAYBACK_SPEED;
 	let activeSpeech: ActiveSpeech | undefined;
+	let lastSpokenText: string | undefined;
 	let lastAutoReadEntryId: string | undefined;
 	let autoReadGeneration = 0;
 	let modelPromise: Promise<KokoroTTS> | undefined;
 	const rewriteCache = new Map<string, string>();
 	const speechTasks = new Set<Promise<void>>();
+	const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+	const speechStatuses = new Map<string, string>();
+	let spinnerFrame = 0;
+	let spinnerTimer: ReturnType<typeof setInterval> | undefined;
+
+	function renderSpeechStatuses(ctx: ExtensionContext): void {
+		const frame = spinnerFrames[spinnerFrame];
+		for (const [key, message] of speechStatuses) ctx.ui.setStatus(key, `${frame} ${message}`);
+	}
+
+	function setSpeechStatus(ctx: ExtensionContext, key: string, message: string | undefined): void {
+		if (message === undefined) speechStatuses.delete(key);
+		else speechStatuses.set(key, message);
+		ctx.ui.setStatus(key, message === undefined ? undefined : `${spinnerFrames[spinnerFrame]} ${message}`);
+
+		if (speechStatuses.size > 0 && !spinnerTimer) {
+			spinnerTimer = setInterval(() => {
+				spinnerFrame = (spinnerFrame + 1) % spinnerFrames.length;
+				renderSpeechStatuses(ctx);
+			}, 80);
+		} else if (speechStatuses.size === 0 && spinnerTimer) {
+			clearInterval(spinnerTimer);
+			spinnerTimer = undefined;
+		}
+	}
+
+	function clearSpeechStatuses(ctx: ExtensionContext): void {
+		setSpeechStatus(ctx, "read-aloud-model", undefined);
+		setSpeechStatus(ctx, "read-aloud-rewrite", undefined);
+		setSpeechStatus(ctx, "read-aloud-synthesis", undefined);
+		setSpeechStatus(ctx, "read-aloud-playback", undefined);
+	}
 
 	function stopSpeech(): boolean {
 		if (!activeSpeech) return false;
@@ -184,7 +218,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		activeSpeech = undefined;
 		speech.cancelled = true;
 		speech.abortController.abort();
-		speech.ctx.ui.setStatus("read-aloud", undefined);
+		clearSpeechStatuses(speech.ctx);
 		speech.player?.stdin.end();
 		speech.player?.kill();
 		return true;
@@ -192,7 +226,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 
 	async function loadModel(ctx: ExtensionContext, speech: ActiveSpeech): Promise<KokoroTTS> {
 		if (!modelPromise) {
-			ctx.ui.setStatus("read-aloud", "Loading Kokoro speech model...");
+			setSpeechStatus(ctx, "read-aloud-model", "Loading Kokoro speech model...");
 			modelPromise = import("kokoro-js")
 				.then(({ KokoroTTS }) => KokoroTTS.from_pretrained(KOKORO_MODEL, { dtype: "q8", device: "cpu" }))
 				.catch((error) => {
@@ -203,17 +237,32 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		try {
 			return await modelPromise;
 		} finally {
-			if (activeSpeech === speech) ctx.ui.setStatus("read-aloud", undefined);
+			if (activeSpeech === speech) setSpeechStatus(ctx, "read-aloud-model", undefined);
 		}
 	}
 
 	function startPlayer(speech: ActiveSpeech, sampleRate: number): ChildProcessWithoutNullStreams {
+		// Chaining two smaller tempo changes avoids atempo's sample-skipping path at high speeds.
+		const tempo = Math.sqrt(playbackSpeed);
 		const player = spawn(
 			"ffplay",
-			["-nodisp", "-autoexit", "-loglevel", "error", "-f", "f32le", "-ar", String(sampleRate), "pipe:0"],
+			[
+				"-nodisp",
+				"-autoexit",
+				"-loglevel",
+				"error",
+				"-f",
+				"f32le",
+				"-ar",
+				String(sampleRate),
+				"-af",
+				`atempo=${tempo},atempo=${tempo}`,
+				"pipe:0",
+			],
 			{ stdio: ["pipe", "pipe", "pipe"] },
 		);
 		speech.player = player;
+		setSpeechStatus(speech.ctx, "read-aloud-playback", `Playing at ${playbackSpeed}x...`);
 		let stderr = "";
 		let settled = false;
 		speech.playerClosed = new Promise<void>((resolve) => {
@@ -247,6 +296,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		const cached = rewriteCache.get(text);
 		if (cached) return cached;
 
+		setSpeechStatus(ctx, "read-aloud-rewrite", "Rewriting for speech with Haiku...");
 		try {
 			const model = ctx.modelRegistry.find(REWRITE_MODEL.provider, REWRITE_MODEL.id);
 			if (!model) return text;
@@ -288,6 +338,8 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 			return normalized;
 		} catch {
 			return text;
+		} finally {
+			if (activeSpeech === speech) setSpeechStatus(ctx, "read-aloud-rewrite", undefined);
 		}
 	}
 
@@ -309,6 +361,8 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		try {
 			const [model, spokenText] = await Promise.all([loadModel(ctx, speech), rewriteForSpeech(text, ctx, speech)]);
 			if (speech.cancelled || activeSpeech !== speech) return;
+			lastSpokenText = spokenText;
+			setSpeechStatus(ctx, "read-aloud-synthesis", "Synthesizing speech with Kokoro...");
 
 			const { TextSplitterStream } = await import("kokoro-js");
 			const splitter = new TextSplitterStream();
@@ -316,7 +370,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 			splitter.close();
 
 			let generatedAudio = false;
-			for await (const { audio } of model.stream(splitter, { voice: KOKORO_VOICE, speed })) {
+			for await (const { audio } of model.stream(splitter, { voice: KOKORO_VOICE, speed: SYNTHESIS_SPEED })) {
 				if (speech.cancelled || activeSpeech !== speech) return;
 				generatedAudio = true;
 				if (!speech.player) startPlayer(speech, audio.sampling_rate);
@@ -339,8 +393,10 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 				speech.player.stdin.end();
 				speech.player.kill();
 			}
-			if (activeSpeech === speech) activeSpeech = undefined;
-			if (notify && !speech.cancelled && !speech.playerError) ctx.ui.setStatus("read-aloud", undefined);
+			if (activeSpeech === speech) {
+				activeSpeech = undefined;
+				clearSpeechStatuses(ctx);
+			}
 		}
 	}
 
@@ -359,7 +415,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 			ctx,
 		};
 		activeSpeech = speech;
-		if (notify) ctx.ui.notify(`Rewriting with Haiku, then speaking locally at ${speed}x`, "info");
+		if (notify) ctx.ui.notify(`Rewriting with Haiku, then playing locally at ${playbackSpeed}x`, "info");
 		const task = runSpeech(normalized, ctx, notify, speech);
 		speech.task = task;
 		speechTasks.add(task);
@@ -407,12 +463,23 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		handler: async (_args, ctx) => toggleSpeech(ctx),
 	});
 
+	pi.registerCommand("read-aloud-text", {
+		description: "Show the most recent Haiku spoken rendition",
+		handler: async (_args, ctx) => {
+			if (!lastSpokenText) {
+				ctx.ui.notify("No spoken rendition is available yet", "info");
+				return;
+			}
+			await ctx.ui.editor("Haiku spoken rendition (Esc to close):", lastSpokenText);
+		},
+	});
+
 	pi.registerCommand("speech-rate", {
-		description: `Show or set Kokoro speed (${MIN_SPEED}-${MAX_SPEED}x)`,
+		description: `Show or set playback speed (${MIN_SPEED}-${MAX_SPEED}x)`,
 		handler: async (args, ctx) => {
 			const value = args.trim();
 			if (!value) {
-				ctx.ui.notify(`Speech speed: ${speed}x`, "info");
+				ctx.ui.notify(`Speech playback speed: ${playbackSpeed}x`, "info");
 				return;
 			}
 			const parsed = parseRate(value);
@@ -420,8 +487,8 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 				ctx.ui.notify(`Usage: /speech-rate <${MIN_SPEED}-${MAX_SPEED}>`, "error");
 				return;
 			}
-			speed = parsed;
-			ctx.ui.notify(`Speech speed set to ${speed}x`, "info");
+			playbackSpeed = parsed;
+			ctx.ui.notify(`Speech playback speed set to ${playbackSpeed}x`, "info");
 		},
 	});
 
@@ -442,9 +509,10 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (current.status === "found" && current.entryId === latest.entryId) startSpeech(current.text, ctx, false);
 	});
 
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
 		autoReadGeneration++;
 		stopSpeech();
+		clearSpeechStatuses(ctx);
 		await Promise.allSettled(speechTasks);
 
 		const pendingModel = modelPromise;
