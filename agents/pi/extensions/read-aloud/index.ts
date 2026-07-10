@@ -19,6 +19,8 @@ const AUTO_READ_DISABLED_FILE = join(homedir(), ".pi", "agent", "read-aloud-auto
 const AUTO_READ_POLL_MS = 1_000;
 const REWRITE_PROMPT = `Rewrite the written assistant text as a natural spoken rendition.
 
+Make it tight: lead with the point, use one concrete idea per sentence, and remove filler. Keep only details the listener needs to act or decide. Use active, present-tense language.
+
 Feel free to paraphrase, restructure sentences, use conversational transitions, combine repetitive points, and omit minor details that do not affect the meaning. Optimize for something a person would naturally say aloud rather than a literal reading. Convert file paths, command flags, identifiers, versions, and other written technical notation into short human descriptions instead of reading their exact syntax. For example, "agents/pi/extensions/read-aloud/index.ts" can become "the read aloud index file." The listener can see the original text if exact details are needed. Preserve the core meaning, decisions, and important caveats, but do not invent new claims. Return only the spoken rendition with no preface, labels, Markdown, or commentary.`;
 
 type AssistantContent =
