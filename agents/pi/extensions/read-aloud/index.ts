@@ -184,22 +184,28 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 	let spinnerFrame = 0;
 	let spinnerTimer: ReturnType<typeof setInterval> | undefined;
 
+	function currentSpeechStatus(): { message: string; animated: boolean } | undefined {
+		if (speechStatuses.has("read-aloud-playback")) return { message: "Playing...", animated: false };
+		if (speechStatuses.has("read-aloud-synthesis")) return { message: "Synthesizing speech...", animated: true };
+		if (speechStatuses.size > 0) return { message: "Preparing speech...", animated: true };
+	}
+
 	function renderSpeechStatuses(ctx: ExtensionContext): void {
-		const frame = spinnerFrames[spinnerFrame];
-		for (const [key, message] of speechStatuses) ctx.ui.setStatus(key, `${frame} ${message}`);
+		const status = currentSpeechStatus();
+		ctx.ui.setStatus("read-aloud", status ? `${status.animated ? spinnerFrames[spinnerFrame] + " " : ""}${status.message}` : undefined);
 	}
 
 	function setSpeechStatus(ctx: ExtensionContext, key: string, message: string | undefined): void {
 		if (message === undefined) speechStatuses.delete(key);
 		else speechStatuses.set(key, message);
-		ctx.ui.setStatus(key, message === undefined ? undefined : `${spinnerFrames[spinnerFrame]} ${message}`);
+		renderSpeechStatuses(ctx);
 
-		if (speechStatuses.size > 0 && !spinnerTimer) {
+		if (currentSpeechStatus()?.animated && !spinnerTimer) {
 			spinnerTimer = setInterval(() => {
 				spinnerFrame = (spinnerFrame + 1) % spinnerFrames.length;
 				renderSpeechStatuses(ctx);
 			}, 80);
-		} else if (speechStatuses.size === 0 && spinnerTimer) {
+		} else if (!currentSpeechStatus()?.animated && spinnerTimer) {
 			clearInterval(spinnerTimer);
 			spinnerTimer = undefined;
 		}
