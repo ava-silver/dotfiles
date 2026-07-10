@@ -120,6 +120,8 @@ dd-auth() {
     eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
 }
 
+alias bunup='(cd ~/.bun/install/global && bun update)'
+alias bunupdate=bunup
 
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'

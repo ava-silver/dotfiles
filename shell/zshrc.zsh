@@ -163,3 +163,6 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 eval "$(cdd init)"
 export GITLAB_HOST=gitlab.ddbuild.io
+
+# Trajectory - AI coding agent observability
+export PATH="/Users/ava.silver/.trajectory/bin:$PATH"

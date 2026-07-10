@@ -23,9 +23,13 @@ import { Type } from "typebox";
 type ModelSpec = { provider: string; id: string };
 type Thinking = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
-const PLAN_MODEL: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
+// oxlint-disable-next-line no-unused-vars
+const OPUS: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
+const GPT_SOL: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-sol" };
+const GPT_LUNA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-luna" };
+const PLAN_MODEL: ModelSpec = GPT_SOL;
 const PLAN_THINKING: Thinking = "medium";
-const IMPL_MODEL: ModelSpec = { provider: "openai-codex", id: "gpt-5.5" };
+const IMPL_MODEL: ModelSpec = GPT_LUNA;
 const IMPL_THINKING: Thinking = "low";
 
 // Default fresh (non-implement) sessions to the planning brain.

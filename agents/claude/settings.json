@@ -45,7 +45,8 @@
     "microsoft-docs@claude-plugins-official": true,
     "terraform@claude-plugins-official": true,
     "azure@claude-plugins-official": true,
-    "datadog@claude-plugins-official": false
+    "datadog@claude-plugins-official": false,
+    "trajectory@trajectory": true
   },
   "extraKnownMarketplaces": {
     "datadog-claude-plugins": {
@@ -59,6 +60,12 @@
       "source": {
         "source": "github",
         "repo": "mozilla-ai/cq"
+      }
+    },
+    "trajectory": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/ava.silver/.trajectory/claude-marketplace"
       }
     }
   },
