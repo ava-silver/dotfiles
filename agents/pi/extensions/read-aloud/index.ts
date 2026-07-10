@@ -364,23 +364,16 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 			lastSpokenText = spokenText;
 			setSpeechStatus(ctx, "read-aloud-synthesis", "Synthesizing speech with Kokoro...");
 
-			const { TextSplitterStream } = await import("kokoro-js");
-			const splitter = new TextSplitterStream();
-			splitter.push(spokenText);
-			splitter.close();
+			const audio = await model.generate(spokenText, { voice: KOKORO_VOICE, speed: SYNTHESIS_SPEED });
+			if (speech.cancelled || activeSpeech !== speech) return;
+			if (audio.audio.byteLength === 0) throw new Error("Kokoro produced no audio");
 
-			let generatedAudio = false;
-			for await (const { audio } of model.stream(splitter, { voice: KOKORO_VOICE, speed: SYNTHESIS_SPEED })) {
-				if (speech.cancelled || activeSpeech !== speech) return;
-				generatedAudio = true;
-				if (!speech.player) startPlayer(speech, audio.sampling_rate);
-				const bytes = Buffer.from(audio.audio.buffer, audio.audio.byteOffset, audio.audio.byteLength);
-				await writePcm(speech, bytes);
-			}
-			if (!generatedAudio) throw new Error("Kokoro produced no audio");
+			const player = startPlayer(speech, audio.sampling_rate);
+			const bytes = Buffer.from(audio.audio.buffer, audio.audio.byteOffset, audio.audio.byteLength);
+			await writePcm(speech, bytes);
 			if (speech.cancelled || activeSpeech !== speech) return;
 
-			speech.player?.stdin.end();
+			player.stdin.end();
 			await speech.playerClosed;
 			if (speech.playerError) throw speech.playerError;
 		} catch (error) {
