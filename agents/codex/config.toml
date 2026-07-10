@@ -39,8 +39,8 @@ source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
-last_updated = "2026-07-02T23:05:00Z"
-last_revision = "fa05df53f68814386b49963d24233c2334d9afba"
+last_updated = "2026-07-10T15:22:30Z"
+last_revision = "dc15426a4dc1085eb7fc8f0b6efe7f42962c272e"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 
@@ -117,3 +117,8 @@ global = "zed"
 
 [features]
 js_repl = false
+
+[hooks.state]
+
+[hooks.state."trajectory@trajectory:hooks.json:pre_tool_use:0:0"]
+trusted_hash = "sha256:4069fed45e015e67c0f9845b4a7d8998dea5ea21b3f827813fc113d4cb7754b5"

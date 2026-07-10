@@ -10,5 +10,5 @@
 		"skipLibCheck": true,
 		"allowImportingTsExtensions": true
 	},
-	"include": ["*.ts"]
+	"include": ["*.ts", "read-aloud/*.ts"]
 }

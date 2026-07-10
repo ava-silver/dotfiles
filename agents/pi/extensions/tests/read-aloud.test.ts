@@ -5,7 +5,7 @@ import {
 	parseHidIdleMs,
 	parseRate,
 	parseScreenLocked,
-} from "../read-aloud.ts";
+} from "../read-aloud/index.ts";
 
 describe("extractLatestAssistantText", () => {
 	test("reads the latest completed assistant text in content order", () => {
@@ -115,11 +115,11 @@ describe("presence parsing", () => {
 });
 
 describe("parseRate", () => {
-	test("accepts only whole WPM values in range", () => {
-		expect(parseRate("300")).toBe(300);
-		expect(parseRate(" 450 ")).toBe(450);
-		expect(parseRate("79")).toBeUndefined();
-		expect(parseRate("601")).toBeUndefined();
-		expect(parseRate("1.5")).toBeUndefined();
+	test("accepts speed multipliers in range", () => {
+		expect(parseRate("1.5")).toBe(1.5);
+		expect(parseRate(" 2 ")).toBe(2);
+		expect(parseRate("0.49")).toBeUndefined();
+		expect(parseRate("2.51")).toBeUndefined();
+		expect(parseRate("fast")).toBeUndefined();
 	});
 });

@@ -127,9 +127,15 @@ link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 # pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
-# Extensions dir also holds bun.lock/node_modules/package.json/tsconfig.json for local
-# type-checking -- only the *.ts sources should be linked into pi's extensions dir.
+# The extensions root holds shared type-checking tooling; standalone extension packages
+# are linked explicitly so their runtime dependencies resolve through the package directory.
 config_link_all agents/pi/extensions .pi/agent/extensions "*.ts"
+if command -v bun >/dev/null 2>&1; then
+    (cd "$REPO_DIR/agents/pi/extensions/read-aloud" && bun install --frozen-lockfile)
+else
+    echo "Warning: bun not found; read-aloud dependencies were not installed"
+fi
+link "$REPO_DIR/agents/pi/extensions/read-aloud" "$HOME/.pi/agent/extensions/read-aloud"
 config_link_all agents/pi/themes .pi/agent/themes
 
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
