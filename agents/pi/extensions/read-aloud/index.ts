@@ -179,36 +179,22 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 	let modelPromise: Promise<KokoroTTS> | undefined;
 	const rewriteCache = new Map<string, string>();
 	const speechTasks = new Set<Promise<void>>();
-	const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 	const speechStatuses = new Map<string, string>();
-	let spinnerFrame = 0;
-	let spinnerTimer: ReturnType<typeof setInterval> | undefined;
 
-	function currentSpeechStatus(): { message: string; animated: boolean } | undefined {
-		if (speechStatuses.has("read-aloud-playback")) return { message: "Playing...", animated: false };
-		if (speechStatuses.has("read-aloud-synthesis")) return { message: "Synthesizing speech...", animated: true };
-		if (speechStatuses.size > 0) return { message: "Preparing speech...", animated: true };
+	function currentSpeechStatus(): string | undefined {
+		if (speechStatuses.has("read-aloud-playback")) return "Playing...";
+		if (speechStatuses.has("read-aloud-synthesis")) return "Synthesizing speech...";
+		if (speechStatuses.size > 0) return "Preparing speech...";
 	}
 
 	function renderSpeechStatuses(ctx: ExtensionContext): void {
-		const status = currentSpeechStatus();
-		ctx.ui.setStatus("read-aloud", status ? `${status.animated ? spinnerFrames[spinnerFrame] + " " : ""}${status.message}` : undefined);
+		ctx.ui.setStatus("read-aloud", currentSpeechStatus());
 	}
 
 	function setSpeechStatus(ctx: ExtensionContext, key: string, message: string | undefined): void {
 		if (message === undefined) speechStatuses.delete(key);
 		else speechStatuses.set(key, message);
 		renderSpeechStatuses(ctx);
-
-		if (currentSpeechStatus()?.animated && !spinnerTimer) {
-			spinnerTimer = setInterval(() => {
-				spinnerFrame = (spinnerFrame + 1) % spinnerFrames.length;
-				renderSpeechStatuses(ctx);
-			}, 80);
-		} else if (!currentSpeechStatus()?.animated && spinnerTimer) {
-			clearInterval(spinnerTimer);
-			spinnerTimer = undefined;
-		}
 	}
 
 	function clearSpeechStatuses(ctx: ExtensionContext): void {
