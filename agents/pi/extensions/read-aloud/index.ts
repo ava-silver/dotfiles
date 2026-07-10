@@ -1,4 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { once } from "node:events";
 import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -12,6 +15,8 @@ const DEFAULT_PLAYBACK_SPEED = 2.0;
 const MIN_SPEED = 1.0;
 const MAX_SPEED = 2.5;
 const PRESENCE_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const AUTO_READ_DISABLED_FILE = join(homedir(), ".pi", "agent", "read-aloud-auto-disabled");
+const AUTO_READ_POLL_MS = 1_000;
 const REWRITE_PROMPT = `Rewrite the written assistant text as a natural spoken rendition.
 
 Feel free to paraphrase, restructure sentences, use conversational transitions, combine repetitive points, and omit minor details that do not affect the meaning. Optimize for something a person would naturally say aloud rather than a literal reading. Convert file paths, command flags, identifiers, versions, and other written technical notation into short human descriptions instead of reading their exact syntax. For example, "agents/pi/extensions/read-aloud/index.ts" can become "the read aloud index file." The listener can see the original text if exact details are needed. Preserve the core meaning, decisions, and important caveats, but do not invent new claims. Return only the spoken rendition with no preface, labels, Markdown, or commentary.`;
@@ -161,6 +166,7 @@ export function parseRate(input: string): number | undefined {
 
 type ActiveSpeech = {
 	generation: number;
+	autoRead: boolean;
 	cancelled: boolean;
 	abortController: AbortController;
 	ctx: ExtensionContext;
@@ -177,6 +183,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 	let lastAutoReadEntryId: string | undefined;
 	let autoReadGeneration = 0;
 	let modelPromise: Promise<KokoroTTS> | undefined;
+	let autoReadPoll: ReturnType<typeof setInterval> | undefined;
 	const rewriteCache = new Map<string, string>();
 	const speechTasks = new Set<Promise<void>>();
 	const speechStatuses = new Map<string, string>();
@@ -202,6 +209,21 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		setSpeechStatus(ctx, "read-aloud-rewrite", undefined);
 		setSpeechStatus(ctx, "read-aloud-synthesis", undefined);
 		setSpeechStatus(ctx, "read-aloud-playback", undefined);
+	}
+
+	async function isAutoReadEnabled(): Promise<boolean> {
+		try {
+			await access(AUTO_READ_DISABLED_FILE);
+			return false;
+		} catch {
+			return true;
+		}
+	}
+
+	async function setAutoReadEnabled(enabled: boolean): Promise<void> {
+		await mkdir(join(homedir(), ".pi", "agent"), { recursive: true });
+		if (enabled) await rm(AUTO_READ_DISABLED_FILE, { force: true });
+		else await writeFile(AUTO_READ_DISABLED_FILE, "disabled\n");
 	}
 
 	function stopSpeech(): boolean {
@@ -385,7 +407,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		}
 	}
 
-	function startSpeech(text: string, ctx: ExtensionContext, notify: boolean): void {
+	function startSpeech(text: string, ctx: ExtensionContext, notify: boolean, autoRead = false): void {
 		stopSpeech();
 		const normalized = normalizeForSpeech(text);
 		if (!normalized) {
@@ -395,6 +417,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 
 		const speech: ActiveSpeech = {
 			generation: ++autoReadGeneration,
+			autoRead,
 			cancelled: false,
 			abortController: new AbortController(),
 			ctx,
@@ -448,6 +471,26 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		handler: async (_args, ctx) => toggleSpeech(ctx),
 	});
 
+	pi.registerCommand("auto-read", {
+		description: "Globally toggle automatic read aloud across all Pi sessions",
+		handler: async (args, ctx) => {
+			const action = args.trim().toLowerCase();
+			if (!["", "on", "off", "status"].includes(action)) {
+				ctx.ui.notify("Usage: /auto-read [on|off|status]", "error");
+				return;
+			}
+			const currentlyEnabled = await isAutoReadEnabled();
+			if (action === "status") {
+				ctx.ui.notify(`Auto-read is globally ${currentlyEnabled ? "on" : "off"}`, "info");
+				return;
+			}
+			const enabled = action === "on" || (action === "" && !currentlyEnabled);
+			await setAutoReadEnabled(enabled);
+			if (!enabled && activeSpeech?.autoRead) stopSpeech();
+			ctx.ui.notify(`Auto-read globally ${enabled ? "enabled" : "disabled"}`, "info");
+		},
+	});
+
 	pi.registerCommand("read-aloud-text", {
 		description: "Show the most recent Haiku spoken rendition",
 		handler: async (_args, ctx) => {
@@ -482,8 +525,16 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		handler: async (ctx) => toggleSpeech(ctx),
 	});
 
+	pi.on("session_start", async (_event, ctx) => {
+		autoReadPoll = setInterval(() => {
+			void isAutoReadEnabled().then((enabled) => {
+				if (!enabled && activeSpeech?.autoRead) stopSpeech();
+			});
+		}, AUTO_READ_POLL_MS);
+	});
+
 	pi.on("agent_end", async (_event, ctx) => {
-		if (ctx.mode !== "tui") return;
+		if (ctx.mode !== "tui" || !(await isAutoReadEnabled())) return;
 		const latest = latestText(ctx, false);
 		if (latest.status !== "found" || latest.entryId === lastAutoReadEntryId) return;
 		lastAutoReadEntryId = latest.entryId;
@@ -491,25 +542,26 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (!(await userIsPresent()) || generation !== autoReadGeneration) return;
 
 		const current = latestText(ctx, false);
-		if (current.status === "found" && current.entryId === latest.entryId) startSpeech(current.text, ctx, false);
+		if (
+			(await isAutoReadEnabled()) &&
+			current.status === "found" &&
+			current.entryId === latest.entryId
+		) {
+			startSpeech(current.text, ctx, false, true);
+		}
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
+		if (autoReadPoll) clearInterval(autoReadPoll);
+		autoReadPoll = undefined;
 		autoReadGeneration++;
 		stopSpeech();
 		clearSpeechStatuses(ctx);
 		await Promise.allSettled(speechTasks);
 
-		const pendingModel = modelPromise;
+		// ONNX Runtime 1.21 can abort on macOS when native sessions are disposed during
+		// session teardown. Let process teardown reclaim the model instead.
 		modelPromise = undefined;
-		if (pendingModel) {
-			try {
-				const model = await pendingModel;
-				await model.model.dispose();
-			} catch {
-				// Loading or disposal failure should not block session shutdown.
-			}
-		}
 		rewriteCache.clear();
 	});
 }
