@@ -1,17 +1,14 @@
 {
-  "custom_providers": {
-    "local-backend": {
+  "providers": {
+    "local-mlx": {
+      "baseUrl": "http://localhost:1234/v1",
+      "api": "openai-completions",
       "apiKey": "not-needed",
-      "baseURL": "http://localhost:1234/v1"
+      "models": [
+        {
+          "id": "mlx-community/GLM-4.5-Air-3bit"
+        }
+      ]
     }
-  },
-  "models": [
-    {
-      "id": "glm-4.5-air-local",
-      "name": "GLM 4.5 Air (Local)",
-      "provider": "local-backend",
-      "model": "glm-4.5-air-mlx-3bit",
-      "capabilities": ["tools", "vision"]
-    }
-  ]
+  }
 }
