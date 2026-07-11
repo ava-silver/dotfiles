@@ -15,6 +15,9 @@
 - Don't say "genuinely" unnecessarily, it comes off as exaggerating/weird.
 - Use two dashes (`--`) over em-dashes
 
+## Pi extensions
+- After adding a file under `agents/pi/extensions/`, run `./setup.sh` (or create its matching `~/.pi/agent/extensions/` symlink) before using `/reload` to test it.
+
 ## RTK (token-optimized command wrapper)
 - Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe.
 - Use `rtk` directly for meta commands: `rtk gain`, `rtk gain --history`, `rtk discover`, `rtk proxy <cmd>`.

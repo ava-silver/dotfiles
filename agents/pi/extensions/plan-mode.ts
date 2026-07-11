@@ -12,7 +12,7 @@
 //
 // Model switching is effectively session-specific: session_start re-asserts the
 // right model per phase, so setModel's global persistence doesn't leak between
-// sessions. New sessions default to the PLAN model.
+// sessions. New sessions default to a separate general-purpose model.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,13 +23,17 @@ import { Type } from "typebox";
 type ModelSpec = { provider: string; id: string };
 type Thinking = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
-const PLAN_MODEL: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
+// oxlint-disable-next-line no-unused-vars
+const OPUS: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
+const GPT_SOL: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-sol" };
+const GPT_TERRA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-terra" };
+const GPT_LUNA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-luna" };
+const DEFAULT_MODEL: ModelSpec = GPT_TERRA;
+const DEFAULT_THINKING: Thinking = "low";
+const PLAN_MODEL: ModelSpec = GPT_SOL;
 const PLAN_THINKING: Thinking = "medium";
-const IMPL_MODEL: ModelSpec = { provider: "openai-codex", id: "gpt-5.5" };
+const IMPL_MODEL: ModelSpec = GPT_LUNA;
 const IMPL_THINKING: Thinking = "low";
-
-// Default fresh (non-implement) sessions to the planning brain.
-const DEFAULT_TO_PLAN_MODEL = true;
 
 const IMPLEMENT_MARKER = "plan-mode-implement";
 const FILE_MARKER = "plan-mode-file";
@@ -233,8 +237,8 @@ Implement it. Only ask if something is ambiguous or blocked.`;
 			if (data.planPhase) planPhase = true;
 		}
 
-		if (DEFAULT_TO_PLAN_MODEL && (event.reason === "startup" || event.reason === "new")) {
-			await applyModel(ctx, PLAN_MODEL, PLAN_THINKING);
+		if (event.reason === "startup" || event.reason === "new") {
+			await applyModel(ctx, DEFAULT_MODEL, DEFAULT_THINKING);
 		}
 	});
 }

@@ -52,7 +52,7 @@ dm = "!git d $(git main)"
 dmn = "!git dn $(git main)"
 dh = d HEAD
 dhn = dh --name-only
-cf = !sh -c \"git diff --name-only | uniq | xargs code\"
+cf = !sh -c \"git diff --name-only | uniq | xargs zed\"
 lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
 l = lg -n
 standies = standup
