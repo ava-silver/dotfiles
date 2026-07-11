@@ -83,7 +83,6 @@ pi_plugins=(
     pi-web-access
     pi-subagents
     pi-mcp-adapter
-    pi-auto-rename
 )
 installed_pi="$(pi list 2>/dev/null || true)"
 for plugin in "${pi_plugins[@]}"; do

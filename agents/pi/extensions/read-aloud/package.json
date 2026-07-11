@@ -1,9 +1,0 @@
-{
-	"name": "pi-read-aloud",
-	"private": true,
-	"type": "module",
-	"dependencies": {
-		"kokoro-js": "1.2.1"
-	},
-	"trustedDependencies": ["onnxruntime-node"]
-}
