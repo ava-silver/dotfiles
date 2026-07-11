@@ -121,8 +121,7 @@ link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
 config_link_all agents/cursor .cursor
 
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
-link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
-link "$REPO_DIR/agents/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
+config_link_all agents/pi .pi/agent "*.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 # pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
@@ -157,7 +156,6 @@ skills_paths=(
     "ava-silver/skills"
     "mattpocock/skills/tree/main/skills/engineering/code-review"
     "harehare/mq/tree/main/skills"
-    "DataDog/claude-marketplace/tree/main/serverless/skills"
 )
 for skill in "${skills_paths[@]}"; do
     bunx skills add "https://github.com/$skill" -g -a universal claude-code -y > /dev/null

@@ -1,0 +1,17 @@
+{
+  "custom_providers": {
+    "local-backend": {
+      "apiKey": "not-needed",
+      "baseURL": "http://localhost:1234/v1"
+    }
+  },
+  "models": [
+    {
+      "id": "glm-4.5-air-local",
+      "name": "GLM 4.5 Air (Local)",
+      "provider": "local-backend",
+      "model": "glm-4.5-air-mlx-3bit",
+      "capabilities": ["tools", "vision"]
+    }
+  ]
+}
