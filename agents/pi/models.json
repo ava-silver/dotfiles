@@ -1,12 +1,12 @@
 {
   "providers": {
-    "local-mlx": {
-      "baseUrl": "http://localhost:1234/v1",
+    "llama-cpp": {
+      "baseUrl": "http://localhost:8080/v1",
       "api": "openai-completions",
-      "apiKey": "not-needed",
+      "apiKey": "none",
       "models": [
         {
-          "id": "mlx-community/GLM-4.5-Air-3bit"
+          "id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:UD-Q4_K_XL"
         }
       ]
     }

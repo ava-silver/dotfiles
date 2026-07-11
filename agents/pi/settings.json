@@ -15,5 +15,5 @@
     "npm:pi-prompt-template-model"
   ],
   "defaultProvider": "local-mlx",
-  "defaultModel": "mlx-community/GLM-4.5-Air-3bit"
+  "defaultModel": "Qwen3-Coder-30B-Instruct-4bit"
 }

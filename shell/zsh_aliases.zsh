@@ -133,6 +133,7 @@ alias cc='claude --model "sonnet[1m]"'
 alias cco='claude --model "opus[1m]"'
 alias cx=codex
 alias cu=cursor-agent
+alias llm='llama serve -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M'
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch

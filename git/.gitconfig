@@ -10,9 +10,8 @@ pager = delta
 # See romkatv/gitstatus#474, romkatv/powerlevel10k#2473, libgit2/libgit2#6531
 fsmonitor = false
 untrackedCache = false
-excludesfile = /Users/ava.silver/.gitignore_global
-attributesFile = /Users/ava.silver/.gitattributes
-hooksPath = /usr/local/dd/global_hooks
+excludesfile = /Users/ava/.gitignore_global
+attributesFile = /Users/ava/.gitattributes
 [diff]
 external = difft
 [merge]
@@ -78,8 +77,6 @@ required = true
 defaultBranch = main
 [push]
 autoSetupRemote = true
-[commit]
-gpgsign = true
 [rerere]
 enabled = true
 autoupdate = true

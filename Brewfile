@@ -22,6 +22,7 @@ brew "oven-sh/bun/bun"
 brew "node"
 brew "mq"
 brew "rtk"
+brew "llama.cpp"
 
 # Apps
 cask "linearmouse"
