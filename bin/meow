@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Print the cat with speech bubble from the custom-header extension
+cat << 'EOF'
+        ╭───  ／l、    
+╭───────┴─╮ （ﾟ､ ｡７   
+│ meow :3 │   l  ~ヽ   
+╰─────────╯   じしf_,)ノ
+EOF
