@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { KokoroTTS } from "kokoro-js";
+import { TextSplitterStream, type KokoroTTS } from "kokoro-js";
 
 const KOKORO_MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const REWRITE_MODEL = { provider: "anthropic", id: "claude-haiku-4-5" };
 const KOKORO_VOICE = "af_heart";
 const SYNTHESIS_SPEED = 1.1;
-const DEFAULT_PLAYBACK_SPEED = 2.0;
+const DEFAULT_PLAYBACK_SPEED = 1.7;
 const MIN_SPEED = 1.0;
 const MAX_SPEED = 2.5;
 const PRESENCE_IDLE_LIMIT_MS = 5 * 60 * 1000;
@@ -380,15 +380,27 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 			lastSpokenText = spokenText;
 			setSpeechStatus(ctx, "read-aloud-synthesis", "Synthesizing speech with Kokoro...");
 
-			const audio = await model.generate(spokenText, { voice: KOKORO_VOICE, speed: SYNTHESIS_SPEED });
+			const splitter = new TextSplitterStream();
+			splitter.push(spokenText);
+			splitter.close();
+			const chunks: Buffer[] = [];
+			let sampleRate: number | undefined;
+			for await (const { audio } of model.stream(splitter, {
+				voice: KOKORO_VOICE,
+				speed: SYNTHESIS_SPEED,
+			})) {
+				if (speech.cancelled || activeSpeech !== speech) return;
+				if (audio.audio.byteLength === 0) throw new Error("Kokoro produced no audio");
+				sampleRate ??= audio.sampling_rate;
+				if (audio.sampling_rate !== sampleRate) throw new Error("Kokoro changed the audio sample rate");
+				chunks.push(Buffer.from(audio.audio.buffer, audio.audio.byteOffset, audio.audio.byteLength));
+			}
+			if (!sampleRate || chunks.length === 0) throw new Error("Kokoro produced no audio");
 			if (speech.cancelled || activeSpeech !== speech) return;
-			if (audio.audio.byteLength === 0) throw new Error("Kokoro produced no audio");
 
-			const player = startPlayer(speech, audio.sampling_rate);
-			const bytes = Buffer.from(audio.audio.buffer, audio.audio.byteOffset, audio.audio.byteLength);
-			await writePcm(speech, bytes);
+			const player = startPlayer(speech, sampleRate);
+			await writePcm(speech, Buffer.concat(chunks));
 			if (speech.cancelled || activeSpeech !== speech) return;
-
 			player.stdin.end();
 			await speech.playerClosed;
 			if (speech.playerError) throw speech.playerError;
