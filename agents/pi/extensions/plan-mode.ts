@@ -14,6 +14,8 @@
 // right model per phase, so setModel's global persistence doesn't leak between
 // sessions. New sessions default to a separate general-purpose model.
 
+// oxlint-disable no-unused-vars
+
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,7 +25,6 @@ import { Type } from "typebox";
 type ModelSpec = { provider: string; id: string };
 type Thinking = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
-// oxlint-disable-next-line no-unused-vars
 const OPUS: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
 const GPT_SOL: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-sol" };
 const GPT_TERRA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-terra" };
@@ -32,7 +33,7 @@ const DEFAULT_MODEL: ModelSpec = GPT_TERRA;
 const DEFAULT_THINKING: Thinking = "low";
 const PLAN_MODEL: ModelSpec = GPT_SOL;
 const PLAN_THINKING: Thinking = "medium";
-const IMPL_MODEL: ModelSpec = GPT_LUNA;
+const IMPL_MODEL: ModelSpec = GPT_TERRA;
 const IMPL_THINKING: Thinking = "low";
 
 const IMPLEMENT_MARKER = "plan-mode-implement";

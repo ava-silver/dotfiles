@@ -42,21 +42,8 @@ if ! brew bundle check --file="$REPO_DIR/Brewfile" >/dev/null 2>&1; then
     brew bundle --file="$REPO_DIR/Brewfile"
 fi
 
-# pi
+# pi -- plugins are declared in agents/pi/settings.json.
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
-pi_plugins=(
-    pi-btw
-    pi-web-access
-    pi-subagents
-    pi-mcp-adapter
-    pi-auto-rename
-)
-installed_pi="$(pi list 2>/dev/null || true)"
-for plugin in "${pi_plugins[@]}"; do
-    if ! grep -qF "npm:$plugin" <<<"$installed_pi"; then
-        pi install "npm:$plugin"
-    fi
-done
 
 
 # dock/appswitcher config
@@ -137,6 +124,7 @@ else
 fi
 link "$REPO_DIR/agents/pi/extensions/read-aloud" "$HOME/.pi/agent/extensions/read-aloud"
 config_link_all agents/pi/themes .pi/agent/themes
+config_link_all agents/pi/prompts .pi/agent/prompts "*.md"
 
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
 link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
