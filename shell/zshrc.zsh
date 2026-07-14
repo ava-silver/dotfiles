@@ -92,7 +92,7 @@ plugins=(
 )
 
 fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
-autoload -U compinit && compinit
+# oh-my-zsh initializes compinit after registering all plugin completion paths.
 source "$HOME/.oh-my-zsh/oh-my-zsh.sh"
 
 # User configuration
@@ -129,9 +129,24 @@ export PATH="$PATH:$HOME/.local/bin"
 
 export EDITOR="zed --wait"
 
-[[ $commands[kubectl] ]] && source <(kubectl completion zsh)
+# Generate command completions only when they are first requested.
+if (( $+commands[kubectl] )); then
+  _load_kubectl_completion() {
+    unfunction _load_kubectl_completion
+    source <(command kubectl completion zsh)
+    _kubectl "$@"
+  }
+  compdef _load_kubectl_completion kubectl
+fi
 
-[[ $commands[gt] ]] && source <(gt completion)
+if (( $+commands[gt] )); then
+  _load_gt_completion() {
+    unfunction _load_gt_completion
+    source <(command gt completion)
+    _gt_yargs_completions "$@"
+  }
+  compdef _load_gt_completion gt
+fi
 
 
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
