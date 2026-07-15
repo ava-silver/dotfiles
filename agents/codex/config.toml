@@ -31,7 +31,7 @@ status_line = [
 status_line_use_colors = true
 
 [marketplaces.openai-bundled]
-last_updated = "2026-07-13T14:42:26Z"
+last_updated = "2026-07-14T21:02:41Z"
 source_type = "local"
 source = "/Users/ava.silver/.codex/.tmp/bundled-marketplaces/openai-bundled"
 
@@ -41,8 +41,8 @@ source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
-last_updated = "2026-07-13T14:41:33Z"
-last_revision = "df12a4a0a2aa51ea34130abb09d1e964ca6c075e"
+last_updated = "2026-07-15T03:07:29Z"
+last_revision = "9d3c20b0acd3da924f66115739fb4ab1dd2878c2"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 
