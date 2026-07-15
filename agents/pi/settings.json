@@ -9,7 +9,6 @@
   "packages": [
     "npm:pi-btw",
     "npm:pi-web-access",
-    "npm:pi-subagents",
     "npm:pi-mcp-adapter",
     "npm:pi-auto-rename",
     "npm:pi-intercom",
