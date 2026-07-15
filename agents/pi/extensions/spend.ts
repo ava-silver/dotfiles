@@ -1,10 +1,9 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendFile, mkdir, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
-const STATUS_KEY = "spend";
 const CACHE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "pi");
 const LEDGER_FILE = join(CACHE_DIR, "spend-v1.jsonl");
 const SESSIONS_DIR = join(homedir(), ".pi", "agent", "sessions");
@@ -149,11 +148,6 @@ export default function spendExtension(pi: ExtensionAPI): void {
 		await save(parsed.flatMap((result) => result?.records || []));
 	}
 
-	function render(ctx: ExtensionContext): void {
-		const total = [...records.values()].reduce((sum, record) => sum + record.cost, 0);
-		ctx.ui.setStatus(STATUS_KEY, ctx.ui.theme.fg("dim", `󰄬 ${formatCost(total)}`));
-	}
-
 	pi.on("session_start", async (_event, ctx) => {
 		await loadLedger();
 		const file = ctx.sessionManager.getSessionFile();
@@ -161,7 +155,6 @@ export default function spendExtension(pi: ExtensionAPI): void {
 			const parsed = await parseSession(file);
 			if (parsed) await save(parsed.records);
 		}
-		render(ctx);
 	});
 
 	pi.on("message_end", async (event, ctx) => {
@@ -177,17 +170,13 @@ export default function spendExtension(pi: ExtensionAPI): void {
 			const record = asRecord(entry, { path: ctx.sessionManager.getSessionFile() || "", id: header.id, cwd: header.cwd });
 			if (record) await save([record]);
 		}
-		render(ctx);
 	});
-
-	pi.on("session_shutdown", (_event, ctx) => ctx.ui.setStatus(STATUS_KEY, undefined));
 
 	pi.registerCommand("spend", {
 		description: "Show total Pi spend, broken down by model and session",
 		handler: async (args, ctx) => {
 			await loadLedger();
 			if (args.trim() === "import") await importSessions();
-			render(ctx);
 			const report = summary(records.values());
 			if (ctx.hasUI) await ctx.ui.editor("Pi spend", report);
 			else console.log(report);
