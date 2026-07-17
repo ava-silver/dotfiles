@@ -2,7 +2,7 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
-  "lastChangelogVersion": "0.80.7",
+  "lastChangelogVersion": "0.80.10",
   "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "low",
   "quietStartup": true,
@@ -15,5 +15,5 @@
     "npm:pi-prompt-template-model"
   ],
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-terra"
+  "defaultModel": "gpt-5.6-sol"
 }
