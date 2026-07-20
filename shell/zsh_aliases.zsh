@@ -43,7 +43,7 @@ alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
 alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
 alias xclip="pbcopy"
 
-alias brewi="brew update && brew install"
+alias brewi="brew update && brew install -y"
 alias brewr="brew uninstall"
 alias brewu="brew update && brew upgrade -y"
 
