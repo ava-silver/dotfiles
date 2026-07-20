@@ -1,3 +1,4 @@
 {
-  "app.session.rename": "ctrl+alt+r"
+  "app.session.rename": "ctrl+alt+r",
+  "app.session.toggleNamedFilter": "f7"
 }

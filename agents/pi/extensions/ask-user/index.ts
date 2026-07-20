@@ -143,6 +143,8 @@ export default function askUser(pi: ExtensionAPI) {
         { label: "Write my own answer…", isOther: true },
       ];
 
+      process.stdout.write("\x07");
+
       const showQuestion = (uiSignal: AbortSignal) =>
         ctx.ui.custom<SelectionResult>((tui, theme, _kb, done) => {
           let optionIndex = 0;

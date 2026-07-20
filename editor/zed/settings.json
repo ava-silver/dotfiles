@@ -20,6 +20,7 @@
     "dock": "right",
   },
   "agent": {
+    "notify_when_agent_waiting": "all_screens",
     "thinking_display": "always_collapsed",
     "button": true,
     "dock": "right",
