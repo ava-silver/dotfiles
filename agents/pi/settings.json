@@ -4,7 +4,7 @@
   },
   "lastChangelogVersion": "0.80.10",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "low",
+  "defaultThinkingLevel": "high",
   "quietStartup": true,
   "packages": [
     "npm:pi-btw",

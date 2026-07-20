@@ -24,9 +24,8 @@ and caches tokens in `~/.mcp-auth` (per server URL).
 | `slack` | Datadog Slack: read/search channels + threads, post messages |
 
 Staging and prod are separate entries with independent OAuth sessions -- log in
-to each org once. `slack` runs a local stdio proxy
-(`~/.claude/skills/slack-mcp/scripts/slack-mcp-proxy.py`) backed by a macOS
-keychain token, so no OAuth round-trip happens at call time.
+to each org once. `slack` runs a local stdio proxy backed by a macOS keychain token, so no OAuth
+round-trip happens at call time.
 
 ## Workflow
 
@@ -76,5 +75,7 @@ retry.
   in `~/.config/mcp/mcp.json` to change them.
 - For Jira/Confluence specifics (cloud ID, SVLS ticket fields), also load the
   `atlassian` skill.
-- If Slack calls return a 401 the proxy auto-refreshes; if that fails, re-run
-  `python3 ~/.claude/skills/slack-mcp/scripts/slack-mcp-auth.py`.
+- If Slack calls report authentication is required, call the `slack_auth` tool.
+  It asks for confirmation, opens Slack in the user's browser, and returns when
+  authorization completes. `/slack-auth` is the manual fallback.
+- The proxy auto-refreshes tokens on 401.

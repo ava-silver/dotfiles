@@ -13,8 +13,8 @@
       "auth": "oauth"
     },
     "slack": {
-      "command": "python3",
-      "args": ["/Users/ava.silver/.claude/skills/slack-mcp/scripts/slack-mcp-proxy.py"]
+      "command": "bun",
+      "args": ["/Users/ava.silver/.pi/agent/extensions/slack-mcp/proxy.ts"]
     }
   }
 }

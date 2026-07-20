@@ -129,6 +129,7 @@ link "$REPO_DIR/agents/pi/extensions/read-aloud" "$HOME/.pi/agent/extensions/rea
 link "$REPO_DIR/agents/pi/extensions/subagents" "$HOME/.pi/agent/extensions/subagents"
 link "$REPO_DIR/agents/pi/extensions/ask-user" "$HOME/.pi/agent/extensions/ask-user"
 link "$REPO_DIR/agents/pi/extensions/workflows" "$HOME/.pi/agent/extensions/workflows"
+link "$REPO_DIR/agents/pi/extensions/slack-mcp" "$HOME/.pi/agent/extensions/slack-mcp"
 link "$REPO_DIR/agents/pi/extensions/shared" "$HOME/.pi/agent/extensions/shared"
 config_link_all agents/pi/themes .pi/agent/themes
 config_link_all agents/pi/prompts .pi/agent/prompts "*.md"
