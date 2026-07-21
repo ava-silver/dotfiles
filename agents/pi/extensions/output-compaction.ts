@@ -1,106 +1,97 @@
-// taken from https://github.com/kaushikgopal/pi-kaush/blob/main/extensions/pi-tool-call-markers/src/index.ts
+import { readFileSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-  AssistantMessageComponent,
-  ToolExecutionComponent,
-} from "@earendil-works/pi-coding-agent";
-import {
-  Box,
-  Container,
-  sliceByColumn,
-  truncateToWidth,
-  visibleWidth,
-  wrapTextWithAnsi,
-} from "@earendil-works/pi-tui";
 
-const PRESENTATION_PATCHED = Symbol.for("kg.pi.toolPresentation.v3");
-const LEGACY_PRESENTATION_PATCHED = Symbol.for("kg.pi.toolPresentation.v2");
-const GROUPING_PATCHED = Symbol.for("kg.pi.toolGrouping.v1");
-const THINKING_GROUPING_PATCHED = Symbol.for("kg.pi.thinkingGrouping.v1");
+const TOOL_PATCH = Symbol.for("ava.pi.outputCompaction.tool.v1");
+const CONTAINER_PATCH = Symbol.for("ava.pi.outputCompaction.container.v1");
 const ANSI_RE = /\u001b\[[0-9;]*m/g;
-const BOLD_ON_RE = /\u001b\[1m/g;
 
-type ThemeLike = {
+interface ThemeLike {
   bold(text: string): string;
   fg(color: string, text: string): string;
   bg(color: string, text: string): string;
-};
+}
 
-type ComponentLike = {
+interface ComponentLike {
   render(width: number): string[];
   invalidate(): void;
-};
+}
 
-type ComponentContainer = ComponentLike & {
+interface ContainerLike extends ComponentLike {
   children?: unknown[];
-  removeChild?(component: unknown): void;
-};
+  addChild?(component: ComponentLike): void;
+}
 
-type TextComponent = {
-  text?: string;
-  setText?(text: string): void;
-};
-
-type ToolExecutionRow = {
+interface ToolRow extends ContainerLike {
   toolName?: string;
   args?: unknown;
   expanded?: boolean;
   isPartial?: boolean;
   result?: { isError?: boolean };
-  contentBox?: ComponentContainer;
-  contentText?: TextComponent;
-  selfRenderContainer?: ComponentContainer;
   callRendererComponent?: ComponentLike;
-  imageComponents?: unknown[];
-  imageSpacers?: unknown[];
-  hasRendererDefinition?(): boolean;
-  getRenderShell?(): "default" | "self";
-  getTextOutput?(): string;
-  removeChild?(component: unknown): void;
+  contentBox?: ContainerLike;
+}
+
+type Constructor<T> = {
+  new (...args: any[]): T;
+  prototype: T;
 };
 
-type PresentationPatchState = {
+type Runtime = {
+  ToolExecutionComponent: Constructor<ToolRow>;
+  Container: Constructor<ContainerLike>;
+  Box: new (
+    paddingX?: number,
+    paddingY?: number,
+    bgFn?: (text: string) => string,
+  ) => ContainerLike;
+  sliceByColumn(
+    text: string,
+    start: number,
+    length: number,
+    strict?: boolean,
+  ): string;
+  truncateToWidth(
+    text: string,
+    width: number,
+    ellipsis?: string,
+    pad?: boolean,
+  ): string;
+  visibleWidth(text: string): number;
+  wrapTextWithAnsi(text: string, width: number): string[];
+};
+
+type RenderCache = {
+  lines: string[];
+  members: ToolRow[];
+  versions: number[];
+  themeSample: string;
+  width: number;
+};
+
+type ToolPatchState = {
+  runtime: Runtime;
   theme?: ThemeLike;
-  groupCache: WeakMap<ToolExecutionRow, GroupRenderCache>;
-  rowVersions: WeakMap<ToolExecutionRow, number>;
+  versions: WeakMap<ToolRow, number>;
+  cache: WeakMap<ToolRow, RenderCache>;
   originalRender: (width: number) => string[];
   originalUpdateDisplay: () => void;
   patchedRender?: (width: number) => string[];
   patchedUpdateDisplay?: () => void;
 };
 
-type GroupingPatchState = {
-  presentation: PresentationPatchState;
+type ContainerPatchState = {
+  toolPatch: ToolPatchState;
   originalRender: (width: number) => string[];
   patchedRender?: (width: number) => string[];
 };
 
-type GroupRenderCache = {
-  lines: string[];
-  members: ToolExecutionRow[];
-  memberVersions: number[];
-  themeSample: string;
-  width: number;
-};
-
-type AssistantMessageLike = {
-  content?: unknown[];
-};
-
-type AssistantMessageRow = {
-  updateContent(message: AssistantMessageLike): void;
-};
-
-type ThinkingGroupingPatchState = {
-  originalUpdateContent: (message: AssistantMessageLike) => void;
-  patchedUpdateContent?: (message: AssistantMessageLike) => void;
-};
-
-type ThinkingContentLike = {
-  type: "thinking";
-  thinking: string;
-  [key: string]: unknown;
+type CallSummary = {
+  label: string;
+  summary: string;
 };
 
 function stripAnsi(text: string): string {
@@ -111,100 +102,187 @@ function hasVisibleContent(line: string): boolean {
   return stripAnsi(line).trim().length > 0;
 }
 
-function boldLeadingToolToken(
-  line: string,
-  token: string,
+function compactArgs(args: unknown, runtime: Runtime): string {
+  if (args === undefined || args === null) return "";
+  try {
+    const text = JSON.stringify(args);
+    if (!text || text === "{}") return "";
+    return runtime.truncateToWidth(text, 240, "…", false);
+  } catch {
+    return runtime.truncateToWidth(String(args), 240, "…", false);
+  }
+}
+
+function trimRenderedLine(text: string, runtime: Runtime): string {
+  const plain = stripAnsi(text);
+  const leading = plain.match(/^\s*/)?.[0] ?? "";
+  const trimmed = plain.trim();
+  if (!trimmed) return "";
+  return runtime
+    .sliceByColumn(
+      text,
+      runtime.visibleWidth(leading),
+      runtime.visibleWidth(trimmed),
+    )
+    .trimEnd();
+}
+
+function removeExpandHint(text: string, runtime: Runtime): string {
+  const plain = stripAnsi(text).trimEnd();
+  const match = plain.match(/\s+\([^)]*to expand\)$/i);
+  if (match?.index === undefined) return text.trimEnd();
+  return runtime
+    .sliceByColumn(text, 0, runtime.visibleWidth(plain.slice(0, match.index)))
+    .trimEnd();
+}
+
+function renderedCallSummary(
+  row: ToolRow,
+  width: number,
+  runtime: Runtime,
   theme: ThemeLike,
-): string {
-  const visible = stripAnsi(line);
-  const prefix = visible.match(/^\s*/)?.[0] ?? "";
-  if (!visible.startsWith(token, prefix.length)) return line;
+): CallSummary {
+  let component = row.callRendererComponent;
+  if (!component && Array.isArray(row.contentBox?.children)) {
+    component = row.contentBox.children[0] as ComponentLike | undefined;
+  }
 
-  const start = visibleWidth(prefix);
-  const tokenWidth = visibleWidth(token);
-  const before = sliceByColumn(line, 0, start);
-  const styledToken = sliceByColumn(line, start, tokenWidth);
-  const after = sliceByColumn(
-    line,
-    start + tokenWidth,
-    visibleWidth(line),
-  ).replace(BOLD_ON_RE, "");
-  return before + theme.bold(styledToken) + "\x1b[22m" + after;
+  if (component?.render) {
+    const visibleLines = component
+      .render(Math.max(1, width))
+      .filter(hasVisibleContent);
+    const first = visibleLines[0]
+      ? trimRenderedLine(visibleLines[0], runtime)
+      : "";
+    const plain = stripAnsi(first);
+    const heading = /^(\S+)(\s*)/.exec(plain);
+    const expected = row.toolName === "bash" ? "$" : row.toolName;
+    const knownHeading =
+      heading?.[1] === expected ||
+      (row.toolName === "read" && heading?.[1] === "[skill]");
+
+    if (heading && knownHeading) {
+      const start = runtime.visibleWidth(
+        (heading[1] ?? "") + (heading[2] ?? ""),
+      );
+      const firstSummary = removeExpandHint(
+        runtime.sliceByColumn(
+          first,
+          start,
+          Math.max(0, runtime.visibleWidth(first) - start),
+        ),
+        runtime,
+      );
+      const continuations = visibleLines
+        .slice(1, 3)
+        .map((line) => trimRenderedLine(line, runtime))
+        .filter(hasVisibleContent);
+      if (visibleLines.length > 3) continuations.push(theme.fg("muted", "…"));
+      const summary = [firstSummary, ...continuations]
+        .filter(hasVisibleContent)
+        .join(theme.fg("muted", " · "));
+      return {
+        label: heading[1] ?? expected ?? "tool",
+        summary: runtime.truncateToWidth(summary, 400, "…", false),
+      };
+    }
+  }
+
+  return {
+    label: row.toolName === "bash" ? "$" : (row.toolName ?? "tool"),
+    summary: compactArgs(row.args, runtime),
+  };
 }
 
-function decorateHeader(
-  row: ToolExecutionRow,
-  lines: string[],
-  _width: number,
-  theme?: ThemeLike,
+function wrappedCallLines(
+  call: CallSummary,
+  width: number,
+  runtime: Runtime,
+  theme: ThemeLike,
 ): string[] {
-  const lineIndex = lines.findIndex(hasVisibleContent);
-  if (lineIndex === -1) return lines;
+  const label = theme.fg("toolTitle", theme.bold(call.label));
+  if (!call.summary) {
+    return [runtime.truncateToWidth(label, width, "", false)];
+  }
 
-  const next = [...lines];
-  let header = next[lineIndex];
-  if (header === undefined) return lines;
-  const token = row.toolName === "bash" ? "$" : row.toolName;
-  if (theme && token) header = boldLeadingToolToken(header, token, theme);
-  next[lineIndex] = header;
-  return next;
+  const prefix = `${label} `;
+  const indent = runtime.visibleWidth(prefix);
+  if (width <= indent) {
+    return [runtime.truncateToWidth(prefix, width, "", false)];
+  }
+
+  return runtime
+    .wrapTextWithAnsi(call.summary, width - indent)
+    .map((line, index) =>
+      runtime.truncateToWidth(
+        (index === 0 ? prefix : " ".repeat(indent)) + line,
+        width,
+        "",
+        false,
+      ),
+    );
 }
 
-function removeResultComponent(container?: ComponentContainer): boolean {
+function sameMembers(left: ToolRow[], right: ToolRow[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((member, index) => member === right[index])
+  );
+}
+
+function renderCompactBlock(
+  rows: ToolRow[],
+  width: number,
+  state: ToolPatchState,
+): string[] {
+  const theme = state.theme;
+  if (!theme) return state.originalRender.call(rows[0], width);
+
+  const themeSample =
+    theme.fg("toolTitle", "x") +
+    theme.fg("muted", "x") +
+    theme.bg("toolSuccessBg", "x");
+  const versions = rows.map((row) => state.versions.get(row) ?? 0);
+  const cached = state.cache.get(rows[0]);
   if (
-    !container ||
-    !Array.isArray(container.children) ||
-    typeof container.removeChild !== "function"
-  )
-    return false;
-  for (const child of container.children.slice(1)) container.removeChild(child);
-  return true;
+    cached &&
+    cached.width === width &&
+    cached.themeSample === themeSample &&
+    sameMembers(cached.members, rows) &&
+    cached.versions.every((version, index) => version === versions[index])
+  ) {
+    return cached.lines;
+  }
+
+  const content: ComponentLike = {
+    render(innerWidth: number): string[] {
+      return rows.flatMap((row) =>
+        wrappedCallLines(
+          renderedCallSummary(row, innerWidth, state.runtime, theme),
+          innerWidth,
+          state.runtime,
+          theme,
+        ),
+      );
+    },
+    invalidate() {},
+  };
+  const box = new state.runtime.Box(1, 1, (text) =>
+    theme.bg("toolSuccessBg", text),
+  );
+  box.addChild?.(content);
+  const lines = ["", ...box.render(width)];
+  state.cache.set(rows[0], {
+    lines,
+    members: [...rows],
+    versions,
+    themeSample,
+    width,
+  });
+  return lines;
 }
 
-function collapseGenericResult(row: ToolExecutionRow): boolean {
-  const text = row.contentText?.text;
-  if (
-    typeof text !== "string" ||
-    typeof row.contentText?.setText !== "function"
-  )
-    return false;
-
-  const output = row.getTextOutput?.();
-  if (!output) return true;
-  const suffix = `\n${output}`;
-  if (!text.endsWith(suffix)) return false;
-  row.contentText.setText(text.slice(0, -suffix.length));
-  return true;
-}
-
-function hideResultImages(row: ToolExecutionRow): void {
-  if (typeof row.removeChild !== "function") return;
-  for (const image of row.imageComponents ?? []) row.removeChild(image);
-  for (const spacer of row.imageSpacers ?? []) row.removeChild(spacer);
-  row.imageComponents = [];
-  row.imageSpacers = [];
-}
-
-function collapseSuccessfulResult(row: ToolExecutionRow): void {
-  if (row.expanded !== false || !row.result || row.result.isError) return;
-
-  const collapsed = row.hasRendererDefinition?.()
-    ? removeResultComponent(
-        row.getRenderShell?.() === "self"
-          ? row.selfRenderContainer
-          : row.contentBox,
-      )
-    : collapseGenericResult(row);
-  if (collapsed) hideResultImages(row);
-}
-
-function isToolExecutionRow(
-  component: unknown,
-): component is ToolExecutionRow & ComponentLike {
-  return component instanceof ToolExecutionComponent;
-}
-
-function isCollapsibleSuccess(row: ToolExecutionRow): boolean {
+function isSettledSuccess(row: ToolRow): boolean {
   return (
     row.expanded === false &&
     row.isPartial === false &&
@@ -213,574 +291,180 @@ function isCollapsibleSuccess(row: ToolExecutionRow): boolean {
   );
 }
 
-function renderComponent(component: unknown, width: number): string[] {
-  if (!component || typeof (component as ComponentLike).render !== "function")
-    return [];
-  return (component as ComponentLike).render(width);
-}
-
-function isThinkingContent(content: unknown): content is ThinkingContentLike {
-  return (
-    !!content &&
-    typeof content === "object" &&
-    (content as { type?: unknown }).type === "thinking" &&
-    typeof (content as { thinking?: unknown }).thinking === "string"
-  );
-}
-
-function combineAdjacentThinking(
-  message: AssistantMessageLike,
-): AssistantMessageLike {
-  if (!Array.isArray(message.content)) return message;
-
-  // Merge a display-only copy; the original provider blocks and their signatures stay untouched.
-  let changed = false;
-  const content: unknown[] = [];
-  for (const block of message.content) {
-    const previous = content.at(-1);
-    if (isThinkingContent(previous) && isThinkingContent(block)) {
-      content[content.length - 1] = {
-        ...previous,
-        thinking: `${previous.thinking.trim()}\n\n${block.thinking.trim()}`,
-      };
-      changed = true;
-      continue;
-    }
-    content.push(block);
-  }
-
-  return changed ? { ...message, content } : message;
-}
-
-function compactArgs(args: unknown): string {
-  if (args === undefined || args === null) return "";
-  try {
-    const text = JSON.stringify(args);
-    return text === "{}" ? "" : text;
-  } catch {
-    return String(args);
-  }
-}
-
-function removeTrailingExpandHint(text: string): string {
-  const plain = stripAnsi(text).trimEnd();
-  const hint = plain.match(/\s+\([^)]*to expand\)$/i);
-  if (hint?.index === undefined) return text.trimEnd();
-  return sliceByColumn(
-    text,
-    0,
-    visibleWidth(plain.slice(0, hint.index)),
-  ).trimEnd();
-}
-
-function trimRenderedLine(text: string): string {
-  const plain = stripAnsi(text);
-  const leading = plain.match(/^\s*/)?.[0] ?? "";
-  const trimmed = plain.trim();
-  if (!trimmed) return "";
-  return sliceByColumn(
-    text,
-    visibleWidth(leading),
-    visibleWidth(trimmed),
-  ).trimEnd();
-}
-
-function renderedCallSummary(
-  row: ToolExecutionRow,
+function renderContainer(
+  container: ContainerLike,
   width: number,
-  theme: ThemeLike,
-): string {
-  let component = row.callRendererComponent;
-  if (!component && Array.isArray(row.contentBox?.children)) {
-    component = row.contentBox.children[0] as ComponentLike | undefined;
-  }
-
-  if (component && typeof component.render === "function") {
-    const visibleLines = component
-      .render(Math.max(1, width))
-      .filter(hasVisibleContent);
-    const rendered = visibleLines.slice(0, 3);
-    const line = rendered[0];
-    if (line) {
-      const first = trimRenderedLine(line);
-      const plain = stripAnsi(first);
-      const match = /^(\s*)(\S+)(\s*)/.exec(plain);
-      if (match) {
-        const expectedToken = row.toolName === "bash" ? "$" : row.toolName;
-        const hasKnownHeading =
-          match[2] === expectedToken ||
-          (row.toolName === "read" &&
-            (match[2] === "read" || match[2] === "[skill]"));
-        const summaryStart = hasKnownHeading
-          ? visibleWidth((match[1] ?? "") + (match[2] ?? "") + (match[3] ?? ""))
-          : 0;
-        const firstSummary = removeTrailingExpandHint(
-          sliceByColumn(
-            first,
-            summaryStart,
-            Math.max(0, visibleWidth(first) - summaryStart),
-          ),
-        );
-        const continuations = rendered
-          .slice(1)
-          .map(trimRenderedLine)
-          .filter(hasVisibleContent);
-        if (visibleLines.length > rendered.length)
-          continuations.push(theme.fg("muted", "…"));
-        const compact = [firstSummary, ...continuations]
-          .filter(hasVisibleContent)
-          .join(theme.fg("muted", " · "));
-        if (hasVisibleContent(compact)) return compact;
-      }
-    }
-  }
-
-  const fallback = compactArgs(row.args);
-  return fallback
-    ? theme.fg("accent", fallback)
-    : theme.fg("muted", "(no arguments)");
-}
-
-function wrappedBulletLines(
-  summary: string,
-  width: number,
-  theme: ThemeLike,
-): string[] {
-  const prefix = `  ${theme.fg("muted", "•")} `;
-  const indent = visibleWidth(prefix);
-  if (width <= indent) return [truncateToWidth(prefix, width, "", false)];
-
-  const wrapped = wrapTextWithAnsi(summary, width - indent);
-  return wrapped.map((line, index) => {
-    const linePrefix = index === 0 ? prefix : " ".repeat(indent);
-    return truncateToWidth(linePrefix + line, width, "", false);
-  });
-}
-
-function groupedCallComponent(
-  rows: ToolExecutionRow[],
-  theme: ThemeLike,
-): ComponentLike {
-  return {
-    render(width: number): string[] {
-      const lines: string[] = [];
-      let previousToolName: string | undefined;
-      for (const row of rows) {
-        if (lines.length === 0 || row.toolName !== previousToolName) {
-          if (lines.length > 0) lines.push("");
-          const token =
-            row.toolName === "bash" ? "$" : (row.toolName ?? "tool");
-          const heading = theme.fg(
-            "toolTitle",
-            theme.bold(token),
-          );
-          lines.push(truncateToWidth(heading, width, "", false));
-          previousToolName = row.toolName;
-        }
-        const summary = renderedCallSummary(row, Math.max(1, width - 4), theme);
-        lines.push(...wrappedBulletLines(summary, width, theme));
-      }
-      return lines;
-    },
-    invalidate() {},
-  };
-}
-
-function renderWithTemporaryChild(
-  container: ComponentContainer,
-  child: ComponentLike,
-  render: () => string[],
+  state: ContainerPatchState,
 ): string[] {
   const children = container.children;
-  if (!Array.isArray(children)) return render();
-  container.children = [child];
-  try {
-    return render();
-  } finally {
-    container.children = children;
-  }
-}
-
-function sameMembers(
-  left: ToolExecutionRow[],
-  right: ToolExecutionRow[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((member, index) => member === right[index])
-  );
-}
-
-function sameMemberVersions(
-  rows: ToolExecutionRow[],
-  versions: number[],
-  state: PresentationPatchState,
-): boolean {
-  return (
-    rows.length === versions.length &&
-    rows.every(
-      (row, index) => (state.rowVersions.get(row) ?? 0) === versions[index],
-    )
-  );
-}
-
-function renderGroupedToolRows(
-  row: ToolExecutionRow,
-  rows: ToolExecutionRow[],
-  width: number,
-  state: PresentationPatchState,
-): string[] {
-  const theme = state.theme;
-  if (!theme)
-    return decorateHeader(
-      row,
-      state.originalRender.call(row, width),
-      width,
-      theme,
-    );
-  const themeSample =
-    theme.fg("toolTitle", "x") +
-    theme.fg("muted", "x") +
-    theme.bg("toolSuccessBg", "x");
-  const cached = state.groupCache.get(row);
-  if (
-    cached &&
-    cached.width === width &&
-    cached.themeSample === themeSample &&
-    sameMembers(cached.members, rows) &&
-    sameMemberVersions(rows, cached.memberVersions, state)
-  ) {
-    return cached.lines;
+  if (!Array.isArray(children)) {
+    return state.originalRender.call(container, width);
   }
 
-  const summary = groupedCallComponent(rows, theme);
-  let lines: string[];
-  if (!row.hasRendererDefinition?.()) {
-    const text = row.contentText;
-    const previous = text?.text;
-    if (typeof previous !== "string" || typeof text?.setText !== "function") {
-      return decorateHeader(
-        row,
-        state.originalRender.call(row, width),
-        width,
-        theme,
-      );
-    }
-    text.setText(summary.render(Math.max(1, width - 2)).join("\n"));
-    try {
-      lines = state.originalRender.call(row, width);
-    } finally {
-      text.setText(previous);
-    }
-  } else if (row.getRenderShell?.() === "self") {
-    const container = row.selfRenderContainer;
-    if (!container)
-      return decorateHeader(
-        row,
-        state.originalRender.call(row, width),
-        width,
-        theme,
-      );
-    const box = new Box(1, 1, (text) => theme.bg("toolSuccessBg", text));
-    box.addChild(summary);
-    lines = renderWithTemporaryChild(container, box, () =>
-      state.originalRender.call(row, width),
-    );
-  } else {
-    const container = row.contentBox;
-    if (!container)
-      return decorateHeader(
-        row,
-        state.originalRender.call(row, width),
-        width,
-        theme,
-      );
-    lines = renderWithTemporaryChild(container, summary, () =>
-      state.originalRender.call(row, width),
-    );
-  }
-
-  const decorated = decorateHeader(row, lines, width, theme);
-  state.groupCache.set(row, {
-    lines: decorated,
-    members: [...rows],
-    memberVersions: rows.map((member) => state.rowVersions.get(member) ?? 0),
-    themeSample,
-    width,
-  });
-  return decorated;
-}
-
-function renderContainerWithToolGroups(
-  children: unknown[],
-  width: number,
-  presentation: PresentationPatchState,
-): string[] {
   const lines: string[] = [];
   const rendered = new Map<number, string[]>();
   const renderAt = (index: number): string[] => {
-    const cached = rendered.get(index);
-    if (cached) return cached;
-    const next = renderComponent(children[index], width);
-    rendered.set(index, next);
-    return next;
+    const existing = rendered.get(index);
+    if (existing) return existing;
+    const child = children[index] as Partial<ComponentLike> | undefined;
+    const value = child?.render ? child.render(width) : [];
+    rendered.set(index, value);
+    return value;
   };
 
   for (let index = 0; index < children.length; index++) {
     const child = children[index];
-    if (!isToolExecutionRow(child) || !isCollapsibleSuccess(child)) {
+    if (
+      !(child instanceof state.toolPatch.runtime.ToolExecutionComponent) ||
+      !isSettledSuccess(child)
+    ) {
       lines.push(...renderAt(index));
       continue;
     }
 
-    const group: ToolExecutionRow[] = [child];
-    let lastMemberIndex = index;
+    const group: ToolRow[] = [child];
+    let lastMember = index;
     for (
       let candidateIndex = index + 1;
       candidateIndex < children.length;
       candidateIndex++
     ) {
       const candidate = children[candidateIndex];
-      if (isToolExecutionRow(candidate)) {
-        if (!isCollapsibleSuccess(candidate)) break;
+      if (candidate instanceof state.toolPatch.runtime.ToolExecutionComponent) {
+        if (!isSettledSuccess(candidate)) break;
         group.push(candidate);
-        lastMemberIndex = candidateIndex;
-        continue;
+        lastMember = candidateIndex;
+      } else if (renderAt(candidateIndex).some(hasVisibleContent)) {
+        break;
       }
-      if (renderAt(candidateIndex).some(hasVisibleContent)) break;
     }
 
-    if (group.length === 1) {
-      lines.push(...renderAt(index));
-      continue;
-    }
-
-    lines.push(...renderGroupedToolRows(child, group, width, presentation));
-    index = lastMemberIndex;
+    lines.push(...renderCompactBlock(group, width, state.toolPatch));
+    index = lastMember;
   }
 
   return lines;
 }
 
-// TODO: Replace prototype patching with a public Pi tool/transcript rendering API when available.
-function installThinkingGroupingPatch():
-  | ThinkingGroupingPatchState
-  | undefined {
-  try {
-    const proto =
-      AssistantMessageComponent?.prototype as unknown as AssistantMessageRow & {
-        [THINKING_GROUPING_PATCHED]?: ThinkingGroupingPatchState;
-        updateContent?: (message: AssistantMessageLike) => void;
-      };
-    if (!proto || typeof proto.updateContent !== "function") return undefined;
-
-    const existing = proto[THINKING_GROUPING_PATCHED];
-    if (existing) return existing;
-
-    const state: ThinkingGroupingPatchState = {
-      originalUpdateContent: proto.updateContent,
-    };
-    const patchedUpdateContent = function updateContentWithCombinedThinking(
-      this: AssistantMessageRow,
-      message: AssistantMessageLike,
-    ): void {
-      // Combine adjacent thinking blocks for display, but fall back to the original
-      // message if combining throws. Either way, invoke Pi's renderer exactly once.
-      let combined = message;
-      try {
-        combined = combineAdjacentThinking(message);
-      } catch {
-        // Thinking grouping is cosmetic; preserve the original message intact.
-      }
-      state.originalUpdateContent.call(this, combined);
-    };
-
-    state.patchedUpdateContent = patchedUpdateContent;
-    proto.updateContent = patchedUpdateContent;
-    Object.defineProperty(proto, THINKING_GROUPING_PATCHED, {
-      configurable: true,
-      value: state,
-    });
-    return state;
-  } catch {
-    // Thinking grouping is cosmetic; preserve Pi's renderer if its internals change.
-    return undefined;
-  }
-}
-
-function uninstallThinkingGroupingPatch(
-  state: ThinkingGroupingPatchState | undefined,
-): void {
-  if (!state) return;
-  const proto =
-    AssistantMessageComponent?.prototype as unknown as AssistantMessageRow & {
-      [THINKING_GROUPING_PATCHED]?: ThinkingGroupingPatchState;
-      updateContent?: (message: AssistantMessageLike) => void;
-    };
-  if (
-    proto[THINKING_GROUPING_PATCHED] !== state ||
-    proto.updateContent !== state.patchedUpdateContent
-  )
-    return;
-  proto.updateContent = state.originalUpdateContent;
-  delete proto[THINKING_GROUPING_PATCHED];
-}
-
-function installGroupingPatch(
-  presentation: PresentationPatchState,
-): GroupingPatchState | undefined {
-  try {
-    const proto = Container?.prototype as unknown as ComponentContainer & {
-      [GROUPING_PATCHED]?: GroupingPatchState;
-      render?: (width: number) => string[];
-    };
-    if (!proto || typeof proto.render !== "function") return undefined;
-
-    const existing = proto[GROUPING_PATCHED];
-    if (existing) {
-      existing.presentation = presentation;
-      return existing;
-    }
-
-    const state: GroupingPatchState = {
-      presentation,
-      originalRender: proto.render,
-    };
-    const patchedRender = function renderWithCollapsedToolGroups(
-      this: ComponentContainer,
-      width: number,
-    ): string[] {
-      const children = this.children;
-      if (!Array.isArray(children) || !children.some(isToolExecutionRow)) {
-        return state.originalRender.call(this, width);
-      }
-      try {
-        return renderContainerWithToolGroups(
-          children,
-          width,
-          state.presentation,
-        );
-      } catch {
-        return state.originalRender.call(this, width);
-      }
-    };
-
-    state.patchedRender = patchedRender;
-    proto.render = patchedRender;
-    Object.defineProperty(proto, GROUPING_PATCHED, {
-      configurable: true,
-      value: state,
-    });
-    return state;
-  } catch {
-    // Grouping is cosmetic; preserve Pi's container renderer if its internals change.
-    return undefined;
-  }
-}
-
-function uninstallGroupingPatch(state: GroupingPatchState | undefined): void {
-  if (!state) return;
-  const proto = Container?.prototype as unknown as ComponentContainer & {
-    [GROUPING_PATCHED]?: GroupingPatchState;
-    render?: (width: number) => string[];
+function installToolPatch(runtime: Runtime): ToolPatchState | undefined {
+  const proto = runtime.ToolExecutionComponent?.prototype as ToolRow & {
+    [TOOL_PATCH]?: ToolPatchState;
+    updateDisplay?: () => void;
   };
-  if (proto[GROUPING_PATCHED] !== state || proto.render !== state.patchedRender)
+  if (
+    !proto ||
+    typeof proto.render !== "function" ||
+    typeof proto.updateDisplay !== "function"
+  ) {
+    return undefined;
+  }
+
+  const existing = proto[TOOL_PATCH];
+  if (existing) return existing;
+
+  const state: ToolPatchState = {
+    runtime,
+    versions: new WeakMap(),
+    cache: new WeakMap(),
+    originalRender: proto.render,
+    originalUpdateDisplay: proto.updateDisplay,
+  };
+  const patchedUpdateDisplay = function updateDisplayWithExpandedErrors(
+    this: ToolRow,
+  ): void {
+    state.versions.set(this, (state.versions.get(this) ?? 0) + 1);
+    if (this.result?.isError) this.expanded = true;
+    state.originalUpdateDisplay.call(this);
+  };
+  const patchedRender = function renderCompactSuccess(
+    this: ToolRow,
+    width: number,
+  ): string[] {
+    if (!isSettledSuccess(this)) return state.originalRender.call(this, width);
+    try {
+      return renderCompactBlock([this], width, state);
+    } catch {
+      return state.originalRender.call(this, width);
+    }
+  };
+
+  state.patchedRender = patchedRender;
+  state.patchedUpdateDisplay = patchedUpdateDisplay;
+  proto.render = patchedRender;
+  proto.updateDisplay = patchedUpdateDisplay;
+  Object.defineProperty(proto, TOOL_PATCH, {
+    configurable: true,
+    value: state,
+  });
+  return state;
+}
+
+function installContainerPatch(
+  runtime: Runtime,
+  toolPatch: ToolPatchState,
+): ContainerPatchState | undefined {
+  const proto = runtime.Container?.prototype as ContainerLike & {
+    [CONTAINER_PATCH]?: ContainerPatchState;
+  };
+  if (!proto || typeof proto.render !== "function") return undefined;
+
+  const existing = proto[CONTAINER_PATCH];
+  if (existing) {
+    existing.toolPatch = toolPatch;
+    return existing;
+  }
+
+  const state: ContainerPatchState = {
+    toolPatch,
+    originalRender: proto.render,
+  };
+  const patchedRender = function renderWithGroupedTools(
+    this: ContainerLike,
+    width: number,
+  ): string[] {
+    if (
+      !Array.isArray(this.children) ||
+      !this.children.some(
+        (child) => child instanceof runtime.ToolExecutionComponent,
+      )
+    ) {
+      return state.originalRender.call(this, width);
+    }
+    try {
+      return renderContainer(this, width, state);
+    } catch {
+      return state.originalRender.call(this, width);
+    }
+  };
+
+  state.patchedRender = patchedRender;
+  proto.render = patchedRender;
+  Object.defineProperty(proto, CONTAINER_PATCH, {
+    configurable: true,
+    value: state,
+  });
+  return state;
+}
+
+function uninstallContainerPatch(state: ContainerPatchState | undefined): void {
+  if (!state) return;
+  const proto = state.toolPatch.runtime.Container.prototype as ContainerLike & {
+    [CONTAINER_PATCH]?: ContainerPatchState;
+  };
+  if (proto[CONTAINER_PATCH] !== state || proto.render !== state.patchedRender)
     return;
   proto.render = state.originalRender;
-  delete proto[GROUPING_PATCHED];
+  delete proto[CONTAINER_PATCH];
 }
 
-function installPresentationPatch(): PresentationPatchState | undefined {
-  try {
-    const proto =
-      ToolExecutionComponent?.prototype as unknown as ToolExecutionRow & {
-        [PRESENTATION_PATCHED]?: PresentationPatchState;
-        [LEGACY_PRESENTATION_PATCHED]?: PresentationPatchState;
-        render?: (width: number) => string[];
-        updateDisplay?: () => void;
-      };
-    if (!proto) return undefined;
-
-    const existing = proto[PRESENTATION_PATCHED];
-    if (existing) return existing;
-    const legacy = proto[LEGACY_PRESENTATION_PATCHED];
-    if (legacy) {
-      proto.render = legacy.originalRender;
-      proto.updateDisplay = legacy.originalUpdateDisplay;
-    }
-    if (
-      typeof proto.render !== "function" ||
-      typeof proto.updateDisplay !== "function"
-    )
-      return undefined;
-
-    const state: PresentationPatchState = {
-      groupCache: new WeakMap(),
-      rowVersions: new WeakMap(),
-      originalRender: proto.render,
-      originalUpdateDisplay: proto.updateDisplay,
-    };
-    const patchedUpdateDisplay = function updateDisplayWithCollapsedResult(
-      this: ToolExecutionRow,
-    ): void {
-      state.rowVersions.set(this, (state.rowVersions.get(this) ?? 0) + 1);
-      state.groupCache.delete(this);
-      state.originalUpdateDisplay.call(this);
-      try {
-        if (this.result?.isError && this.expanded === false) {
-          this.expanded = true;
-          state.originalUpdateDisplay.call(this);
-        }
-        collapseSuccessfulResult(this);
-      } catch {
-        // Presentation is cosmetic; preserve Pi's renderer if its internals change.
-      }
-    };
-    const patchedRender = function renderWithToolPresentation(
-      this: ToolExecutionRow,
-      width: number,
-    ): string[] {
-      const lines = state.originalRender.call(this, width);
-      try {
-        return decorateHeader(this, lines, width, state.theme);
-      } catch {
-        return lines;
-      }
-    };
-
-    try {
-      state.patchedUpdateDisplay = patchedUpdateDisplay;
-      state.patchedRender = patchedRender;
-      proto.updateDisplay = patchedUpdateDisplay;
-      proto.render = patchedRender;
-      Object.defineProperty(proto, PRESENTATION_PATCHED, {
-        configurable: true,
-        value: state,
-      });
-    } catch {
-      proto.updateDisplay = state.originalUpdateDisplay;
-      proto.render = state.originalRender;
-      return undefined;
-    }
-    return state;
-  } catch {
-    // Pi internals can change across versions; fail silently rather than break the session.
-    return undefined;
-  }
-}
-
-function uninstallPresentationPatch(
-  state: PresentationPatchState | undefined,
-): void {
+function uninstallToolPatch(state: ToolPatchState | undefined): void {
   if (!state) return;
-  const proto =
-    ToolExecutionComponent?.prototype as unknown as ToolExecutionRow & {
-      [PRESENTATION_PATCHED]?: PresentationPatchState;
-      render?: (width: number) => string[];
-      updateDisplay?: () => void;
-    };
+  const proto = state.runtime.ToolExecutionComponent.prototype as ToolRow & {
+    [TOOL_PATCH]?: ToolPatchState;
+    updateDisplay?: () => void;
+  };
   if (
-    proto[PRESENTATION_PATCHED] !== state ||
+    proto[TOOL_PATCH] !== state ||
     proto.render !== state.patchedRender ||
     proto.updateDisplay !== state.patchedUpdateDisplay
   ) {
@@ -788,22 +472,92 @@ function uninstallPresentationPatch(
   }
   proto.render = state.originalRender;
   proto.updateDisplay = state.originalUpdateDisplay;
-  delete proto[PRESENTATION_PATCHED];
+  delete proto[TOOL_PATCH];
 }
 
-export default function (pi: ExtensionAPI) {
-  const patch = installPresentationPatch();
-  const grouping = patch ? installGroupingPatch(patch) : undefined;
-  const thinkingGrouping = installThinkingGroupingPatch();
+function findAgentEntry(entry: string): string | undefined {
+  let directory = dirname(entry);
+  while (true) {
+    try {
+      const packageJson = JSON.parse(
+        readFileSync(join(directory, "package.json"), "utf8"),
+      ) as { name?: string; main?: string };
+      if (packageJson.name === "@earendil-works/pi-coding-agent") {
+        return resolve(directory, packageJson.main ?? "dist/index.js");
+      }
+    } catch {
+      // Continue toward the filesystem root.
+    }
+    const parent = dirname(directory);
+    if (parent === directory) return undefined;
+    directory = parent;
+  }
+}
+
+async function loadRuntime(): Promise<Runtime> {
+  let cliEntry: string | undefined;
+  if (process.argv[1]) {
+    try {
+      cliEntry = realpathSync(process.argv[1]);
+    } catch {
+      cliEntry = process.argv[1];
+    }
+  }
+
+  let agentEntry = cliEntry ? findAgentEntry(cliEntry) : undefined;
+  for (const candidate of [cliEntry, import.meta.url]) {
+    if (agentEntry || !candidate) break;
+    try {
+      agentEntry = createRequire(candidate).resolve(
+        "@earendil-works/pi-coding-agent",
+      );
+    } catch {
+      // Try the next resolution root.
+    }
+  }
+  if (!agentEntry) throw new Error("Unable to resolve Pi's runtime package");
+
+  const agent = await import(pathToFileURL(agentEntry).href);
+  const tuiEntry = createRequire(agentEntry).resolve("@earendil-works/pi-tui");
+  const tui = await import(pathToFileURL(tuiEntry).href);
+  if (!agent.ToolExecutionComponent || !tui.Container || !tui.Box) {
+    throw new Error("Pi's tool rendering API is unavailable");
+  }
+
+  return {
+    ToolExecutionComponent: agent.ToolExecutionComponent,
+    Container: tui.Container,
+    Box: tui.Box,
+    sliceByColumn: tui.sliceByColumn,
+    truncateToWidth: tui.truncateToWidth,
+    visibleWidth: tui.visibleWidth,
+    wrapTextWithAnsi: tui.wrapTextWithAnsi,
+  } as Runtime;
+}
+
+export default async function (pi: ExtensionAPI) {
+  let runtime: Runtime;
+  try {
+    runtime = await loadRuntime();
+  } catch {
+    return;
+  }
+
+  const toolPatch = installToolPatch(runtime);
+  const containerPatch = toolPatch
+    ? installContainerPatch(runtime, toolPatch)
+    : undefined;
 
   pi.on("session_start", (_event, ctx) => {
-    if (patch) patch.theme = ctx.ui.theme;
+    if (toolPatch) {
+      toolPatch.theme = ctx.ui.theme;
+      toolPatch.cache = new WeakMap();
+    }
     ctx.ui.setToolsExpanded(false);
   });
 
   pi.on("session_shutdown", () => {
-    uninstallThinkingGroupingPatch(thinkingGrouping);
-    uninstallGroupingPatch(grouping);
-    uninstallPresentationPatch(patch);
+    uninstallContainerPatch(containerPatch);
+    uninstallToolPatch(toolPatch);
   });
 }

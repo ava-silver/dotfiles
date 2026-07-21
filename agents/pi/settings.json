@@ -4,14 +4,13 @@
   },
   "lastChangelogVersion": "0.80.10",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
   "packages": [
     "npm:pi-btw",
     "npm:pi-web-access",
     "npm:pi-mcp-adapter",
     "npm:pi-auto-rename",
-    "npm:pi-intercom",
     "npm:pi-prompt-template-model",
     "npm:@ff-labs/pi-fff"
   ],
