@@ -10,9 +10,8 @@
 //     - Implement (preserve context) -> same session, switch to the IMPL model.
 //     - Refine                       -> stay on the PLAN model, send feedback.
 //
-// Model switching is effectively session-specific: session_start re-asserts the
-// right model per phase, so setModel's global persistence doesn't leak between
-// sessions. New sessions default to a separate general-purpose model.
+// session_start re-asserts the model only for plan and implementation sessions.
+// Other sessions retain Pi's configured default model and thinking level.
 
 // oxlint-disable no-unused-vars
 
@@ -29,8 +28,6 @@ const OPUS: ModelSpec = { provider: "anthropic", id: "claude-opus-4-8" };
 const GPT_SOL: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-sol" };
 const GPT_TERRA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-terra" };
 const GPT_LUNA: ModelSpec = { provider: "openai-codex", id: "gpt-5.6-luna" };
-const DEFAULT_MODEL: ModelSpec = GPT_TERRA;
-const DEFAULT_THINKING: Thinking = "low";
 const PLAN_MODEL: ModelSpec = GPT_SOL;
 const PLAN_THINKING: Thinking = "medium";
 const IMPL_MODEL: ModelSpec = GPT_TERRA;
@@ -219,7 +216,7 @@ Implement it. Only ask if something is ambiguous or blocked.`;
 	});
 
 	// Re-assert the right model per phase whenever a session starts.
-	pi.on("session_start", async (event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
 		const entries = ctx.sessionManager.getEntries() as Array<{ type: string; customType?: string; data?: unknown }>;
 
 		const isImplement = entries.some((e) => e.type === "custom" && e.customType === IMPLEMENT_MARKER);
@@ -238,8 +235,5 @@ Implement it. Only ask if something is ambiguous or blocked.`;
 			if (data.planPhase) planPhase = true;
 		}
 
-		if (event.reason === "startup" || event.reason === "new") {
-			await applyModel(ctx, DEFAULT_MODEL, DEFAULT_THINKING);
-		}
 	});
 }

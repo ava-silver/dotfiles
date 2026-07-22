@@ -116,8 +116,8 @@ awsopen() {
 alias aws-sso='aws-vault exec sso-serverless-sandbox-account-admin --'
 alias aws='aws-sso /opt/homebrew/bin/aws'
 
-dd-auth() {
-    eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
+dd-auth-session() {
+    eval "$(dd-auth --output --domain "$@" | sed 's/^/export /')"
 }
 
 alias bunup='(cd ~/.bun/install/global && bun update)'
@@ -130,11 +130,9 @@ code() {
     /usr/local/bin/code $(realpath $@)
 }
 
-alias oc=opencode
+alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
 alias cc='claude --model "sonnet[1m]"'
 alias cco='claude --model "opus[1m]"'
-alias cx=codex
-alias cu=cursor-agent
 
 wt() {
     local branch repo_root repo_name wt_dir main_branch

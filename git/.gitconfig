@@ -13,7 +13,7 @@ fsmonitor = false
 untrackedCache = false
 excludesfile = /Users/ava.silver/.gitignore_global
 attributesFile = /Users/ava.silver/.gitattributes
-hooksPath = /usr/local/dd/global_hooks
+	hooksPath = /usr/local/dd/global_hooks
 [diff]
 external = difft
 [merge]
@@ -54,7 +54,8 @@ dh = d HEAD
 dhn = dh --name-only
 cf = !sh -c \"git diff --name-only | uniq | xargs zed\"
 lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
-l = lg -n
+cleanup-lock = "!f() { lock=$(git rev-parse --git-path index.lock) || return; if [ -e \"$lock\" ]; then rm -v \"$lock\"; else echo \"No index lock: $lock\"; fi; }; f"
+l = cleanup-lock
 standies = standup
 ticket = "!$HOME/dotfiles/git/scripts/ticket.sh"
 cln = "clean -fdx"

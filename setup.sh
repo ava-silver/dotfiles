@@ -138,6 +138,7 @@ config_link_all agents/pi/prompts .pi/agent/prompts "*.md"
 link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
 
 config_link_all editor/zed .config/zed
+link "$REPO_DIR/terminal/ghostty/config.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
 link "$REPO_DIR/tools/lsd.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
 

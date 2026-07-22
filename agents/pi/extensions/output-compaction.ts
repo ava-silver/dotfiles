@@ -7,6 +7,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const TOOL_PATCH = Symbol.for("ava.pi.outputCompaction.tool.v1");
 const CONTAINER_PATCH = Symbol.for("ava.pi.outputCompaction.container.v1");
+const ASSISTANT_PATCH = Symbol.for("ava.pi.outputCompaction.assistant.v1");
 const ANSI_RE = /\u001b\[[0-9;]*m/g;
 
 interface ThemeLike {
@@ -25,6 +26,10 @@ interface ContainerLike extends ComponentLike {
   addChild?(component: ComponentLike): void;
 }
 
+interface AssistantMessageLike {
+  updateContent(message: { content: Array<{ type: string }> }): void;
+}
+
 interface ToolRow extends ContainerLike {
   toolName?: string;
   args?: unknown;
@@ -41,6 +46,7 @@ type Constructor<T> = {
 };
 
 type Runtime = {
+  AssistantMessageComponent: Constructor<AssistantMessageLike>;
   ToolExecutionComponent: Constructor<ToolRow>;
   Container: Constructor<ContainerLike>;
   Box: new (
@@ -87,6 +93,12 @@ type ContainerPatchState = {
   toolPatch: ToolPatchState;
   originalRender: (width: number) => string[];
   patchedRender?: (width: number) => string[];
+};
+
+type AssistantPatchState = {
+  runtime: Runtime;
+  originalUpdateContent: AssistantMessageLike["updateContent"];
+  patchedUpdateContent?: AssistantMessageLike["updateContent"];
 };
 
 type CallSummary = {
@@ -346,6 +358,57 @@ function renderContainer(
   return lines;
 }
 
+function installAssistantPatch(
+  runtime: Runtime,
+): AssistantPatchState | undefined {
+  const proto = runtime.AssistantMessageComponent
+    ?.prototype as AssistantMessageLike & {
+    [ASSISTANT_PATCH]?: AssistantPatchState;
+  };
+  if (!proto || typeof proto.updateContent !== "function") return undefined;
+
+  const existing = proto[ASSISTANT_PATCH];
+  if (existing) return existing;
+
+  const state: AssistantPatchState = {
+    runtime,
+    originalUpdateContent: proto.updateContent,
+  };
+  const patchedUpdateContent = function updateContentWithoutThinking(
+    this: AssistantMessageLike,
+    message: { content: Array<{ type: string }> },
+  ): void {
+    state.originalUpdateContent.call(this, {
+      ...message,
+      content: message.content.filter((content) => content.type !== "thinking"),
+    });
+  };
+
+  state.patchedUpdateContent = patchedUpdateContent;
+  proto.updateContent = patchedUpdateContent;
+  Object.defineProperty(proto, ASSISTANT_PATCH, {
+    configurable: true,
+    value: state,
+  });
+  return state;
+}
+
+function uninstallAssistantPatch(state: AssistantPatchState | undefined): void {
+  if (!state) return;
+  const proto = state.runtime.AssistantMessageComponent
+    .prototype as AssistantMessageLike & {
+    [ASSISTANT_PATCH]?: AssistantPatchState;
+  };
+  if (
+    proto[ASSISTANT_PATCH] !== state ||
+    proto.updateContent !== state.patchedUpdateContent
+  ) {
+    return;
+  }
+  proto.updateContent = state.originalUpdateContent;
+  delete proto[ASSISTANT_PATCH];
+}
+
 function installToolPatch(runtime: Runtime): ToolPatchState | undefined {
   const proto = runtime.ToolExecutionComponent?.prototype as ToolRow & {
     [TOOL_PATCH]?: ToolPatchState;
@@ -520,11 +583,17 @@ async function loadRuntime(): Promise<Runtime> {
   const agent = await import(pathToFileURL(agentEntry).href);
   const tuiEntry = createRequire(agentEntry).resolve("@earendil-works/pi-tui");
   const tui = await import(pathToFileURL(tuiEntry).href);
-  if (!agent.ToolExecutionComponent || !tui.Container || !tui.Box) {
-    throw new Error("Pi's tool rendering API is unavailable");
+  if (
+    !agent.AssistantMessageComponent ||
+    !agent.ToolExecutionComponent ||
+    !tui.Container ||
+    !tui.Box
+  ) {
+    throw new Error("Pi's output rendering API is unavailable");
   }
 
   return {
+    AssistantMessageComponent: agent.AssistantMessageComponent,
     ToolExecutionComponent: agent.ToolExecutionComponent,
     Container: tui.Container,
     Box: tui.Box,
@@ -543,6 +612,7 @@ export default async function (pi: ExtensionAPI) {
     return;
   }
 
+  const assistantPatch = installAssistantPatch(runtime);
   const toolPatch = installToolPatch(runtime);
   const containerPatch = toolPatch
     ? installContainerPatch(runtime, toolPatch)
@@ -559,5 +629,6 @@ export default async function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => {
     uninstallContainerPatch(containerPatch);
     uninstallToolPatch(toolPatch);
+    uninstallAssistantPatch(assistantPatch);
   });
 }
