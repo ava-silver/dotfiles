@@ -72,9 +72,6 @@
     "pi-acp": {
       "type": "registry",
     },
-    "cursor": {
-      "type": "registry",
-    },
     "codex-acp": {
       "type": "registry",
     },
