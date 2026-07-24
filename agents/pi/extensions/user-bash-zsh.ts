@@ -1,5 +1,6 @@
-// Run user `!` / `!!` commands with zsh and escalate repeated Escape presses
-// for both user commands and the agent's `bash` tool: SIGINT, SIGTERM, SIGKILL.
+// Run user `!` / `!!` commands with zsh and escalate cancellation signals for
+// both user commands and the agent's `bash` tool. Repeated Escape presses use
+// SIGINT, SIGTERM, SIGKILL; timeouts use SIGINT, SIGQUIT, SIGKILL at 5s intervals.
 
 import {
 	createBashToolDefinition,
@@ -11,7 +12,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGKILL"] as const;
-type EscalationSignal = (typeof SIGNALS)[number];
+const TIMEOUT_ESCALATION_DELAY_MS = 5_000;
 
 interface EscapeEscalationRequest {
 	handled: boolean;
@@ -33,7 +34,7 @@ function resolveZshPath(): string | undefined {
 	return candidates.find((path) => existsSync(path));
 }
 
-function signalProcessTree(pid: number, signal: EscalationSignal): void {
+function signalProcessTree(pid: number, signal: NodeJS.Signals): void {
 	if (process.platform === "win32") {
 		if (signal === "SIGKILL") {
 			spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
@@ -136,7 +137,7 @@ function createEscalatingOperations(
 			const tracked = child.pid ? { child, nextSignal: 0 } : undefined;
 			if (tracked) running.add(tracked);
 			let timedOut = false;
-			let timeoutHandle: NodeJS.Timeout | undefined;
+			const timeoutHandles: NodeJS.Timeout[] = [];
 
 			const sendNextSignal = () => {
 				if (!tracked?.child.pid) return;
@@ -148,13 +149,28 @@ function createEscalatingOperations(
 
 			try {
 				if (timeout !== undefined) {
-					timeoutHandle = setTimeout(() => {
-						timedOut = true;
-						if (tracked?.child.pid) {
-							signalProcessTree(tracked.child.pid, "SIGKILL");
-							tracked.nextSignal = SIGNALS.length;
-						}
-					}, timeout * 1000);
+					const timeoutMs = timeout * 1000;
+					timeoutHandles.push(
+						setTimeout(() => {
+							timedOut = true;
+							if (tracked?.child.pid) {
+								signalProcessTree(tracked.child.pid, "SIGINT");
+								tracked.nextSignal = Math.max(tracked.nextSignal, 1);
+							}
+						}, timeoutMs),
+						setTimeout(() => {
+							if (tracked?.child.pid) {
+								signalProcessTree(tracked.child.pid, "SIGQUIT");
+								tracked.nextSignal = Math.max(tracked.nextSignal, 2);
+							}
+						}, timeoutMs + TIMEOUT_ESCALATION_DELAY_MS),
+						setTimeout(() => {
+							if (tracked?.child.pid) {
+								signalProcessTree(tracked.child.pid, "SIGKILL");
+								tracked.nextSignal = SIGNALS.length;
+							}
+						}, timeoutMs + TIMEOUT_ESCALATION_DELAY_MS * 2),
+					);
 				}
 
 				if (signal) {
@@ -168,7 +184,7 @@ function createEscalatingOperations(
 				return { exitCode };
 			} finally {
 				if (tracked) running.delete(tracked);
-				if (timeoutHandle) clearTimeout(timeoutHandle);
+				for (const timeoutHandle of timeoutHandles) clearTimeout(timeoutHandle);
 				if (signal) signal.removeEventListener("abort", onAbort);
 			}
 		},
