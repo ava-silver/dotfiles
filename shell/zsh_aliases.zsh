@@ -95,7 +95,6 @@ store_token() {
     source ~/.zshrc
 }
 
-alias auth='export $(dd-auth --output | xargs)'
 
 install-hooks() {
     command -v prek &>/dev/null || brew install prek
@@ -113,7 +112,37 @@ fi
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
-alias aws-sso='aws-vault exec sso-serverless-sandbox-account-admin --'
+# Resolves a leading alias in the given words into the `expanded_cmd` array,
+# so wrapper functions accept aliases as arguments the way a shell would.
+expand-alias() {
+    typeset -ga expanded_cmd=("$@")
+    local -i depth=0
+    while (( $+aliases[$expanded_cmd[1]] && depth++ < 16 )); do
+        expanded_cmd=("${(@Q)${(z)aliases[$expanded_cmd[1]]}}" "${expanded_cmd[@]:1}")
+    done
+}
+
+# Runs a command under the sandbox AWS profile, expanding a leading alias
+# (e.g. `aws-sso tfa` -> `aws-vault exec ... -- terraform apply -auto-approve`).
+aws-sso() {
+    expand-alias "$@"
+    aws-vault exec sso-serverless-sandbox-account-admin -- "${expanded_cmd[@]}"
+}
+
+# Reruns a command forever, sleeping between iterations (`loop -n 5 tfa`).
+loop() {
+    local interval=1
+    if [[ $1 == -n ]]; then
+        interval=$2
+        shift 2
+    fi
+    expand-alias "$@"
+    local -a cmd=("${expanded_cmd[@]}")
+    while true; do
+        "${cmd[@]}"
+        sleep "$interval"
+    done
+}
 alias aws='aws-sso /opt/homebrew/bin/aws'
 
 dd-auth-session() {

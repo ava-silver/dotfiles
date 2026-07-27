@@ -2,9 +2,9 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
-  "lastChangelogVersion": "0.82.0",
+  "lastChangelogVersion": "0.82.1",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
@@ -13,8 +13,9 @@
     "npm:pi-mcp-adapter",
     "npm:pi-auto-rename",
     "npm:pi-prompt-template-model",
-    "npm:@ff-labs/pi-fff"
+    "npm:@ff-labs/pi-fff",
+    "npm:pi-visualize-code-changes"
   ],
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-5"
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol"
 }

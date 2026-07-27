@@ -111,6 +111,7 @@ config_link_all agents/cursor .cursor
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$REPO_DIR/agents/pi/settings.json" "$HOME/.pi/agent/settings.json"
 link "$REPO_DIR/agents/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
+link "$REPO_DIR/agents/pi/models.json" "$HOME/.pi/agent/models.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
 link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 # pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
