@@ -13,27 +13,22 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-ticket=$(basename "$1")
+ticket=$(basename "$1" | tr '[:upper:]' '[:lower:]')
 shift
-branch=$(echo "$ticket/$*" | tr '[:upper:]' '[:lower:]')
+desc=$(echo "$*" | tr '[:upper:] ' '[:lower:]-')
+branch_prefix=$(gt user branch-prefix 2>/dev/null | sed -n 's/^branch-prefix is set to "\(.*\)"$/\1/p')
+branch="${branch_prefix}${ticket}/${desc}"
 
 repo_root=$(git rev-parse --show-toplevel)
 repo_name=$(basename "$repo_root")
-starting_branch=$(git symbolic-ref --quiet --short HEAD) || {
-    echo "git wt must be run from a named branch, not detached HEAD" >&2
-    exit 1
-}
+trunk_branch=$(git main)
 
-gt create "$branch"
-
-actual_branch=$(git symbolic-ref --quiet --short HEAD)
-
-if [[ "$actual_branch" == */*/* ]]; then
-    safe_branch="${actual_branch#*/*/}"
-elif [[ "$actual_branch" == */* ]]; then
-    safe_branch="${actual_branch#*/}"
+if [[ "$branch" == */*/* ]]; then
+    safe_branch="${branch#*/*/}"
+elif [[ "$branch" == */* ]]; then
+    safe_branch="${branch#*/}"
 else
-    safe_branch="$actual_branch"
+    safe_branch="$branch"
 fi
 safe_branch="${safe_branch//\//-}"
 wt_dir="$HOME/dd/${repo_name}.worktrees/${safe_branch}"
@@ -43,6 +38,8 @@ if [[ -d "$wt_dir" ]]; then
     exit 1
 fi
 
-git checkout --quiet "$starting_branch"
-git worktree add --quiet "$wt_dir" "$actual_branch"
+# create the worktree and branch off trunk without touching the main worktree's HEAD
+git worktree add --quiet -b "$branch" "$wt_dir" "$trunk_branch"
+gt track "$branch" --parent "$trunk_branch" --cwd "$wt_dir" --force --quiet
 echo "$wt_dir"
+zed "$wt_dir"

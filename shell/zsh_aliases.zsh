@@ -155,9 +155,7 @@ alias bunupdate=bunup
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'
 
-code() {
-    /usr/local/bin/code $(realpath $@)
-}
+alias code=zed
 
 alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
 alias cc='claude --model "sonnet[1m]"'

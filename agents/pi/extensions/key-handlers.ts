@@ -26,6 +26,7 @@ export default function (pi: ExtensionAPI): void {
 					void copyToClipboard(prompt)
 						.then(() => {
 							ctx.ui.setEditorText("");
+							this.tui.requestRender();
 						})
 						.catch((error: unknown) => {
 							ctx.ui.notify(`Could not copy prompt: ${String(error)}`, "error");
