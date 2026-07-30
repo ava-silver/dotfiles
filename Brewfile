@@ -2,6 +2,7 @@ tap "oven-sh/bun"
 
 # CLI tools
 brew "lsd"
+brew "prek"
 brew "zoxide"
 brew "fzf"
 brew "bat"
