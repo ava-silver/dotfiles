@@ -161,34 +161,3 @@ alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
 alias cc='claude --model "sonnet[1m]"'
 alias cco='claude --model "opus[1m]"'
 
-wt() {
-    local branch repo_root repo_name wt_dir main_branch
-    branch=$(git rev-parse --abbrev-ref HEAD) || return 1
-    repo_root=$(git rev-parse --show-toplevel) || return 1
-    repo_name=$(basename "$repo_root")
-    local safe_branch
-    if [[ "$branch" == */*/* ]]; then
-        safe_branch="${branch#*/*/}"
-    elif [[ "$branch" == */* ]]; then
-        safe_branch="${branch#*/}"
-    else
-        safe_branch="$branch"
-    fi
-    safe_branch="${safe_branch//\//-}"
-    wt_dir="$HOME/dd/${repo_name}.worktrees/${safe_branch}"
-
-    if [[ "$branch" == main || "$branch" == master ]]; then
-        echo "already on main, nothing to eject"
-        return 1
-    fi
-    if [[ -d "$wt_dir" ]]; then
-        echo "worktree already exists at $wt_dir"
-        return 1
-    fi
-
-    main_branch=$(git main)
-    git checkout "$main_branch" || return 1
-    git worktree add "$wt_dir" "$branch" || return 1
-    echo "ejected '$branch' → $wt_dir"
-    cd "$wt_dir"
-}

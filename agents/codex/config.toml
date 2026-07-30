@@ -20,6 +20,9 @@ model_reasoning_effort = "medium"
 "/Users/ava.silver/go/src/github.com/DataDog/serverless-remote-instrumentation" = { trust_level = "trusted" }
 "/Users/ava.silver/go/src/github.com/DataDog/web-ui" = { trust_level = "trusted" }
 
+[projects."/Users/ava.silver/go/src/github.com/DataDog/documentation"]
+trust_level = "trusted"
+
 [tui]
 status_line = [
   "model-with-reasoning",
@@ -41,8 +44,8 @@ source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
-last_updated = "2026-07-28T16:33:38Z"
-last_revision = "1ce44392bff12af7459233abb4470c6bf412b11a"
+last_updated = "2026-07-29T21:57:24Z"
+last_revision = "409be47c17fe4012d4a669c26d676e435f6037b0"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 

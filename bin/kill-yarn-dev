@@ -3,13 +3,10 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $(basename "$0") [--force]" >&2
+  echo "Usage: $(basename "$0")" >&2
 }
-
-force=false
 case "${1:-}" in
   "") ;;
-  --force|-f) force=true ;;
   --help|-h) usage; exit 0 ;;
   *) usage; exit 2 ;;
 esac
@@ -24,8 +21,17 @@ while IFS= read -r worktree; do
   worktrees+=("$worktree")
 done < <(git --git-dir="$common_dir" worktree list --porcelain | awk '/^worktree / { sub(/^worktree /, ""); print }')
 
+# Worktrees created under the DataDog convention live alongside the main repo
+# as "<repo>.worktrees/<name>". Treat that whole prefix as in-scope even if
+# the worktree has since been removed (its process can be orphaned but still
+# running with a stale cwd that `git worktree list` no longer reports).
+repo_dir=$(dirname "$common_dir")
+repo_name=$(basename "$repo_dir")
+worktrees_prefix="$(dirname "$repo_dir")/${repo_name}.worktrees/"
+
 in_worktree() {
   local cwd=$1 worktree
+  [[ "$cwd" == "$worktrees_prefix"* ]] && return 0
   for worktree in "${worktrees[@]}"; do
     [[ "$cwd" == "$worktree" || "$cwd" == "$worktree"/* ]] && return 0
   done
@@ -36,11 +42,14 @@ cwd_for_pid() {
   lsof -a -d cwd -p "$1" -Fn 2>/dev/null | awk '/^n/ { sub(/^n/, ""); print; exit }'
 }
 
-# Yarn launches a Node process, so match the command line rather than its executable name.
+# Yarn launches a Node process, so match the command line rather than its
+# executable name. Also match `dev-local`: web-ui's `yarn dev` launches
+# `node --title=dev-local ...`, which makes ps report the title instead of
+# the original yarn/node command line.
 candidates=()
 while IFS= read -r pid; do
   candidates+=("$pid")
-done < <(ps -axo pid=,command= | awk '$0 ~ /(^|[[:space:]])yarn(\\.js)?([[:space:]]+(run[[:space:]]+)?)?[[:space:]]+dev([[:space:]]|$)/ { print $1 }')
+done < <(ps -axo pid=,command= | awk '$0 ~ /(^|[[:space:]])yarn(\\.js)?([[:space:]]+(run[[:space:]]+)?)?[[:space:]]+dev([[:space:]]|$)/ || $0 ~ /(^|[[:space:]])dev-local([[:space:]]|$)/ { print $1 }')
 
 pids=()
 for pid in "${candidates[@]}"; do
@@ -58,12 +67,6 @@ for pid in "${pids[@]}"; do
   ps -p "$pid" -o pid=,command=
   echo "  cwd: $(cwd_for_pid "$pid")"
 done
-
-if ! "$force"; then
-  if ! read -r -p "Stop them? [y/N] " answer || [[ ! "$answer" =~ ^[Yy]$ ]]; then
-    exit 0
-  fi
-fi
 
 kill_tree() {
   local parent=$1 child
