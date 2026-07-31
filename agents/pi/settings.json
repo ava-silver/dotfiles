@@ -4,15 +4,17 @@
   },
   "lastChangelogVersion": "0.83.0",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "low",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
+  "hideThinkingBlock": false,
   "packages": [
     "npm:pi-btw",
     "npm:pi-web-access",
-    "npm:pi-subagents",
     "npm:pi-mcp-adapter",
-    "npm:pi-intercom",
-    "npm:pi-prompt-template-model"
+    "npm:pi-auto-rename",
+    "npm:pi-prompt-template-model",
+    "npm:@ff-labs/pi-fff",
+    "npm:pi-visualize-code-changes"
   ],
   "defaultProvider": "local-mlx",
   "defaultModel": "Qwen3-Coder-30B-Instruct-4bit"

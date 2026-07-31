@@ -6,6 +6,8 @@ notify = [
   "/Users/ava.silver/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient",
   "turn-ended",
 ]
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
 
 [projects]
 "/Users/ava.silver" = { trust_level = "trusted" }
@@ -18,6 +20,9 @@ notify = [
 "/Users/ava.silver/go/src/github.com/DataDog/serverless-remote-instrumentation" = { trust_level = "trusted" }
 "/Users/ava.silver/go/src/github.com/DataDog/web-ui" = { trust_level = "trusted" }
 
+[projects."/Users/ava.silver/go/src/github.com/DataDog/documentation"]
+trust_level = "trusted"
+
 [tui]
 status_line = [
   "model-with-reasoning",
@@ -29,18 +34,18 @@ status_line = [
 status_line_use_colors = true
 
 [marketplaces.openai-bundled]
-last_updated = "2026-07-06T22:11:26Z"
+last_updated = "2026-07-14T21:02:41Z"
 source_type = "local"
 source = "/Users/ava.silver/.codex/.tmp/bundled-marketplaces/openai-bundled"
 
 [marketplaces.openai-primary-runtime]
-last_updated = "2026-07-01T16:44:24Z"
+last_updated = "2026-07-13T14:43:51Z"
 source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
-last_updated = "2026-07-10T15:22:30Z"
-last_revision = "dc15426a4dc1085eb7fc8f0b6efe7f42962c272e"
+last_updated = "2026-07-29T21:57:24Z"
+last_revision = "409be47c17fe4012d4a669c26d676e435f6037b0"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 
@@ -53,26 +58,34 @@ source = "/Users/ava.silver/.trajectory/codex-marketplace"
 url = "https://mcp.atlassian.com/v1/mcp/authv2"
 
 [mcp_servers.node_repl]
-command = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/cua_node/bin/node_repl"
-startup_timeout_sec = 120.0
+args = []
+command = "/Users/ava.silver/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl"
+startup_timeout_sec = 120
 
 [mcp_servers.node_repl.env]
-BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
-BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
-BROWSER_USE_CODEX_APP_VERSION = "26.623.101652"
-CODEX_CLI_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/codex"
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = "/Users/ava.silver/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules"
+NODE_REPL_NODE_PATH = "/Users/ava.silver/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
+NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ava.silver/.codex"
 CODEX_HOME = "/Users/ava.silver/.codex"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f,e2cad16d8d9f60f09c9f0951ec7dfdd9e8f59dedd06045c0b6827dc8fa8322f0"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
 NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
 NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
-NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
-NODE_REPL_NODE_MODULE_DIRS = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/cua_node/lib/node_modules"
-NODE_REPL_NODE_PATH = "/Users/ava.silver/Applications/Codex.app/Contents/Resources/cua_node/bin/node"
-NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "60e4902788f207f88fd09344dfeafe07769488bdb2924bbb12b322c3b9d2b999"
-NODE_REPL_TRUSTED_CODE_PATHS = "/Users/ava.silver/.codex"
+NODE_REPL_INSTRUCTIONS_USE_CASE_COMPUTER_USE = "Control desktop apps on macOS through Computer Use."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.707.62119"
+CODEX_CLI_PATH = "/Users/ava.silver/Applications/ChatGPT.app/Contents/Resources/codex"
 
 [mcp_servers.trajectory]
 command = "/Users/ava.silver/.trajectory/bin/trajectory"
 args = ["mcp"]
+
+[mcp_servers.computer-use]
+command = "./Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
+args = ["mcp"]
+cwd = "."
+enabled = false
 
 [plugins]
 "dd@datadog-claude-plugins" = { enabled = true }
@@ -106,11 +119,15 @@ enabled = true
 [plugins."trajectory@trajectory"]
 enabled = true
 
+[plugins."visualize@openai-bundled"]
+enabled = true
+
 [desktop]
 conversationDetailMode = "STEPS_COMMANDS"
 ambient-suggestions-enabled = false
 default-service-tier = "priority"
 followUpQueueMode = "queue"
+dock-icon-preference = "codex-system"
 
 [desktop.open-in-target-preferences]
 global = "zed"

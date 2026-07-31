@@ -7,7 +7,7 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-  "diff_view_style": "split",
+  "diff_view_style": "unified",
   "icon_theme": "Material Icon Theme",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
@@ -20,6 +20,7 @@
     "dock": "right",
   },
   "agent": {
+    "notify_when_agent_waiting": "all_screens",
     "thinking_display": "always_collapsed",
     "button": true,
     "dock": "right",
@@ -71,9 +72,6 @@
     "pi-acp": {
       "type": "registry",
     },
-    "cursor": {
-      "type": "registry",
-    },
     "codex-acp": {
       "type": "registry",
     },
@@ -90,5 +88,8 @@
     "mode": "system",
     "light": "One Light",
     "dark": "Catppuccin Macchiato",
+  },
+  "instrumentation": {
+    "performance_profiler": { "enabled": true },
   },
 }

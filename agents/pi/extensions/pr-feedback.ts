@@ -8,6 +8,24 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+
+function buildPrompt(repo: string, pr: string, feedback: Feedback): string {
+  return `Here is the review feedback for ${repo}#${pr} directly from GitHub.
+
+Reviews:
+${formatReviews(feedback.reviews)}
+
+Inline review comments (indented lines are replies in the same thread):
+${formatThreads(feedback.inlineComments)}
+
+For each piece of feedback (inline comment thread or review), skip anything already resolved by a prior reply or code change, then decide if it's valid:
+- Valid -- explain the functionality issue in clear terms and suggest a fix in the code.
+- Invalid or not actionable (e.g. a question, already handled, out of scope, or a matter of opinion you disagree with) -- skip it and note why.
+
+Do not start working on any fixes until given permission. Do not reply to comments on GitHub and do not commit or push.`;
+}
+
+
 const execFileAsync = promisify(execFile);
 
 async function gh(cwd: string, args: string[]): Promise<string> {
@@ -226,22 +244,6 @@ function formatReviews(reviews: Review[]): string {
   return cleaned
     .map((r) => `- @${r.user} [${r.state}]${r.text ? `: ${r.text}` : ""}`)
     .join("\n");
-}
-
-function buildPrompt(repo: string, pr: string, feedback: Feedback): string {
-  return `Here is the review feedback for ${repo}#${pr}, fetched directly from GitHub.
-
-Inline review comments (indented lines are replies in the same thread):
-${formatThreads(feedback.inlineComments)}
-
-Reviews:
-${formatReviews(feedback.reviews)}
-
-For each piece of feedback (inline comment thread or review), skip anything already resolved by a prior reply or code change, then decide if it's valid:
-- Valid -- fix it in the code.
-- Invalid or not actionable (e.g. a question, already handled, out of scope, or a matter of opinion you disagree with) -- skip it and note why.
-
-Do not reply to comments on GitHub and do not commit or push -- just make the code changes. Report a short summary of what you fixed and what you skipped (with reasons).`;
 }
 
 export default function (pi: ExtensionAPI): void {

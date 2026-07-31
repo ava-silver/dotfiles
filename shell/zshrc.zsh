@@ -39,7 +39,7 @@ plugins=(
 )
 
 fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
-autoload -U compinit && compinit
+# oh-my-zsh initializes compinit after registering all plugin completion paths.
 source "$HOME/.oh-my-zsh/oh-my-zsh.sh"
 
 # User configuration
@@ -62,7 +62,16 @@ export GH_TELEMETRY=false
 
 export HOMEBREW_NO_ENV_HINTS=1
 
-export KUBE_EDITOR="zed --wait"
+export HOST_HOOK_RUNNER=1
+
+export VOLTA_HOME="$HOME/.volta"
+export PATH="$VOLTA_HOME/bin:${PATH?}"
+export NODE_OPTIONS="--max-old-space-size=30000"
+
+export PATH="$PATH:$HOME/.local/bin"
+
+
+export EDITOR="zed --wait"
 
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
 

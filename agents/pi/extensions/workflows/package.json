@@ -1,0 +1,16 @@
+{
+  "name": "pi-workflows",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p .",
+    "test": "node --test --experimental-strip-types *.test.ts"
+  },
+  "dependencies": {
+    "acorn": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  }
+}

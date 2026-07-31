@@ -41,7 +41,7 @@ alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
 alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
 alias xclip="pbcopy"
 
-alias brewi="brew update && brew install"
+alias brewi="brew update && brew install -y"
 alias brewr="brew uninstall"
 alias brewu="brew update && brew upgrade -y"
 
@@ -93,7 +93,6 @@ store_token() {
     source ~/.zshrc
 }
 
-alias auth='export $(dd-auth --output | xargs)'
 
 install-hooks() {
     command -v prek &>/dev/null || brew install prek
@@ -111,11 +110,41 @@ fi
 awsopen() {
     open -a "Google Chrome" "https://console.aws.amazon.com/go/view?arn=$1"
 }
-alias aws-sso='aws-vault exec sso-serverless-sandbox-account-admin --'
+# Resolves a leading alias in the given words into the `expanded_cmd` array,
+# so wrapper functions accept aliases as arguments the way a shell would.
+expand-alias() {
+    typeset -ga expanded_cmd=("$@")
+    local -i depth=0
+    while (( $+aliases[$expanded_cmd[1]] && depth++ < 16 )); do
+        expanded_cmd=("${(@Q)${(z)aliases[$expanded_cmd[1]]}}" "${expanded_cmd[@]:1}")
+    done
+}
+
+# Runs a command under the sandbox AWS profile, expanding a leading alias
+# (e.g. `aws-sso tfa` -> `aws-vault exec ... -- terraform apply -auto-approve`).
+aws-sso() {
+    expand-alias "$@"
+    aws-vault exec sso-serverless-sandbox-account-admin -- "${expanded_cmd[@]}"
+}
+
+# Reruns a command forever, sleeping between iterations (`loop -n 5 tfa`).
+loop() {
+    local interval=1
+    if [[ $1 == -n ]]; then
+        interval=$2
+        shift 2
+    fi
+    expand-alias "$@"
+    local -a cmd=("${expanded_cmd[@]}")
+    while true; do
+        "${cmd[@]}"
+        sleep "$interval"
+    done
+}
 alias aws='aws-sso /opt/homebrew/bin/aws'
 
-dd-auth() {
-    eval "$(/opt/homebrew/bin/dd-auth --output --domain "$@" | sed 's/^/export /')"
+dd-auth-session() {
+    eval "$(dd-auth --output --domain "$@" | sed 's/^/export /')"
 }
 
 alias bunup='(cd ~/.bun/install/global && bun update)'
@@ -124,45 +153,18 @@ alias bunupdate=bunup
 alias disablesleep='sudo pmset -a disablesleep 1'
 alias enablesleep='sudo pmset -a disablesleep 0'
 
-code() {
-    /usr/local/bin/code $(realpath $@)
-}
+alias code=zed
 
-alias oc=opencode
+alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
 alias cc='claude --model "sonnet[1m]"'
 alias cco='claude --model "opus[1m]"'
+<<<<<<< HEAD
 alias cx=codex
 alias cu=cursor-agent
 alias llm='llama serve -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M'
+||||||| 5677e7e
+alias cx=codex
+alias cu=cursor-agent
+=======
+>>>>>>> mac
 
-wt() {
-    local branch repo_root repo_name wt_dir main_branch
-    branch=$(git rev-parse --abbrev-ref HEAD) || return 1
-    repo_root=$(git rev-parse --show-toplevel) || return 1
-    repo_name=$(basename "$repo_root")
-    local safe_branch
-    if [[ "$branch" == */*/* ]]; then
-        safe_branch="${branch#*/*/}"
-    elif [[ "$branch" == */* ]]; then
-        safe_branch="${branch#*/}"
-    else
-        safe_branch="$branch"
-    fi
-    safe_branch="${safe_branch//\//-}"
-    wt_dir="$HOME/dd/${repo_name}.worktrees/${safe_branch}"
-
-    if [[ "$branch" == main || "$branch" == master ]]; then
-        echo "already on main, nothing to eject"
-        return 1
-    fi
-    if [[ -d "$wt_dir" ]]; then
-        echo "worktree already exists at $wt_dir"
-        return 1
-    fi
-
-    main_branch=$(git main)
-    git checkout "$main_branch" || return 1
-    git worktree add "$wt_dir" "$branch" || return 1
-    echo "ejected '$branch' → $wt_dir"
-    cd "$wt_dir"
-}

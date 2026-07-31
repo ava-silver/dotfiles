@@ -10,12 +10,13 @@ pager = delta
 # See romkatv/gitstatus#474, romkatv/powerlevel10k#2473, libgit2/libgit2#6531
 fsmonitor = false
 untrackedCache = false
-excludesfile = /Users/ava/.gitignore_global
-attributesFile = /Users/ava/.gitattributes
+excludesfile = /Users/ava.silver/.gitignore_global
+attributesFile = /Users/ava.silver/.gitattributes
+hooksPath = /usr/local/dd/global_hooks
 [diff]
 external = difft
 [merge]
-conflictstyle = diff3
+conflictstyle = zdiff3
 [merge "mergiraf"]
 name = mergiraf
 driver = mergiraf merge --git %O %A %B -s %S -x %X -y %Y -p %P -l %L
@@ -53,12 +54,14 @@ dh = d HEAD
 dhn = dh --name-only
 cf = !sh -c \"git diff --name-only | uniq | xargs zed\"
 lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
-l = lg -n
+cleanup-lock = "!f() { lock=$(git rev-parse --git-path index.lock) || return; if [ -e \"$lock\" ]; then rm -v \"$lock\"; else echo \"No index lock: $lock\"; fi; }; f"
+l = cleanup-lock
 standies = standup
 ticket = "!$HOME/dotfiles/git/scripts/ticket.sh"
 cln = "clean -fdx"
 cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
 cwt = "!$HOME/dotfiles/git/scripts/clean-worktrees.sh"
+dwt = "!$HOME/dotfiles/git/scripts/delete-worktree.sh"
 copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
 cs = copy-stack
 restack = "!f() { gt restack || pi 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"

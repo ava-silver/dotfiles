@@ -1,0 +1,46 @@
+# Match the iTerm2 Default profile.
+
+# Typography
+font-family = MonoLisa
+font-size = 18
+font-feature = -calt, -liga, -dlig
+adjust-cell-width = -10%
+
+# Colors
+background = #1a1a1a
+foreground = #b3b3b3
+palette = 0=#000000
+palette = 1=#bb0000
+palette = 2=#00bb00
+palette = 3=#c7c432
+palette = 4=#0000bb
+palette = 5=#bb00bb
+palette = 6=#00bbbb
+palette = 7=#bbbbbb
+palette = 8=#555555
+palette = 9=#ff5555
+palette = 10=#55ff55
+palette = 11=#ffff55
+palette = 12=#5555ff
+palette = 13=#ff55ff
+palette = 14=#55ffff
+palette = 15=#ffffff
+selection-background = #b5d5ff
+selection-foreground = #000000
+
+# Cursor
+cursor-style = bar
+cursor-style-blink = true
+cursor-color = #bbbbbb
+cursor-text = #ffffff
+
+# Window
+background-opacity = 0.8964
+background-blur = 14
+window-width = 80
+window-height = 25
+
+# Terminal behavior
+scrollback-limit = 100000
+macos-option-as-alt = left
+bell-features = no-system,no-audio,attention,title,no-border

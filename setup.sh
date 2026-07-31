@@ -76,21 +76,8 @@ if ! brew bundle check --file="$REPO_DIR/Brewfile" >/dev/null 2>&1; then
     brew bundle --file="$REPO_DIR/Brewfile"
 fi
 
-# pi
+# pi -- plugins are declared in agents/pi/settings.json.
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
-pi_plugins=(
-    pi-btw
-    pi-web-access
-    pi-subagents
-    pi-mcp-adapter
-)
-installed_pi="$(pi list 2>/dev/null || true)"
-for plugin in "${pi_plugins[@]}"; do
-    if ! grep -qF "npm:$plugin" <<<"$installed_pi"; then
-        pi install "npm:$plugin"
-    fi
-done
-
 
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true
@@ -129,16 +116,26 @@ link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
 config_link_all agents/pi/extensions .pi/agent/extensions "*.ts"
 if command -v bun >/dev/null 2>&1; then
     (cd "$REPO_DIR/agents/pi/extensions/read-aloud" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/agents/pi/extensions/subagents" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/agents/pi/extensions/ask-user" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/agents/pi/extensions/workflows" && bun install --frozen-lockfile)
 else
-    echo "Warning: bun not found; read-aloud dependencies were not installed"
+    echo "Warning: bun not found; Pi extension dependencies were not installed"
 fi
 link "$REPO_DIR/agents/pi/extensions/read-aloud" "$HOME/.pi/agent/extensions/read-aloud"
+link "$REPO_DIR/agents/pi/extensions/subagents" "$HOME/.pi/agent/extensions/subagents"
+link "$REPO_DIR/agents/pi/extensions/ask-user" "$HOME/.pi/agent/extensions/ask-user"
+link "$REPO_DIR/agents/pi/extensions/workflows" "$HOME/.pi/agent/extensions/workflows"
+link "$REPO_DIR/agents/pi/extensions/slack-mcp" "$HOME/.pi/agent/extensions/slack-mcp"
+link "$REPO_DIR/agents/pi/extensions/shared" "$HOME/.pi/agent/extensions/shared"
 config_link_all agents/pi/themes .pi/agent/themes
+config_link_all agents/pi/prompts .pi/agent/prompts "*.md"
 
 # Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
 link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
 
 config_link_all editor/zed .config/zed
+link "$REPO_DIR/terminal/ghostty/config.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
 link "$REPO_DIR/tools/lsd.yaml" "$HOME/.config/lsd/config.yaml"
 echo "Done ✅"
 

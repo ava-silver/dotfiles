@@ -14,10 +14,11 @@
 - Use `jq` for querying json files
 - Don't say "genuinely" unnecessarily, it comes off as exaggerating/weird.
 - Use two dashes (`--`) over em-dashes
+- When looking through datadog repos, they should usually be cloned in `~/dd/`, but if they're not, clone them there first.
 
 ## Pi extensions
-- After adding a file under `agents/pi/extensions/`, run `./setup.sh` (or create its matching `~/.pi/agent/extensions/` symlink) before using `/reload` to test it.
+- After adding a file under `~/dotfiles/agents/pi/extensions/`, run `~/dotfiles/setup.sh` (or create its matching `~/.pi/agent/extensions/` symlink) before using `/reload` to test it.
 
 ## RTK (token-optimized command wrapper)
-- Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe.
+- Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe. If you think something is getting mangled, you may try without `rtk`, but only after trying with `rtk` first.
 - Use `rtk` directly for meta commands: `rtk gain`, `rtk gain --history`, `rtk discover`, `rtk proxy <cmd>`.
