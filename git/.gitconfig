@@ -33,6 +33,15 @@ b = branch
 c = "!$HOME/dotfiles/git/scripts/commit.sh"
 ac = "!f() { git a && git c $@ ;}; f"
 cr = "!$HOME/dotfiles/git/scripts/create.sh"
+# Parallel gh-stack pilot; Graphite aliases remain unchanged.
+sac = "!$HOME/dotfiles/git/scripts/stack-commit.sh"
+scr = "!$HOME/dotfiles/git/scripts/stack-create.sh"
+spush = "!gh stack push"
+ssubmit = "!gh stack submit --auto --open"
+ssync = "!gh stack sync"
+srestack = "!gh stack rebase --no-trunk"
+sview = "!gh stack view"
+swt = "!$HOME/dotfiles/git/scripts/stack-worktree.sh"
 pr = "!gh pr view --web"
 cc = "!git commit -m \"updated $(date)\""
 m = "merge --no-edit"
@@ -53,6 +62,7 @@ sta = stash
 sp = stash pop
 unc = reset --soft HEAD~1
 d = diff --color-moved
+dt = -c diff.external=difft diff --color-moved
 dn = d --name-only
 dm = "!git d $(git main)"
 dmn = "!git dn $(git main)"
@@ -86,6 +96,8 @@ required = true
 defaultBranch = main
 [push]
 autoSetupRemote = true
+[stack]
+branchPrefix = ava.silver/
 [commit]
 gpgsign = true
 [rerere]
