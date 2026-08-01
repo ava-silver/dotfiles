@@ -27,7 +27,6 @@ brew "llama.cpp"
 
 # Apps
 cask "linearmouse"
-cask "fluidvoice"
 cask "zed"
 cask "raycast"
 cask "eul"

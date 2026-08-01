@@ -44,8 +44,8 @@ source_type = "local"
 source = "/Users/ava.silver/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
 
 [marketplaces.datadog-claude-plugins]
-last_updated = "2026-07-29T21:57:24Z"
-last_revision = "409be47c17fe4012d4a669c26d676e435f6037b0"
+last_updated = "2026-07-30T22:01:15Z"
+last_revision = "0c220a976b757e30daed5dae9ccfe32d0c596009"
 source_type = "git"
 source = "https://github.com/DataDog/claude-marketplace.git"
 
