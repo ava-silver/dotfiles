@@ -7,6 +7,15 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "edit_predictions": {
+    "mode": "eager",
+  },
+  "tab_size": 2,
+  "languages": {
+    "Python": {
+      "tab_size": 4,
+    },
+  },
   "diff_view_style": "unified",
   "icon_theme": "Material Icon Theme",
   "cli_default_open_behavior": "existing_window",
@@ -67,7 +76,7 @@
   "colorize_brackets": true,
   "auto_indent_on_paste": true,
   "linked_edits": true,
-  "show_edit_predictions": true,
+  "show_edit_predictions": false,
   "agent_servers": {
     "pi-acp": {
       "type": "registry",
