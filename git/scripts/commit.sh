@@ -21,15 +21,11 @@ else
 fi
 ticket="$($SCRIPT_DIR/ticket.sh)"
 
-if [ -d "$REPO_ROOT/.graphite" ] || git config --get-regexp "^graphite\." >/dev/null 2>&1; then
+
+common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+if [ -n "$common_dir" ] && [ -f "$common_dir/.graphite_repo_config" ]; then
     gt cm -m "$ticket$msg"
+    echo did it with graphite
 else
     git commit -m "$ticket$msg"
 fi
-
-
-# if [ -d "$REPO_ROOT/.graphite" ] || git config --get-regexp "^graphite\." >/dev/null 2>&1; then
-#     echo "This repository uses Graphite."
-# else
-#     echo "This repository does not appear to use Graphite."
-# fi
