@@ -156,15 +156,4 @@ alias enablesleep='sudo pmset -a disablesleep 0'
 alias code=zed
 
 alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
-alias cc='claude --model "sonnet[1m]"'
-alias cco='claude --model "opus[1m]"'
-<<<<<<< HEAD
-alias cx=codex
-alias cu=cursor-agent
 alias llm='llama serve -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M'
-||||||| 5677e7e
-alias cx=codex
-alias cu=cursor-agent
-=======
->>>>>>> mac
-
