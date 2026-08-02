@@ -4,7 +4,7 @@
   },
   "lastChangelogVersion": "0.83.0",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
