@@ -2,6 +2,11 @@
 set -euo pipefail
 # Submit the current GitHub stack and print URLs only for newly created PRs.
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+# Resolved relative to this script at runtime.
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/stack-common.sh"
+
 color_enabled() {
     [[ -t "$1" ]] && [[ "${TERM:-}" != "dumb" ]] && [[ -z "${NO_COLOR:-}" ]]
 }
@@ -54,9 +59,7 @@ render_submit_output() {
 run_submit() {
     local output exit_code cleaned
 
-    # Capturing without a PTY keeps --auto noninteractive. A forced PTY makes
-    # gh prompt after `stack modify`, but hides that prompt inside this capture.
-    if output=$(gh stack submit --auto --open "$@" </dev/null 2>&1); then
+    if output=$(stack_run_noninteractive gh stack submit --auto --open "$@"); then
         cleaned=$(printf '%s' "$output" | clean_terminal)
         printf '%s\n' "$cleaned" | render_submit_output
         return 0

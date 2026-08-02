@@ -3,6 +3,9 @@ set -euo pipefail
 # usage: git scr ticket-1234 summary of this change
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+# Resolved relative to this script at runtime.
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/stack-common.sh"
 
 color_enabled() {
     [[ -t "$1" ]] && [[ "${TERM:-}" != "dumb" ]] && [[ -z "${NO_COLOR:-}" ]]
@@ -37,30 +40,10 @@ clean_terminal() {
     perl -pe 's/\^D\x08\x08//g; s/\r//g; s/\e\][^\a\e]*(?:\a|\e\\)//g; s/\e\[[0-?]*[ -\/]*[\@-~]//g; s/\x08//g'
 }
 
-run_pty_capture() {
-    local -a script_command
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        script_command=(script -q -e /dev/null "$@")
-    else
-        local bash_command shell_command
-        printf -v bash_command '%q ' "$@"
-        bash_command=${bash_command//\'/\'\\\'\'}
-        shell_command="exec bash -c '$bash_command'"
-        script_command=(script -q -e -c "$shell_command" /dev/null)
-    fi
-
-    if [[ -t 0 ]]; then
-        "${script_command[@]}"
-    else
-        "${script_command[@]}" </dev/null
-    fi
-}
-
 run_quietly() {
     local output exit_code cleaned
 
-    if output=$(run_pty_capture "$@" 2>&1); then
+    if output=$(stack_run_noninteractive "$@"); then
         return 0
     else
         exit_code=$?
