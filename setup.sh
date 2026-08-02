@@ -109,7 +109,7 @@ config_link_all agents/cursor .cursor
 link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 config_link_all agents/pi .pi/agent "*.json"
 # pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
-link "$REPO_DIR/agents/pi/skills/mcp" "$HOME/.pi/agent/skills/mcp"
+config_link_all agents/pi/skills .pi/agent/skills
 # pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
 # The extensions root holds shared type-checking tooling; standalone extension packages
 # are linked explicitly so their runtime dependencies resolve through the package directory.

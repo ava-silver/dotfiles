@@ -15,14 +15,27 @@ if [[ -z "$summary" ]]; then
     exit 1
 fi
 
-ticket="$($SCRIPT_DIR/ticket.sh)"
+ticket="$("$SCRIPT_DIR/ticket.sh")"
 message="$summary"
 [[ -n "$ticket" ]] && message="[$ticket] $summary"
 
 git add -A
 git commit -m "$message"
 
-# A lower-layer commit changes the base of every branch above it.
-if gh stack view --json >/dev/null 2>&1; then
-    gh stack rebase --no-trunk --upstack
+# Refresh stack metadata and cascade-rebase every branch above this commit.
+stack_json=''
+if stack_json=$(gh stack view --json 2>&1); then
+    if ! jq -e '.branches | type == "array"' <<<"$stack_json" >/dev/null; then
+        echo "gh stack view returned invalid JSON" >&2
+        exit 1
+    fi
+    if jq -e '.branches[]? | select(.isCurrent)' <<<"$stack_json" >/dev/null; then
+        gh stack rebase --no-trunk --upstack
+    fi
+else
+    stack_exit=$?
+    if [[ $stack_exit -ne 2 ]]; then
+        printf '%s\n' "$stack_json" >&2
+        exit "$stack_exit"
+    fi
 fi
