@@ -12,19 +12,24 @@
 # you can also set this as a git alias with:
 # git config --global alias.c '!bash /path/to/commit.sh'
 # which will allow you to use it like `git c summary of change`
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 if [ $# -eq 0 ]; then
     msg=$(gum input --placeholder 'Summary of this change')
 else
     msg="$*"
 fi
-branch="$(git rev-parse --abbrev-ref HEAD)"
-if [[ $branch =~ .*/.*/.* ]]; then
-    ticket="$(echo "$branch" | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')"
-    if [ "$ticket" != "CHORE" ]; then
-        ticket="[$ticket] "
-    else
-        ticket=""
-    fi
+ticket="$($SCRIPT_DIR/ticket.sh)"
+
+if [ -d "$REPO_ROOT/.graphite" ] || git config --get-regexp "^graphite\." >/dev/null 2>&1; then
+    gt cm -m "$ticket$msg"
+else
+    git commit -m "$ticket$msg"
 fi
-gt cm -m "$ticket$msg"
+
+
+# if [ -d "$REPO_ROOT/.graphite" ] || git config --get-regexp "^graphite\." >/dev/null 2>&1; then
+#     echo "This repository uses Graphite."
+# else
+#     echo "This repository does not appear to use Graphite."
+# fi
