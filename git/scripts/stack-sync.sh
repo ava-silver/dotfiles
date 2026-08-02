@@ -2,6 +2,11 @@
 set -euo pipefail
 # Sync the current GitHub stack, relying on gh stack for reconciliation and verification.
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+# Resolved relative to this script at runtime.
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/stack-common.sh"
+
 color_enabled() {
     [[ -t "$1" ]] && [[ "${TERM:-}" != "dumb" ]] && [[ -z "${NO_COLOR:-}" ]]
 }
@@ -62,7 +67,7 @@ if [[ -t 0 ]] && [[ -t 1 ]] && [[ -t 2 ]]; then
     gh stack sync "$@"
 else
     output=''
-    if output=$(gh stack sync "$@" 2>&1); then
+    if output=$(stack_run_noninteractive gh stack sync "$@"); then
         :
     else
         exit_code=$?
