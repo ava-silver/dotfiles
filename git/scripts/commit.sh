@@ -22,10 +22,8 @@ fi
 ticket="$($SCRIPT_DIR/ticket.sh)"
 
 
-common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
-if [ -n "$common_dir" ] && [ -f "$common_dir/.graphite_repo_config" ]; then
+if $SCRIPT_DIR/is-graphite.sh; then
     gt cm -m "$ticket$msg"
-    echo did it with graphite
 else
     git commit -m "$ticket$msg"
 fi
