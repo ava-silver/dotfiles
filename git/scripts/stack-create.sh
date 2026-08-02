@@ -173,7 +173,7 @@ has_changes() {
 }
 
 verify_submission() {
-    local pr_url post_stack branch_count remote_stacks attempt
+    local pr_url post_stack branch_count remote_pages remote_stacks attempt
 
     if ! pr_url=$(gh pr view "$branch" --json url --jq .url 2>/dev/null) || [[ -z "$pr_url" ]]; then
         print_error "gh stack submit completed without creating a PR for $branch"
@@ -184,11 +184,15 @@ verify_submission() {
         print_error "gh stack submit completed, but the local stack could not be verified"
         return 1
     fi
-    branch_count=$(jq '.branches | length' <<<"$post_stack")
+    if ! branch_count=$(jq '.branches | length' <<<"$post_stack"); then
+        print_error "gh stack submit completed, but local stack JSON was invalid"
+        return 1
+    fi
 
     if [[ $branch_count -gt 1 ]]; then
         for attempt in 1 2 3; do
-            if remote_stacks=$(gh api "repos/$repo/stacks?per_page=100" 2>/dev/null) \
+            if remote_pages=$(gh api --paginate --slurp "repos/$repo/stacks?per_page=100" 2>/dev/null) \
+                && remote_stacks=$(jq 'add // []' <<<"$remote_pages") \
                 && jq -e --arg branch "$branch" \
                     '[.[]?.pull_requests[]? | select(.head.ref == $branch)] | length > 0' \
                     <<<"$remote_stacks" >/dev/null; then
