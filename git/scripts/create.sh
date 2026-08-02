@@ -17,14 +17,18 @@ if ! $SCRIPT_DIR/is-graphite.sh; then
       exit 1
     }
     branch="$USER/$slug"
-    base_branch="$(git rev-parse --abbrev-ref HEAD)"
-    git switch -c "$branch"
     if [[ -z "$(git status --porcelain)" ]]; then
         echo "Created empty branch $branch -- nothing to submit"
         exit
     fi
     git add -A
     git commit -m "$*"
+
+    base_branch="$(git rev-parse --abbrev-ref HEAD)"
+    # commit succeeded -- move it to a new branch
+    git branch "$branch"                 # new branch pointing at the commit
+    git reset --hard HEAD~1              # rewind base_branch back to before the commit
+    git switch "$branch"                 # move to the new branch (has the commit)
     git push -u origin HEAD
     gh pr create --fill-first --draft --base "$base_branch"
     exit
