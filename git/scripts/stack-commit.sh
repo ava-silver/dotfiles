@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# usage: git sac summary of this change
+# usage: git sac message for this change
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 
 if [[ $# -eq 0 ]]; then
-    summary=$(gum input --placeholder 'Summary of this change')
+    summary=$(gum input --placeholder 'Message for this change')
 else
     summary="$*"
 fi
 
 if [[ -z "$summary" ]]; then
-    echo "commit summary cannot be empty" >&2
+    echo "commit message cannot be empty" >&2
     exit 1
 fi
 
-branch=$(git rev-parse --abbrev-ref HEAD)
-ticket=""
-if [[ "$branch" == */*/* ]]; then
-    ticket=$(cut -d '/' -f 2 <<<"$branch" | tr '[:lower:]' '[:upper:]')
-    [[ "$ticket" == "CHORE" ]] && ticket=""
-fi
-
+ticket="$($SCRIPT_DIR/ticket.sh)"
 message="$summary"
 [[ -n "$ticket" ]] && message="[$ticket] $summary"
 

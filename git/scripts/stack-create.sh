@@ -36,12 +36,12 @@ else
 fi
 
 stack_json=$(gh stack view --json 2>/dev/null || true)
-if [[ -n "$stack_json" ]] && jq -e '.branches[-1].isCurrent == true' <<<"$stack_json" >/dev/null; then
+
+if [[ -n "$stack_json" ]] && jq -e '.branches[]? | select(.isCurrent)' <<<"$stack_json" >/dev/null; then
+    # In a tree stack, adding a stack node creates a new child off the current branch regardless of whether children already exist
     gh stack add --all --message "$message" "$branch"
-elif [[ -n "$stack_json" ]] && jq -e '.branches[] | select(.isCurrent)' <<<"$stack_json" >/dev/null; then
-    echo "current branch is not at the top of its stack; run 'gh stack top' first" >&2
-    exit 1
 else
+    # Not inside an existing stack context, start a new one from the current branch
     gh stack init "$branch"
     git add -A
     git commit -m "$message"
