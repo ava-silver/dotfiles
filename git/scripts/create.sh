@@ -16,11 +16,17 @@ if ! $SCRIPT_DIR/is-graphite.sh; then
       echo "description must produce a non-empty branch name"
       exit 1
     }
-    git switch -c "$USER/$slug"
+    branch="$USER/$slug"
+    base_branch="$(git rev-parse --abbrev-ref HEAD)"
+    git switch -c "$branch"
+    if [[ -z "$(git status --porcelain)" ]]; then
+        echo "Created empty branch $branch -- nothing to submit"
+        exit
+    fi
     git add -A
     git commit -m "$*"
     git push -u origin HEAD
-    gh pr create --fill-first
+    gh pr create --fill-first --draft --base "$base_branch"
     exit
 fi
 
