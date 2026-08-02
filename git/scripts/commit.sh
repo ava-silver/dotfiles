@@ -12,19 +12,20 @@
 # you can also set this as a git alias with:
 # git config --global alias.c '!bash /path/to/commit.sh'
 # which will allow you to use it like `git c summary of change`
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 if [ $# -eq 0 ]; then
     msg=$(gum input --placeholder 'Summary of this change')
 else
     msg="$*"
 fi
-branch="$(git rev-parse --abbrev-ref HEAD)"
-if [[ $branch =~ .*/.*/.* ]]; then
-    ticket="$(echo "$branch" | cut -d '/' -f 2 | tr '[:lower:]' '[:upper:]')"
-    if [ "$ticket" != "CHORE" ]; then
-        ticket="[$ticket] "
-    else
-        ticket=""
-    fi
+ticket="$($SCRIPT_DIR/ticket.sh)"
+
+
+common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+if [ -n "$common_dir" ] && [ -f "$common_dir/.graphite_repo_config" ]; then
+    gt cm -m "$ticket$msg"
+    echo did it with graphite
+else
+    git commit -m "$ticket$msg"
 fi
-gt cm -m "$ticket$msg"
