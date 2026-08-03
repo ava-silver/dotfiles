@@ -17,7 +17,7 @@
 - When looking through datadog repos, they should usually be cloned in `~/dd/`, but if they're not, clone them there first.
 
 ## Pi extensions
-- After adding a file under `~/dotfiles/agents/pi/extensions/`, run `~/dotfiles/setup.sh` (or create its matching `~/.pi/agent/extensions/` symlink) before using `/reload` to test it.
+- Pi loads `~/dotfiles/pi/extensions/` directly; use `/reload` after adding or changing an extension.
 
 ## RTK (token-optimized command wrapper)
 - Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe. If you think something is getting mangled, you may try without `rtk`, but only after trying with `rtk` first.

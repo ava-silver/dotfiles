@@ -158,6 +158,4 @@ alias enablesleep='sudo pmset -a disablesleep 0'
 alias code=zed
 
 alias pis='pi --model openai-codex/gpt-5.6-sol --thinking medium'
-alias cc='claude --model "sonnet[1m]"'
-alias cco='claude --model "opus[1m]"'
 
