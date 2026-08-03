@@ -1,5 +1,5 @@
-// Run user `!` / `!!` commands with zsh and escalate cancellation signals for
-// both user commands and the agent's `bash` tool. Repeated Escape presses use
+// Run user `!` / `!!` commands with zsh aliases and escalate cancellation
+// signals for both user commands and the agent's `bash` tool. Repeated Escape presses use
 // SIGINT, SIGTERM, SIGKILL; timeouts use SIGINT, SIGQUIT, SIGKILL at 5s intervals.
 
 import {
@@ -13,6 +13,13 @@ import { existsSync } from "node:fs";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGKILL"] as const;
 const TIMEOUT_ESCALATION_DELAY_MS = 5_000;
+const ZSH_ALIAS_INIT =
+	'[[ ! -r "$HOME/.zsh_aliases" ]] || source "$HOME/.zsh_aliases"';
+
+function withZshAliases(command: string): string {
+	const quotedCommand = `'${command.replaceAll("'", "'\\''")}'`;
+	return `${ZSH_ALIAS_INIT}; eval -- ${quotedCommand}`;
+}
 
 interface EscapeEscalationRequest {
 	handled: boolean;
@@ -108,6 +115,7 @@ function waitForChild(child: ChildProcess): Promise<number | null> {
 function createEscalatingOperations(
 	running: Set<RunningProcess>,
 	shellPath?: string,
+	loadZshAliases = false,
 ): BashOperations {
 	return {
 		async exec(command, cwd, { onData, signal, timeout, env }) {
@@ -115,9 +123,14 @@ function createEscalatingOperations(
 
 			const shell = getShellConfig(shellPath);
 			const commandFromStdin = shell.commandTransport === "stdin";
+			const args = loadZshAliases
+				? ["-c", withZshAliases(command)]
+				: commandFromStdin
+					? shell.args
+					: [...shell.args, command];
 			const child = spawn(
 				shell.shell,
-				commandFromStdin ? shell.args : [...shell.args, command],
+				args,
 				{
 					cwd,
 					detached: process.platform !== "win32",
@@ -194,7 +207,11 @@ function createEscalatingOperations(
 export default function (pi: ExtensionAPI): void {
 	const running = new Set<RunningProcess>();
 	const agentOperations = createEscalatingOperations(running);
-	const userOperations = createEscalatingOperations(running, resolveZshPath());
+	const userOperations = createEscalatingOperations(
+		running,
+		resolveZshPath(),
+		true,
+	);
 
 	const unsubscribe = pi.events.on("shell-signal-escalation:escape", (data) => {
 		const request = data as EscapeEscalationRequest;
