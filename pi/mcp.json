@@ -14,7 +14,7 @@
     },
     "slack": {
       "command": "bun",
-      "args": ["/Users/ava.silver/.pi/agent/extensions/slack-mcp/proxy.ts"]
+      "args": ["/Users/ava.silver/dotfiles/pi/extensions/slack-mcp/proxy.ts"]
     }
   }
 }
