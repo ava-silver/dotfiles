@@ -19,10 +19,12 @@ if [ $# -eq 0 ]; then
 else
     msg="$*"
 fi
-ticket="$($SCRIPT_DIR/ticket.sh)"
+ticket=$("$SCRIPT_DIR/ticket.sh")
+if [ -n "$ticket" ]; then
+    ticket="[$ticket] "
+fi
 
-
-if $SCRIPT_DIR/is-graphite.sh; then
+if "$SCRIPT_DIR/is-graphite.sh"; then
     gt cm -m "$ticket$msg"
 else
     git commit -m "$ticket$msg"

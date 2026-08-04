@@ -76,7 +76,7 @@ if ! brew bundle check --file="$REPO_DIR/Brewfile" >/dev/null 2>&1; then
     brew bundle --file="$REPO_DIR/Brewfile"
 fi
 
-# pi -- plugins are declared in agents/pi/settings.json.
+# pi -- plugins are declared in pi/settings.json.
 bun install -g --ignore-scripts @earendil-works/pi-coding-agent
 
 # dock/appswitcher config
@@ -91,45 +91,22 @@ killall Dock 2>/dev/null || true
 # gh/gt wrappers and subernetes live in bin/; zshrc puts that dir on PATH ahead
 # of /opt/homebrew/bin, so no symlinking is needed here.
 
-# Agent config. RTK guidance lives in AGENTS.md (idempotent `rtk` prefix works on
-# every harness); Claude/Cursor additionally rewrite via a PreToolUse hook, Codex
-# is instruction-only (rtk has no Codex hook).
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
-config_link_all agents/claude .claude
-# ccstatusline reads the XDG path first; keep it pointed at the repo config.
-link "$REPO_DIR/agents/claude/ccstatusline.json" "$HOME/.config/ccstatusline/settings.json"
+# Pi config files are symlinked; resource directories are loaded directly from
+# the repo via settings.json, so edits and newly added resources need no setup rerun.
+link "$REPO_DIR/pi/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
+link "$REPO_DIR/pi/settings.json" "$HOME/.pi/agent/settings.json"
+link "$REPO_DIR/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
 
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
-link "$REPO_DIR/agents/codex/config.toml" "$HOME/.codex/config.toml"
-link "$REPO_DIR/agents/codex/computer-use-config.json" "$HOME/.codex/computer-use/config.json"
-
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.cursor/AGENTS.md"
-config_link_all agents/cursor .cursor
-
-link "$REPO_DIR/agents/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
-config_link_all agents/pi .pi/agent "*.json"
-# pi-only skills (kept out of the shared ~/.agents/skills so other agents don't load them).
-config_link_all agents/pi/skills .pi/agent/skills
-# pi extensions and themes (symlinks every entry so new ones need no setup.sh changes).
-# The extensions root holds shared type-checking tooling; standalone extension packages
-# are linked explicitly so their runtime dependencies resolve through the package directory.
-config_link_all agents/pi/extensions .pi/agent/extensions "*.ts"
+# Install dependencies for local Pi extensions.
 if command -v bun >/dev/null 2>&1; then
-    (cd "$REPO_DIR/agents/pi/extensions/subagents" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/agents/pi/extensions/ask-user" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/agents/pi/extensions/workflows" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/pi/extensions/subagents" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/pi/extensions/ask-user" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/pi/extensions/workflows" && bun install --frozen-lockfile)
 else
     echo "Warning: bun not found; Pi extension dependencies were not installed"
 fi
-link "$REPO_DIR/agents/pi/extensions/subagents" "$HOME/.pi/agent/extensions/subagents"
-link "$REPO_DIR/agents/pi/extensions/ask-user" "$HOME/.pi/agent/extensions/ask-user"
-link "$REPO_DIR/agents/pi/extensions/workflows" "$HOME/.pi/agent/extensions/workflows"
-link "$REPO_DIR/agents/pi/extensions/shared" "$HOME/.pi/agent/extensions/shared"
-config_link_all agents/pi/themes .pi/agent/themes
-config_link_all agents/pi/prompts .pi/agent/prompts "*.md"
-
-# Shared MCP server config, consumed by pi-mcp-adapter and other hosts.
-link "$REPO_DIR/agents/mcp/mcp.json" "$HOME/.config/mcp/mcp.json"
+# MCP server config consumed by pi-mcp-adapter.
+link "$REPO_DIR/pi/mcp.json" "$HOME/.config/mcp/mcp.json"
 
 config_link_all editor/zed .config/zed
 link "$REPO_DIR/terminal/ghostty/config.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
@@ -151,6 +128,6 @@ skills_paths=(
     "harehare/mq/tree/main/skills"
 )
 for skill in "${skills_paths[@]}"; do
-    bunx skills add "https://github.com/$skill" -g -a universal claude-code -y > /dev/null
+    bunx skills add "https://github.com/$skill" -g -a universal -y > /dev/null
 done
 echo " done ✅"

@@ -26,15 +26,6 @@ c = "!f() { git commit -m \"$*\" ;}; f"
 nb = checkout -b
 ac = "!f() { git a && git c $@ ;}; f"
 cr = "!$HOME/dotfiles/git/scripts/create.sh"
-# Parallel gh-stack pilot; Graphite aliases remain unchanged.
-sac = "!$HOME/dotfiles/git/scripts/stack-commit.sh"
-scr = "!$HOME/dotfiles/git/scripts/stack-create.sh"
-ssubmit = "!$HOME/dotfiles/git/scripts/stack-submit.sh"
-ssync = "!$HOME/dotfiles/git/scripts/stack-sync.sh"
-srestack = "!gh stack rebase --no-trunk"
-smove = "!gh stack modify"
-sview = "!gh stack view --short"
-swt = "!$HOME/dotfiles/git/scripts/stack-worktree.sh"
 pr = "!gh pr view --web"
 cc = "!git commit -m \"updated $(date)\""
 m = "merge --no-edit"
@@ -89,8 +80,6 @@ required = true
 defaultBranch = main
 [push]
 autoSetupRemote = true
-[stack]
-branchPrefix = ava.silver/
 [rerere]
 enabled = true
 autoupdate = true
