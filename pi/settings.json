@@ -17,16 +17,16 @@
     "npm:pi-visualize-code-changes"
   ],
   "extensions": [
-    "/Users/ava.silver/dotfiles/pi/extensions"
+    "~/dotfiles/pi/extensions"
   ],
   "skills": [
-    "/Users/ava.silver/dotfiles/pi/skills"
+    "~/dotfiles/pi/skills"
   ],
   "prompts": [
-    "/Users/ava.silver/dotfiles/pi/prompts"
+    "~/dotfiles/pi/prompts"
   ],
   "themes": [
-    "/Users/ava.silver/dotfiles/pi/themes"
+    "~/dotfiles/pi/themes"
   ],
   "defaultProvider": "local-mlx",
   "defaultModel": "Qwen3-Coder-30B-Instruct-4bit"
