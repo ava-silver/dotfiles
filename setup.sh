@@ -123,15 +123,3 @@ else
     echo " skipped (rtk not on PATH)"
 fi
 echo " done ✅"
-
-echo "Installing skills..."
-skills_paths=(
-    "ava-silver/skills"
-    "mattpocock/skills/tree/main/skills/engineering/code-review"
-    "harehare/mq/tree/main/skills"
-    "DataDog/claude-marketplace/tree/main/serverless/skills"
-)
-for skill in "${skills_paths[@]}"; do
-    bunx skills add "https://github.com/$skill" -g -a universal -y > /dev/null
-done
-echo " done ✅"
