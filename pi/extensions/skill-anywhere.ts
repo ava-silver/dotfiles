@@ -14,6 +14,7 @@ import {
 	type ExtensionAPI,
 	getAgentDir,
 	loadSkills,
+	SettingsManager,
 	type Skill,
 } from "@earendil-works/pi-coding-agent";
 import {
@@ -79,11 +80,13 @@ function collectSkillDirs(cwd: string): string[] {
 	return dirs.filter((d) => existsSync(d));
 }
 
-function loadSkillMap(cwd: string): Map<string, Skill> {
+function loadSkillMap(cwd: string, projectTrusted: boolean): Map<string, Skill> {
+	const agentDir = getAgentDir();
+	const configuredSkillPaths = SettingsManager.create(cwd, agentDir, { projectTrusted }).getSkillPaths();
 	const { skills } = loadSkills({
 		cwd,
-		agentDir: getAgentDir(),
-		skillPaths: collectSkillDirs(cwd),
+		agentDir,
+		skillPaths: [...collectSkillDirs(cwd), ...configuredSkillPaths],
 		includeDefaults: true,
 	});
 	const map = new Map<string, Skill>();
@@ -150,9 +153,9 @@ function createSkillAutocompleteProvider(
 export default function (pi: ExtensionAPI): void {
 	let skillMap = new Map<string, Skill>();
 
-	const refresh = (cwd: string) => {
+	const refresh = (cwd: string, projectTrusted: boolean) => {
 		try {
-			skillMap = loadSkillMap(cwd);
+			skillMap = loadSkillMap(cwd, projectTrusted);
 		} catch {
 			// Leave the previous map in place on failure.
 		}
@@ -161,11 +164,11 @@ export default function (pi: ExtensionAPI): void {
 	patchEditorTriggerSlash();
 
 	pi.on("session_start", async (_event, ctx) => {
-		refresh(ctx.cwd);
+		refresh(ctx.cwd, ctx.isProjectTrusted());
 		ctx.ui.addAutocompleteProvider((current) => createSkillAutocompleteProvider(current, () => skillMap));
 	});
 
-	pi.on("resources_discover", async (event) => {
-		refresh(event.cwd);
+	pi.on("resources_discover", async (event, ctx) => {
+		refresh(event.cwd, ctx.isProjectTrusted());
 	});
 }
