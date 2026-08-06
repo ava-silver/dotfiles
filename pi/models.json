@@ -1,0 +1,48 @@
+{
+  "providers": {
+    "openai": {
+      "modelOverrides": {
+        "gpt-5.6-sol": {
+          "contextWindow": 1050000
+        }
+      }
+    },
+    "dd-ai-gateway": {
+      "baseUrl": "https://ai-gateway.us1.prod.dog/v1",
+      "api": "openai-responses",
+      "apiKey": "!ddtool auth token rapid-ai-platform --datacenter us1.prod.dog",
+      "authHeader": true,
+      "headers": {
+        "org-id": "2",
+        "source": "pi",
+        "claude-code": "true",
+        "x-llmo-force-redaction": "true"
+      },
+      "models": [
+        {
+          "id": "baseten/deepseek-ai/DeepSeek-V4-Flash-0731",
+          "name": "DeepSeek V4 Flash 0731 (Datadog AI Gateway)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "input": ["text"],
+          "contextWindow": 1048576,
+          "maxTokens": 262144,
+          "cost": {
+            "input": 0.13,
+            "output": 0.26,
+            "cacheRead": 0.028,
+            "cacheWrite": 0
+          }
+        }
+      ]
+    }
+  }
+}

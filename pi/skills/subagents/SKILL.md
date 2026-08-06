@@ -12,11 +12,7 @@ Right-size each delegation before creating an agent. Recommend the `pi` harness 
 
 1. Confirm delegation is worthwhile: the task is independently executable and substantial enough to offset coordination cost.
 2. Choose the harness first. Recommend `pi`. If presenting alternatives, state why they fit but keep `pi` as the recommendation.
-3. Choose the least expensive model likely to succeed:
-   - Fast/lightweight model for bounded lookup, mechanical edits, or focused verification.
-   - General coding model for implementation, debugging, and ordinary review.
-   - Strongest model for ambiguous architecture, broad synthesis, or unusually high-risk reasoning.
-   - Inherit the current model when it already fits; name an override only when it materially improves the outcome.
+3. Recommend `dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731` by default (note that you may want to check on the model occasionally as it sometimes gets into loops). Recommend `openai-codex/gpt-5.6-sol` instead when the task requires more thorough reasoning, such as ambiguous architecture, broad synthesis, or high-risk work. Override this choice only when another model materially improves the outcome.
 4. Right-size reasoning effort:
    - `off`/`minimal`: deterministic or clerical work.
    - `low`: routine, tightly scoped work.
