@@ -4,7 +4,7 @@
   },
   "lastChangelogVersion": "0.84.0",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "off",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
@@ -31,6 +31,15 @@
   "themes": [
     "~/dotfiles/pi/themes"
   ],
-  "defaultProvider": "openai",
-  "defaultModel": "openai/gpt-5.6-sol"
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-terra",
+  "enabledModels": [
+    "dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731",
+    "anthropic/claude-opus-5",
+    "anthropic/claude-opus-4-8",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+    "baseten/baseten/zai-org/GLM-5.2"
+  ]
 }

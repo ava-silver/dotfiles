@@ -7,7 +7,7 @@
  */
 
 import type {
-  ExtensionCommandContext,
+  ExtensionContext,
   KeybindingsManager,
   Theme,
 } from "@earendil-works/pi-coding-agent";
@@ -49,8 +49,26 @@ function statusWord(snap: SubagentSnapshot, theme: Theme): string {
 
 // --- Entry point ---------------------------------------------------------------
 
+export function createPickerLauncher(
+  open: () => Promise<void>,
+  onError: (error: unknown) => void,
+) {
+  let inFlight: Promise<void> | undefined;
+
+  return () => {
+    if (inFlight) return inFlight;
+    inFlight = Promise.resolve()
+      .then(open)
+      .catch(onError)
+      .finally(() => {
+        inFlight = undefined;
+      });
+    return inFlight;
+  };
+}
+
 export async function openSubagentPicker(
-  ctx: ExtensionCommandContext,
+  ctx: ExtensionContext,
   view: SubagentReadModel,
 ) {
   const selection: DashboardSelection = { index: 0 };
