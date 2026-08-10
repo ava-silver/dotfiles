@@ -17,7 +17,6 @@
     "~/dotfiles/pi/extensions"
   ],
   "skills": [
-    "~/dotfiles/pi/skills",
     "~/skills/skills",
     "~/dd/claude-marketplace/serverless/skills"
   ],
