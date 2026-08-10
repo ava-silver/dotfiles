@@ -5,7 +5,7 @@ argument-hint: "[additional instructions]"
 Call `subagent_spawn` exactly once with:
 
 - `harness`: `pi`
-- `model`: `claude-sonnet-5`
+- `model`: `anthropic/claude-sonnet-5`
 - `name`: `write PR description`
 - omit `working_dir` so it uses the current repository
 - `prompt`:

@@ -4,7 +4,7 @@
   },
   "lastChangelogVersion": "0.84.1",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
@@ -17,7 +17,9 @@
     "~/dotfiles/pi/extensions"
   ],
   "skills": [
-    "~/dotfiles/pi/skills"
+    "~/dotfiles/pi/skills",
+    "~/skills/skills",
+    "~/dd/claude-marketplace/serverless/skills"
   ],
   "prompts": [
     "~/dotfiles/pi/prompts"
@@ -26,5 +28,5 @@
     "~/dotfiles/pi/themes"
   ],
   "defaultProvider": "spotify",
-  "defaultModel": "claude-opus-4-6@default"
+  "defaultModel": "claude-sonnet-4-6@default"
 }

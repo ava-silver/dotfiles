@@ -73,7 +73,8 @@ export PATH="$PATH:$HOME/.local/bin"
 
 export EDITOR="zed --wait"
 
-[[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
+export FFF_ENABLE_HOME_SCAN=0
+
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export GPG_TTY=$(tty)

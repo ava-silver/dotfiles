@@ -23,10 +23,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-  ExtensionUIContext,
+import {
+  CustomEditor,
+  type ExtensionAPI,
+  type ExtensionContext,
+  type ExtensionUIContext,
 } from "@earendil-works/pi-coding-agent";
 import {
   DEFAULT_MAX_BYTES,
@@ -37,7 +38,13 @@ import {
   ProjectTrustStore,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
-import { Markdown, Text } from "@earendil-works/pi-tui";
+import {
+  Editor,
+  Markdown,
+  matchesKey,
+  Text,
+  type EditorComponent,
+} from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
   BACKEND_NAMES,
@@ -72,7 +79,10 @@ import {
   runTool,
   type SubagentRuntime,
 } from "./src/runtime.ts";
-import { openSubagentPicker } from "./src/ui/takeover.ts";
+import {
+  createPickerLauncher,
+  openSubagentPicker,
+} from "./src/ui/takeover.ts";
 
 const SUBAGENT_OUTPUT_MAX_BYTES = 24 * 1024;
 const WAIT_OUTPUT_MAX_BYTES = 48 * 1024;
@@ -583,5 +593,60 @@ export default function (pi: ExtensionAPI) {
       }
       await openSubagentPicker(ctx, manager.view);
     },
+  });
+
+  // --- Down-arrow opens /subagents ---------------------------------------
+  // Pressing ↓ at the bottom of prompt history (no more history to browse)
+  // opens the subagent picker, like Claude Code's ↓ at the transcript bottom.
+  // Only when subagents exist; otherwise ↓ stays a no-op.
+
+  const openSubagentsFromEditor = async (ctx: ExtensionContext) => {
+    if (ctx.mode !== "tui") return;
+    const manager = await getManager();
+    if (manager.view.size() === 0) return;
+    await openSubagentPicker(ctx, manager.view);
+  };
+
+  pi.on("session_start", (_event, ctx) => {
+    if (!ctx.hasUI) return;
+    const launchPicker = createPickerLauncher(
+      () => openSubagentsFromEditor(ctx),
+      (error) =>
+        ctx.ui.notify(`Could not open subagents: ${String(error)}`, "error"),
+    );
+
+    // Capture the previous factory BEFORE setting ours: getEditorComponent()
+    // inside the factory would return the factory currently being set (itself)
+    // and recurse forever.
+    const previous = ctx.ui.getEditorComponent();
+    ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+      const base = previous?.(tui, theme, keybindings);
+      const editor = base ?? new CustomEditor(tui, theme, keybindings);
+
+      // Narrow to the concrete Editor so we can inspect cursor/history state.
+      if (editor instanceof Editor) {
+        const originalHandleInput = editor.handleInput.bind(editor);
+        editor.handleInput = (data: string) => {
+          if (matchesKey(data, "down") && !editor.isShowingAutocomplete()) {
+            const lines = editor.getLines();
+            const cursor = editor.getCursor();
+            // Only when the input is empty (nothing typed) and the cursor is
+            // at the end: history browsing starts from an empty editor, so this
+            // is the "no more history to browse" state.
+            const atBottom =
+              lines.length === 1 &&
+              lines[0] === "" &&
+              cursor.line === 0 &&
+              cursor.col === 0;
+            if (atBottom) {
+              void launchPicker();
+              return;
+            }
+          }
+          originalHandleInput(data);
+        };
+      }
+      return editor as EditorComponent;
+    });
   });
 }

@@ -96,6 +96,7 @@ killall Dock 2>/dev/null || true
 link "$REPO_DIR/pi/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$REPO_DIR/pi/settings.json" "$HOME/.pi/agent/settings.json"
 link "$REPO_DIR/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
+link "$REPO_DIR/pi/models.json" "$HOME/.pi/agent/models.json"
 
 # Install dependencies for local Pi extensions.
 if command -v bun >/dev/null 2>&1; then
@@ -119,15 +120,4 @@ if command -v rtk >/dev/null; then
 else
     echo " skipped (rtk not on PATH)"
 fi
-echo " done ✅"
-
-echo "Installing skills..."
-skills_paths=(
-    "ava-silver/skills"
-    "mattpocock/skills/tree/main/skills/engineering/code-review"
-    "harehare/mq/tree/main/skills"
-)
-for skill in "${skills_paths[@]}"; do
-    bunx skills add "https://github.com/$skill" -g -a universal -y > /dev/null
-done
 echo " done ✅"

@@ -3,6 +3,8 @@
 
 ## General Behavior
 - In general, opt for existing tools (formatters, linters, etc) for fixing problems where possible instead of manual edits
+- Start with the simplest implementation that satisfies the stated requirements and existing tests. Before adding an abstraction, validation, fallback, or edge-case handling, name the concrete requirement, failing test, observed failure, or established repository convention it addresses. If you cannot, leave it out.
+- After implementation, reread the complete diff and remove speculative abstractions, checks, and indirection.
 - When planning, always ask any clarifying questions you may have.
 - Avoid meta commentary when writing docs, comments, or PR descriptions. Don't make arguments against previous iterations that used to exist -- keep text artifacts grounded in the present.
 - For all Atlassian operations (Jira, Confluence), load the `atlassian` skill for cloud ID, field IDs, and SVLS ticket defaults.
@@ -10,14 +12,15 @@
 - All commands needing AWS auth should be prefixed with `aws-vault exec sso-serverless-sandbox-account-admin --`
 - When updating a PR description, always read the current description first (e.g., `gh pr view --json body`) before editing it.
 - Don't make changes (or commit/push) when I'm just asking a question (i.e. I'm not explicitly asking you to make some change). If you're unsure if you should make changes, feel free to ask if you should make the change you're thinking of.
-- Use `rg` instead of `grep`
+- Use Colima instead of Docker.
+- Use the `ffgrep` tool or `rg` instead of `grep`
 - Use `jq` for querying json files
-- Don't say "genuinely" unnecessarily, it comes off as exaggerating/weird.
 - Use two dashes (`--`) over em-dashes
 - When looking through datadog repos, they should usually be cloned in `~/dd/`, but if they're not, clone them there first.
 
-## Pi extensions
-- Pi loads `~/dotfiles/pi/extensions/` directly; use `/reload` after adding or changing an extension.
+## Pi config
+- Pi loads extensions/themes/etc from `~/dotfiles/pi/` directly; use `/reload` after adding or changing an extension.
+- Most skills are loaded from `~/skills/skills/`
 
 ## RTK (token-optimized command wrapper)
 - Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe. If you think something is getting mangled, you may try without `rtk`, but only after trying with `rtk` first.
