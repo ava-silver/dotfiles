@@ -20,7 +20,7 @@
 
 ## Pi config
 - Pi loads extensions/themes/etc from `~/dotfiles/pi/` directly; use `/reload` after adding or changing an extension.
-- Most skills are loaded from `~/skills/skills/`
+- All skills live in `~/skills/skills/` (also loads `~/dd/claude-marketplace/serverless/skills`)
 
 ## RTK (token-optimized command wrapper)
 - Prefix shell commands with `rtk` (e.g. `rtk git status`, `rtk cargo test`) -- it cuts token usage and is idempotent, so prefixing is always safe. If you think something is getting mangled, you may try without `rtk`, but only after trying with `rtk` first.
