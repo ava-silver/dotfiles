@@ -3,6 +3,8 @@
 
 ## General Behavior
 - In general, opt for existing tools (formatters, linters, etc) for fixing problems where possible instead of manual edits
+- Start with the simplest implementation that satisfies the stated requirements and existing tests. Before adding an abstraction, validation, fallback, or edge-case handling, name the concrete requirement, failing test, observed failure, or established repository convention it addresses. If you cannot, leave it out.
+- After implementation, reread the complete diff and remove speculative abstractions, checks, and indirection.
 - When planning, always ask any clarifying questions you may have.
 - Avoid meta commentary when writing docs, comments, or PR descriptions. Don't make arguments against previous iterations that used to exist -- keep text artifacts grounded in the present.
 - For all Atlassian operations (Jira, Confluence), load the `atlassian` skill for cloud ID, field IDs, and SVLS ticket defaults.
