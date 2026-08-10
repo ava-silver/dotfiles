@@ -1,16 +1,3 @@
-## BEGIN -- workspaces cli
-## Generated content -- do not remove
-# NOTE: This is at the top to ensure that other user or generated settings do
-# not affect workspace connections.
-# If you'd like to make changes that apply to all workspaces, see the comments
-# in 00-common.conf alongside the included files below
-Include /Users/ava.silver/.ssh/workspaces/*
-## END -- workspaces cli
-
-Include /Users/ava.silver/.config/datadog/git/ssh_config
-
-Include /Users/ava.silver/.colima/ssh_config
-
 Host localhost
   HostName localhost
   Port 2222
@@ -26,15 +13,8 @@ Host neu
   HostName login.ccs.neu.edu
   IdentityFile ~/.ssh/id_neu
 
-Host netsec
-  User pi
-  HostName 10.10.79.10
-  IdentityFile ~/.ssh/id_netsecpi
-
-
-Host mcserver
-  User ubuntu
-  HostName 141.148.94.64
-  IdentityFile ~/.ssh/id_mcserver
-Host *
-  IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+Host ava-hermes
+  User root
+  HostName 10.0.0.117
+  IdentityFile ~/.ssh/id_ed25519
+  StrictHostKeyChecking accept-new

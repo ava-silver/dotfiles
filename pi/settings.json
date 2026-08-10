@@ -2,7 +2,7 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
-  "lastChangelogVersion": "0.83.0",
+  "lastChangelogVersion": "0.84.1",
   "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "medium",
   "quietStartup": true,
@@ -10,11 +10,8 @@
   "packages": [
     "npm:pi-btw",
     "npm:pi-web-access",
-    "npm:pi-mcp-adapter",
-    "npm:pi-auto-rename",
-    "npm:pi-prompt-template-model",
     "npm:@ff-labs/pi-fff",
-    "npm:pi-visualize-code-changes"
+    "../../repos/pi-spotify-provider"
   ],
   "extensions": [
     "~/dotfiles/pi/extensions"
@@ -28,6 +25,6 @@
   "themes": [
     "~/dotfiles/pi/themes"
   ],
-  "defaultProvider": "local-mlx",
-  "defaultModel": "Qwen3-Coder-30B-Instruct-4bit"
+  "defaultProvider": "spotify",
+  "defaultModel": "claude-opus-4-6@default"
 }
