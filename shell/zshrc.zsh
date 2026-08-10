@@ -149,6 +149,8 @@ if (( $+commands[gt] )); then
 fi
 
 
+export FFF_ENABLE_HOME_SCAN=0
+
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
