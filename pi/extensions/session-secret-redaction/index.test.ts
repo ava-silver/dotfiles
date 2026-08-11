@@ -10,7 +10,7 @@ afterEach(async () => {
 	await Promise.all(temporaryDirectories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
-test("redacts an escaped secret without changing the JSONL size", async () => {
+test.each([200, 205])("redacts an escaped secret when Kingfisher exits with %i", async (scanExitCode) => {
 	const directory = await mkdtemp(join(tmpdir(), "pi-redaction-"));
 	temporaryDirectories.push(directory);
 	const sessionFile = join(directory, "session.jsonl");
@@ -36,7 +36,7 @@ test("redacts an escaped secret without changing the JSONL size", async () => {
 			commands.push([command, ...args].join(" "));
 			if (args[0] === "--version") throw new Error("not found");
 			if (command === "brew") return { code: 0, stdout: "", stderr: "" };
-			return { code: 205, stdout: `${JSON.stringify(finding)}\n`, stderr: "" };
+			return { code: scanExitCode, stdout: `${JSON.stringify(finding)}\n`, stderr: "" };
 		},
 	};
 	extension(pi as never);
