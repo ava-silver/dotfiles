@@ -1,16 +1,13 @@
 /**
- * Scripted stub sessions shared by all three backend implementations while
- * the real integrations are pending. A stub session:
+ * Scripted stub session for testing:
  *
  * - streams a plausible turn (thinking deltas, one fake tool cycle, text
- *   deltas, usage ramp, a final assistant message, RunSettled) over a few
- *   seconds so streaming UI, wait, and the footer counters are observable;
+ *   deltas, usage ramp, a final assistant message, RunSettled);
  * - supports send() while running (queued-steer rendering) and while idle
  *   (fresh run);
- * - supports interrupt (RunSettled Interrupted -> status "error", matching v1);
+ * - supports interrupt (RunSettled Interrupted -> status "error");
  * - fails the run when the prompt starts with "FAIL:" (error-path testing);
- * - appends every event to a JSONL "session file" in tmpdir so the
- *   "full transcript in session file" pointers resolve.
+ * - appends every event to a JSONL "session file" in tmpdir.
  */
 
 import * as fs from "node:fs";
@@ -18,40 +15,29 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Cause, Scope } from "effect";
 import { Duration, Effect, Fiber, Queue, Ref, Stream } from "effect";
-import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
-  BackendName,
   QueuedMessage,
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
 } from "../domain.ts";
 import { SendError } from "../domain.ts";
 
 export interface StubProfile {
-  readonly backend: BackendName;
   readonly defaultModelLabel: string;
   readonly contextWindow: number;
   readonly toolName: string;
-  /** Delay between scripted events; varies per backend so streams differ. */
   readonly cadenceMs: number;
 }
 
 const STUB_DIR = path.join(os.tmpdir(), "subagents-stub");
 let sessionCounter = 0;
 
-export function makeStubBackend(profile: StubProfile): SubagentBackend {
-  return {
-    name: profile.backend,
-    capabilities: {
-      steering: true,
-      modelSelection: true,
-      reasoningEffort: true,
-    },
-    // Real impls probe binary-on-PATH / SDK import / credentials here.
-    available: Effect.succeed(true),
-    spawn: (task) => makeStubSession(profile, task),
-  };
+export function makeStubSpawn(
+  profile: StubProfile,
+): (task: SpawnTask) => Effect.Effect<SubagentSession, never, Scope.Scope> {
+  return (task) => makeStubSession(profile, task);
 }
 
 function firstLine(text: string): string {
@@ -75,17 +61,16 @@ const makeStubSession = (
   task: SpawnTask,
 ): Effect.Effect<SubagentSession, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const sessionId = `stub-${profile.backend}-${++sessionCounter}`;
+    const sessionId = `stub-pi-${++sessionCounter}`;
     const sessionFile = path.join(STUB_DIR, `${sessionId}.jsonl`);
 
     const state = {
       meta: {
-        backend: profile.backend,
         modelLabel: task.model ?? profile.defaultModelLabel,
         contextWindow: profile.contextWindow,
         sessionFilePath: sessionFile,
         nativeSessionId: sessionId,
-      } satisfies SubagentMeta as SubagentMeta,
+      } satisfies SubagentMeta,
       pending: [] as string[],
       turnCount: 0,
       closed: false,
@@ -170,16 +155,15 @@ const makeStubSession = (
             _tag: "RunSettled",
             outcome: {
               _tag: "Failed",
-              errorText: `[stub:${profile.backend}] task failed as requested by FAIL: prefix`,
+              errorText: `[stub] task failed as requested by FAIL: prefix`,
             },
           });
           return;
         }
 
         const finalText =
-          `[stub:${profile.backend}] completed: ${firstLine(userText).slice(0, 200)}\n\n` +
-          `This is a stubbed ${profile.backend} subagent turn ${turn + 1}. ` +
-          `The real backend integration will replace this scripted output.`;
+          `[stub] completed: ${firstLine(userText).slice(0, 200)}\n\n` +
+          `This is a stub subagent turn ${turn + 1}.`;
         for (const delta of chunked(finalText, 24)) {
           yield* emit({ _tag: "AssistantDelta", kind: "text", delta });
           yield* pause;

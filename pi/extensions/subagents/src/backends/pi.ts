@@ -27,11 +27,11 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Cause, Scope } from "effect";
 import { Effect, Queue, Stream } from "effect";
-import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
   TranscriptPart,
 } from "../domain.ts";
 import { SendError, SpawnError } from "../domain.ts";
@@ -249,6 +249,66 @@ function safeJson(value: unknown): string | undefined {
   }
 }
 
+/** The argument key that best summarizes a call for known tool types. */
+const TOOL_SUMMARY_KEY: Record<string, string | null> = {
+  bash: "command",
+  read: "path",
+  write: "path",
+  edit: "path",
+  fetch_content: "url",
+  web_search: "query",
+  ffgrep: "pattern",
+  fffind: "pattern",
+  source_check: "claim",
+  subagent_spawn: "name",
+  subagent_check: "id",
+  subagent_wait: "ids",
+  subagent_cancel: "ids",
+  subagent_list: null,
+  workflow: null,
+  ask_user: "question",
+};
+
+/**
+ * Human-readable one-line preview of tool arguments. Extracts the most
+ * meaningful argument for known tools; falls back to the first string value
+ * found, then raw JSON.
+ */
+function toolCallPreview(
+  toolName: string,
+  args: unknown,
+): string | undefined {
+  if (!args || typeof args !== "object") return safeJson(args);
+  const obj = args as Record<string, unknown>;
+
+  const key = Object.hasOwn(TOOL_SUMMARY_KEY, toolName)
+    ? TOOL_SUMMARY_KEY[toolName]
+    : undefined;
+
+  if (key === null) return undefined; // known, no meaningful args to show
+
+  const target = key !== undefined ? obj[key] : undefined;
+  if (typeof target === "string") {
+    const first = target.split("\n")[0].trim();
+    return first.slice(0, 300) || undefined;
+  }
+  if (Array.isArray(target)) {
+    const items = (target as unknown[]).filter(
+      (v): v is string => typeof v === "string",
+    );
+    return items.join(", ").slice(0, 300) || undefined;
+  }
+
+  // Unknown tool: use the first non-empty string value as a best-effort preview.
+  for (const val of Object.values(obj)) {
+    if (typeof val === "string" && val.trim()) {
+      return val.split("\n")[0].trim().slice(0, 300);
+    }
+  }
+
+  return safeJson(args);
+}
+
 /** First non-empty line of a tool result-ish value (v1 liveToolPreview). */
 function toolPreview(value: unknown): string | undefined {
   if (typeof value === "string") {
@@ -286,7 +346,7 @@ function assistantParts(msg: AssistantMessage): TranscriptPart[] {
         type: "toolCall",
         toolId: part.id,
         name: part.name,
-        argsPreview: safeJson(part.arguments),
+        argsPreview: toolCallPreview(part.name, part.arguments),
       });
     }
   }
@@ -317,7 +377,7 @@ function boundedError(error: unknown) {
   );
 }
 
-const makePiSession = (
+export const spawnPiSession = (
   task: SpawnTask,
 ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope> =>
   Effect.gen(function* () {
@@ -405,7 +465,6 @@ const makePiSession = (
     const currentMeta = (): SubagentMeta => {
       const m = activeModel();
       return {
-        backend: "pi",
         modelLabel: m ? `${m.provider}/${m.id}` : undefined,
         contextWindow: m?.contextWindow,
         sessionFilePath: session.sessionFile,
@@ -502,7 +561,7 @@ const makePiSession = (
             _tag: "ToolStart",
             toolId: event.toolCallId,
             name: event.toolName,
-            argsPreview: safeJson(event.args),
+            argsPreview: toolCallPreview(event.toolName, event.args),
           });
           break;
         case "tool_execution_update":
@@ -623,10 +682,4 @@ const makePiSession = (
     } satisfies SubagentSession;
   });
 
-export const piBackend: SubagentBackend = {
-  name: "pi",
-  capabilities: { steering: true, modelSelection: true, reasoningEffort: true },
-  // In-process SDK: always available.
-  available: Effect.succeed(true),
-  spawn: makePiSession,
-};
+

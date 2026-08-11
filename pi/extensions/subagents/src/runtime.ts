@@ -6,26 +6,11 @@
  * ManagedRuntime.
  */
 
-import { Cause, Exit, Layer, ManagedRuntime, type Effect } from "effect";
-import { BackendRegistry, type SubagentBackend } from "./backend.ts";
-import { claudeBackend } from "./backends/claude.ts";
-import { codexBackend } from "./backends/codex.ts";
-import { piBackend } from "./backends/pi.ts";
-import type { BackendName } from "./domain.ts";
-
-const BackendRegistryLive = Layer.sync(BackendRegistry, () => {
-  const backends: SubagentBackend[] = [piBackend, claudeBackend, codexBackend];
-  return new Map<BackendName, SubagentBackend>(
-    backends.map((backend) => [backend.name, backend]),
-  );
-});
-
+import { Cause, Exit, ManagedRuntime, type Effect } from "effect";
 import { SubagentManagerLive } from "./manager.ts";
 
-const AppLayer = SubagentManagerLive.pipe(Layer.provide(BackendRegistryLive));
-
 export function createSubagentRuntime() {
-  return ManagedRuntime.make(AppLayer);
+  return ManagedRuntime.make(SubagentManagerLive);
 }
 
 export type SubagentRuntime = ReturnType<typeof createSubagentRuntime>;

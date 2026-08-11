@@ -1,8 +1,8 @@
 /**
  * SubagentManager — owns the registry of running/finished subagents.
  *
- * Each subagent is a scoped `SubagentSession` from a `SubagentBackend` plus a
- * pump fiber that folds its normalized event stream into a mutable
+ * Each subagent is a scoped SubagentSession (spawned by spawnPiSession) plus
+ * a pump fiber that folds its normalized event stream into a mutable
  * `SubagentSnapshot`. Closing a subagent's scope kills the underlying
  * session/process and stops the pump.
  *
@@ -21,27 +21,25 @@ import {
   Scope,
   Stream,
 } from "effect";
-import type { SubagentBackend, SubagentSession } from "./backend.ts";
-import { BackendRegistry } from "./backend.ts";
 import type {
-  BackendName,
   LiveToolState,
   RunOutcome,
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
   SubagentSnapshot,
   SubagentStatus,
   TranscriptItem,
 } from "./domain.ts";
+import { spawnPiSession } from "./backends/pi.ts";
 import {
-  BackendUnavailableError,
   ConcurrencyLimitError,
   SendError,
   SpawnError,
 } from "./domain.ts";
 
-export const MAX_RUNNING = 4;
+export const MAX_RUNNING = 16;
 export const MAX_TRACKED = 64;
 const STOP_TIMEOUT_MS = 5_000;
 const ERROR_TEXT_MAX_LENGTH = 4_096;
@@ -74,7 +72,6 @@ function appendTranscript(snapshot: MutableSnapshot, item: TranscriptItem) {
 /** Mutable snapshot; exposed to readers via the readonly SubagentSnapshot type. */
 interface MutableSnapshot {
   id: string;
-  backend: BackendName;
   title: string;
   prompt: string;
   cwd: string;
@@ -139,11 +136,10 @@ export interface CancelResult {
 
 export interface SubagentManagerShape {
   spawn(
-    backend: BackendName,
     task: SpawnTask,
   ): Effect.Effect<
     SubagentSnapshot,
-    SpawnError | ConcurrencyLimitError | BackendUnavailableError
+    SpawnError | ConcurrencyLimitError
   >;
   /**
    * Wait until all listed subagents are settled. Unknown ids are treated as
@@ -173,8 +169,9 @@ export class SubagentManager extends Context.Service<
 
 // --- Implementation --------------------------------------------------------------
 
-const makeManager = Effect.gen(function* () {
-  const registry = yield* BackendRegistry;
+type SpawnFn = (task: SpawnTask) => Effect.Effect<SubagentSession, SpawnError, Scope.Scope>;
+
+const makeManager = (spawnFn: SpawnFn) => Effect.gen(function* () {
   // Detached forker for sync contexts (read-model commands, pruning) that
   // preserves the manager's services instead of using the global runtime.
   const runDetached = Effect.runForkWith(yield* Effect.context());
@@ -391,14 +388,11 @@ const makeManager = Effect.gen(function* () {
       case "MetaChanged":
         s.meta = { ...s.meta, ...event.meta };
         break;
-      case "BackendError":
-        s.errorText = bounded(event.message);
-        break;
     }
     notify(s.id);
   };
 
-  const spawn = (backendName: BackendName, task: SpawnTask) =>
+  const spawn = (task: SpawnTask) =>
     Effect.gen(function* () {
       // Reserve synchronously (before the first yield inside doSpawn) so
       // parallel tool calls cannot race past the global cap.
@@ -420,21 +414,8 @@ const makeManager = Effect.gen(function* () {
       );
 
       const doSpawn = Effect.gen(function* () {
-        const backend: SubagentBackend | undefined = registry.get(backendName);
-        if (!backend) {
-          return yield* new BackendUnavailableError({
-            message: `Unknown backend "${backendName}".`,
-          });
-        }
-        const available = yield* backend.available;
-        if (!available) {
-          return yield* new BackendUnavailableError({
-            message: `Backend "${backendName}" is not available on this machine (binary/SDK/credentials missing).`,
-          });
-        }
-
         const scope = yield* Scope.make();
-        const session = yield* Scope.provide(backend.spawn(task), scope).pipe(
+        const session = yield* Scope.provide(spawnFn(task), scope).pipe(
           Effect.onError(() => Scope.close(scope, Exit.void)),
         );
         if (disposed) {
@@ -449,7 +430,6 @@ const makeManager = Effect.gen(function* () {
         const entry: Entry = {
           snapshot: {
             id,
-            backend: backendName,
             title: task.title,
             prompt: task.prompt,
             cwd: task.cwd,
@@ -705,8 +685,8 @@ const makeManager = Effect.gen(function* () {
   });
 });
 
-export const SubagentManagerLive: Layer.Layer<
-  SubagentManager,
-  never,
-  BackendRegistry
-> = Layer.effect(SubagentManager, makeManager);
+export function makeSubagentManagerLayer(spawnFn: SpawnFn) {
+  return Layer.effect(SubagentManager, makeManager(spawnFn));
+}
+
+export const SubagentManagerLive = makeSubagentManagerLayer(spawnPiSession);

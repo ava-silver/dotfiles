@@ -1,6 +1,4 @@
-# Dotfiles bin (gh/gt wrappers, subernetes) -- gh/gt must precede
-# /opt/homebrew/bin so both interactive shells and agents pick up the shims.
-# Kept above the interactive guard so non-interactive agent shells get it too.
+export PATH="/Users/ava/.bun/bin:$PATH"
 export PATH="$HOME/dotfiles/bin:$PATH"
 
 [[ $- != *i* ]] && return
@@ -56,7 +54,6 @@ source $HOME/.zsh_aliases
 [[ ! -f $HOME/.cargo_vars ]] || source $HOME/.cargo_vars
 
 
-export PATH="/Users/ava/.bun/bin:$PATH"
 export DO_NOT_TRACK=true
 export GH_TELEMETRY=false
 
