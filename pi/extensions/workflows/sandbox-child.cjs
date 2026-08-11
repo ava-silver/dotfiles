@@ -4,29 +4,20 @@
 // has no filesystem/network/child-process permissions and receives workflow
 // source only over a validated IPC channel.
 const vm = require("node:vm");
-const sendIpc =
-  typeof process.send === "function" ? process.send.bind(process) : undefined;
+const sendIpc = typeof process.send === "function" ? process.send.bind(process) : undefined;
 // If a future V8 escape exposes `process`, remove the convenient bridges to
 // builtins, native bindings, parent signalling, and addons before any workflow
 // source is compiled. The parent still enforces the authenticated IPC protocol.
-for (const capability of [
-  "getBuiltinModule",
-  "binding",
-  "_linkedBinding",
-  "dlopen",
-  "kill",
-  "abort",
-  "send",
-]) {
-  try {
-    Object.defineProperty(process, capability, {
-      value: undefined,
-      writable: false,
-      configurable: false,
-    });
-  } catch {
-    // The VM boundary and permission mode remain mandatory controls.
-  }
+for (const capability of ["getBuiltinModule", "binding", "_linkedBinding", "dlopen", "kill", "abort", "send"]) {
+	try {
+		Object.defineProperty(process, capability, {
+			value: undefined,
+			writable: false,
+			configurable: false,
+		});
+	} catch {
+		// The VM boundary and permission mode remain mandatory controls.
+	}
 }
 
 const BOOTSTRAP = String.raw`
@@ -163,76 +154,69 @@ let token;
 const pendingAgents = new Map();
 
 function send(message) {
-  sendIpc?.({ token, ...message });
+	sendIpc?.({ token, ...message });
 }
 
 function fail(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  send({ kind: "error", error: message.slice(0, 16 * 1024) });
+	const message = error instanceof Error ? error.message : String(error);
+	send({ kind: "error", error: message.slice(0, 16 * 1024) });
 }
 
 process.on("message", (message) => {
-  if (!message || typeof message !== "object") return;
-  if (!initialized) {
-    if (
-      message.kind !== "init" ||
-      typeof message.token !== "string" ||
-      typeof message.source !== "string" ||
-      typeof message.argsJson !== "string"
-    ) {
-      process.exitCode = 1;
-      return;
-    }
-    initialized = true;
-    token = message.token;
-    run(message.source, message.argsJson);
-    return;
-  }
-  if (message.token !== token || message.kind !== "agentResult") return;
-  const pending = pendingAgents.get(message.id);
-  if (!pending) return;
-  pendingAgents.delete(message.id);
-  if (typeof message.resultJson === "string")
-    pending.resolve(message.resultJson);
-  else
-    pending.reject(
-      new Error(
-        typeof message.error === "string" ? message.error : "Agent IPC failed",
-      ),
-    );
+	if (!message || typeof message !== "object") return;
+	if (!initialized) {
+		if (
+			message.kind !== "init" ||
+			typeof message.token !== "string" ||
+			typeof message.source !== "string" ||
+			typeof message.argsJson !== "string"
+		) {
+			process.exitCode = 1;
+			return;
+		}
+		initialized = true;
+		token = message.token;
+		run(message.source, message.argsJson);
+		return;
+	}
+	if (message.token !== token || message.kind !== "agentResult") return;
+	const pending = pendingAgents.get(message.id);
+	if (!pending) return;
+	pendingAgents.delete(message.id);
+	if (typeof message.resultJson === "string") pending.resolve(message.resultJson);
+	else pending.reject(new Error(typeof message.error === "string" ? message.error : "Agent IPC failed"));
 });
 
 function run(source, argsJson) {
-  try {
-    const sandbox = Object.create(null);
-    sandbox.__argsJson = argsJson;
-    sandbox.__hostBridge = (kind, payloadJson) => {
-      if (kind === "phase") {
-        send({ kind: "phase", payloadJson });
-        return undefined;
-      }
-      if (kind !== "agent")
-        return Promise.reject(new Error("Unknown workflow operation"));
-      let id;
-      try {
-        id = JSON.parse(payloadJson).id;
-      } catch {
-        return Promise.reject(new Error("Invalid agent request"));
-      }
-      return new Promise((resolve, reject) => {
-        pendingAgents.set(id, { resolve, reject });
-        send({ kind: "agent", payloadJson });
-      });
-    };
+	try {
+		const sandbox = Object.create(null);
+		sandbox.__argsJson = argsJson;
+		sandbox.__hostBridge = (kind, payloadJson) => {
+			if (kind === "phase") {
+				send({ kind: "phase", payloadJson });
+				return undefined;
+			}
+			if (kind !== "agent") return Promise.reject(new Error("Unknown workflow operation"));
+			let id;
+			try {
+				id = JSON.parse(payloadJson).id;
+			} catch {
+				return Promise.reject(new Error("Invalid agent request"));
+			}
+			return new Promise((resolve, reject) => {
+				pendingAgents.set(id, { resolve, reject });
+				send({ kind: "agent", payloadJson });
+			});
+		};
 
-    const context = vm.createContext(sandbox, {
-      name: "pi-workflow",
-      codeGeneration: { strings: false, wasm: false },
-    });
-    new vm.Script(BOOTSTRAP, {
-      filename: "workflow-bootstrap.js",
-    }).runInContext(context, { timeout: 1000 });
-    const wrapped = `
+		const context = vm.createContext(sandbox, {
+			name: "pi-workflow",
+			codeGeneration: { strings: false, wasm: false },
+		});
+		new vm.Script(BOOTSTRAP, {
+			filename: "workflow-bootstrap.js",
+		}).runInContext(context, { timeout: 1000 });
+		const wrapped = `
       globalThis.__workflowPromise = (async function workflow(agent, parallel, phase, args) {
         "use strict";
         ${source}
@@ -248,16 +232,12 @@ function run(source, argsJson) {
         return __workflowSerialize(value);
       });
     `;
-    new vm.Script(wrapped, { filename: "workflow-script.js" }).runInContext(
-      context,
-      { timeout: 1000 },
-    );
-    Promise.resolve(context.__workflowPromise).then((resultJson) => {
-      if (typeof resultJson !== "string")
-        throw new Error("Workflow result was not serializable");
-      send({ kind: "result", resultJson });
-    }, fail);
-  } catch (error) {
-    fail(error);
-  }
+		new vm.Script(wrapped, { filename: "workflow-script.js" }).runInContext(context, { timeout: 1000 });
+		Promise.resolve(context.__workflowPromise).then((resultJson) => {
+			if (typeof resultJson !== "string") throw new Error("Workflow result was not serializable");
+			send({ kind: "result", resultJson });
+		}, fail);
+	} catch (error) {
+		fail(error);
+	}
 }

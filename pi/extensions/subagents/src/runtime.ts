@@ -10,7 +10,7 @@ import { Cause, Exit, ManagedRuntime, type Effect } from "effect";
 import { SubagentManagerLive } from "./manager.ts";
 
 export function createSubagentRuntime() {
-  return ManagedRuntime.make(SubagentManagerLive);
+	return ManagedRuntime.make(SubagentManagerLive);
 }
 
 export type SubagentRuntime = ReturnType<typeof createSubagentRuntime>;
@@ -21,18 +21,15 @@ export type SubagentRuntime = ReturnType<typeof createSubagentRuntime>;
  * (tool AbortSignal) throws `interruptMessage`.
  */
 export async function runTool<A, E>(
-  runtime: SubagentRuntime,
-  effect: Effect.Effect<A, E>,
-  options: { signal?: AbortSignal; interruptMessage?: string } = {},
+	runtime: SubagentRuntime,
+	effect: Effect.Effect<A, E>,
+	options: { signal?: AbortSignal; interruptMessage?: string } = {},
 ) {
-  const exit = await runtime.runPromiseExit(
-    effect,
-    options.signal ? { signal: options.signal } : undefined,
-  );
-  if (Exit.isSuccess(exit)) return exit.value;
-  if (Cause.hasInterruptsOnly(exit.cause)) {
-    throw new Error(options.interruptMessage ?? "Operation was aborted.");
-  }
-  const [first] = Cause.prettyErrors(exit.cause);
-  throw new Error(first?.message ?? Cause.pretty(exit.cause));
+	const exit = await runtime.runPromiseExit(effect, options.signal ? { signal: options.signal } : undefined);
+	if (Exit.isSuccess(exit)) return exit.value;
+	if (Cause.hasInterruptsOnly(exit.cause)) {
+		throw new Error(options.interruptMessage ?? "Operation was aborted.");
+	}
+	const [first] = Cause.prettyErrors(exit.cause);
+	throw new Error(first?.message ?? Cause.pretty(exit.cause));
 }

@@ -13,8 +13,7 @@ import { existsSync } from "node:fs";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGKILL"] as const;
 const TIMEOUT_ESCALATION_DELAY_MS = 5_000;
-const ZSH_ALIAS_INIT =
-	'[[ ! -r "$HOME/.zsh_aliases" ]] || source "$HOME/.zsh_aliases"';
+const ZSH_ALIAS_INIT = '[[ ! -r "$HOME/.zsh_aliases" ]] || source "$HOME/.zsh_aliases"';
 
 function withZshAliases(command: string): string {
 	const quotedCommand = `'${command.replaceAll("'", "'\\''")}'`;
@@ -128,17 +127,13 @@ function createEscalatingOperations(
 				: commandFromStdin
 					? shell.args
 					: [...shell.args, command];
-			const child = spawn(
-				shell.shell,
-				args,
-				{
-					cwd,
-					detached: process.platform !== "win32",
-					env: env ?? process.env,
-					stdio: [commandFromStdin ? "pipe" : "ignore", "pipe", "pipe"],
-					windowsHide: true,
-				},
-			);
+			const child = spawn(shell.shell, args, {
+				cwd,
+				detached: process.platform !== "win32",
+				env: env ?? process.env,
+				stdio: [commandFromStdin ? "pipe" : "ignore", "pipe", "pipe"],
+				windowsHide: true,
+			});
 
 			if (commandFromStdin) {
 				child.stdin?.on("error", () => {});
@@ -177,12 +172,15 @@ function createEscalatingOperations(
 								tracked.nextSignal = Math.max(tracked.nextSignal, 2);
 							}
 						}, timeoutMs + TIMEOUT_ESCALATION_DELAY_MS),
-						setTimeout(() => {
-							if (tracked?.child.pid) {
-								signalProcessTree(tracked.child.pid, "SIGKILL");
-								tracked.nextSignal = SIGNALS.length;
-							}
-						}, timeoutMs + TIMEOUT_ESCALATION_DELAY_MS * 2),
+						setTimeout(
+							() => {
+								if (tracked?.child.pid) {
+									signalProcessTree(tracked.child.pid, "SIGKILL");
+									tracked.nextSignal = SIGNALS.length;
+								}
+							},
+							timeoutMs + TIMEOUT_ESCALATION_DELAY_MS * 2,
+						),
 					);
 				}
 
@@ -207,11 +205,7 @@ function createEscalatingOperations(
 export default function (pi: ExtensionAPI): void {
 	const running = new Set<RunningProcess>();
 	const agentOperations = createEscalatingOperations(running);
-	const userOperations = createEscalatingOperations(
-		running,
-		resolveZshPath(),
-		true,
-	);
+	const userOperations = createEscalatingOperations(running, resolveZshPath(), true);
 
 	const unsubscribe = pi.events.on("shell-signal-escalation:escape", (data) => {
 		const request = data as EscapeEscalationRequest;
@@ -228,9 +222,7 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
-		pi.registerTool(
-			createBashToolDefinition(ctx.cwd, { operations: agentOperations }),
-		);
+		pi.registerTool(createBashToolDefinition(ctx.cwd, { operations: agentOperations }));
 	});
 
 	pi.on("user_bash", () => ({ operations: userOperations }));

@@ -6,16 +6,18 @@ configs into place.
 
 ## Layout
 
-| Dir       | Contents                                                        |
-| --------- | -------------------------------------------------------------- |
-| `shell/`  | `zshrc`, `zsh_aliases`, `p10k.zsh`                              |
-| `git/`    | `gitconfig`, `gitattributes`, `gitignore_global`, and helper `scripts/` (git aliases) |
-| `pi/`     | Pi instructions, settings, extensions, skills, prompts, themes, and MCP config |
-| `editor/` | `zed/` settings + keymap                                        |
-| `tools/`  | Misc tool configs (`lsd.yaml`, `ssh_config`, `fluidvoice.json`) |
-| `bin/`    | Executables on PATH straight from the repo (`gh`/`gt` wrappers, `subernetes`) |
-| `fonts/`  | Nerd / coding fonts                                             |
-| `docs/`   | Setup notes -- see [terminal-setup.md](docs/terminal-setup.md) |
+| Dir        | Contents |
+| ---------- | -------- |
+| `bin/`     | PATH executables, including `gh`/`gt` wrappers and `subernetes` |
+| `docs/`    | Setup notes -- see [terminal-setup.md](docs/terminal-setup.md) |
+| `fonts/`   | Nerd and coding fonts |
+| `ghostty/` | Ghostty configuration |
+| `git/`     | Git configuration and helper scripts |
+| `pi/`      | Pi configuration, extensions, prompts, themes, and MCP config |
+| `shell/`   | Zsh and Powerlevel10k configuration |
+| `tools/`   | Shared tool configuration, including SSH and lsd |
+| `zed/`     | Zed settings and keymap |
 
-Configs are symlinked from the repo to their required locations, so edits here
-take effect immediately.
+`setup.sh` symlinks the applicable configuration files into place. Pi loads its
+resource directories directly from this repository, so changes take effect
+immediately.

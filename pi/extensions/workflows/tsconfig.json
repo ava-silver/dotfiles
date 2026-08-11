@@ -1,9 +1,9 @@
 {
-  "extends": "../tsconfig.json",
-  "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "verbatimModuleSyntax": true
-  },
-  "include": ["*.ts", "../shared/*.ts"]
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"verbatimModuleSyntax": true
+	},
+	"include": ["*.ts", "../shared/*.ts"]
 }

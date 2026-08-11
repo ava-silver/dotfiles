@@ -1,12 +1,21 @@
 {
 	"name": "pi-extensions",
 	"private": true,
-	"type": "module",
 	"description": "Local pi extensions; deps are here so the IDE can resolve pi types.",
+	"type": "module",
+	"scripts": {
+		"format": "oxfmt --write .",
+		"format:check": "oxfmt --check .",
+		"lint": "oxlint .",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
 	"devDependencies": {
-		"@earendil-works/pi-ai": "^0.80.2",
-		"@earendil-works/pi-coding-agent": "^0.80.2",
-		"@earendil-works/pi-tui": "^0.80.2",
-		"typescript": "^5"
+		"@earendil-works/pi-ai": "^0.84.1",
+		"@earendil-works/pi-coding-agent": "^0.84.1",
+		"@earendil-works/pi-tui": "^0.84.1",
+		"oxfmt": "0.63.0",
+		"oxlint": "1.78.0",
+		"typescript": "^7"
 	}
 }

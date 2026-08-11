@@ -2,12 +2,10 @@ tap "oven-sh/bun"
 
 # CLI tools
 brew "lsd"
-brew "prek"
 brew "zoxide"
 brew "fzf"
 brew "bat"
 brew "git-delta"
-brew "pinentry-mac"
 brew "gh"
 brew "glab"
 brew "jq"
@@ -24,6 +22,8 @@ brew "node"
 brew "mq"
 brew "rtk"
 brew "llama.cpp"
+brew "prek"
+brew "kingfisher"
 
 # Apps
 cask "linearmouse"

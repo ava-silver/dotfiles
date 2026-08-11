@@ -1,8 +1,4 @@
-import {
-	copyToClipboard,
-	CustomEditor,
-	type ExtensionAPI,
-} from "@earendil-works/pi-coding-agent";
+import { copyToClipboard, CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { matchesKey } from "@earendil-works/pi-tui";
 
 interface EscapeEscalationRequest {
@@ -59,8 +55,6 @@ export default function (pi: ExtensionAPI): void {
 			}
 		}
 
-		ctx.ui.setEditorComponent((tui, theme, keybindings) =>
-			new KeyHandlingEditor(tui, theme, keybindings),
-		);
+		ctx.ui.setEditorComponent((tui, theme, keybindings) => new KeyHandlingEditor(tui, theme, keybindings));
 	});
 }
