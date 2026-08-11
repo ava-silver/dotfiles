@@ -11,6 +11,7 @@ import { makeStubSpawn } from "./src/backends/stub.ts";
 import type { ParentContext, SpawnTask } from "./src/domain.ts";
 import {
   makeSubagentManagerLayer,
+  MAX_RUNNING,
   SubagentManager,
   SubagentManagerLive,
   type SubagentManagerShape,
@@ -110,18 +111,20 @@ test("cancel interrupts a running stub subagent", async () => {
   });
 });
 
-test("the concurrency cap rejects a fifth running subagent", async () => {
+test("the concurrency cap rejects a subagent over the limit", async () => {
   await withManager(async (manager, runtime) => {
     const spawns = await runTool(
       runtime,
-      Effect.forEach([1, 2, 3, 4], (n) => manager.spawn(task(`Task ${n}`)), {
-        concurrency: "unbounded",
-      }),
+      Effect.forEach(
+        Array.from({ length: MAX_RUNNING }, (_, i) => i + 1),
+        (n) => manager.spawn(task(`Task ${n}`)),
+        { concurrency: "unbounded" },
+      ),
     );
-    assert.equal(spawns.length, 4);
+    assert.equal(spawns.length, MAX_RUNNING);
     await assert.rejects(
-      runTool(runtime, manager.spawn(task("Task 5"))),
-      /Max 4 subagents/,
+      runTool(runtime, manager.spawn(task(`Task ${MAX_RUNNING + 1}`))),
+      /Max \d+ subagents/,
     );
   });
 });
@@ -149,13 +152,15 @@ test("idle restarts respect the concurrency cap", async () => {
     await runTool(runtime, manager.waitFor([settled.id]));
     await runTool(
       runtime,
-      Effect.forEach([1, 2, 3, 4], (n) => manager.spawn(task(`Task ${n}`)), {
-        concurrency: "unbounded",
-      }),
+      Effect.forEach(
+        Array.from({ length: MAX_RUNNING }, (_, i) => i + 1),
+        (n) => manager.spawn(task(`Task ${n}`)),
+        { concurrency: "unbounded" },
+      ),
     );
     await assert.rejects(
       runTool(runtime, manager.send(settled.id, "go again")),
-      /Max 4 subagents/,
+      /Max \d+ subagents/,
     );
     assert.equal(manager.view.get(settled.id)?.status, "done");
   });
