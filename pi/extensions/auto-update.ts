@@ -2,9 +2,9 @@ import { closeSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync, wri
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { registerTransientSegment } from "./shared/footer-segments.ts";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
-const STATUS_KEY = "auto-update";
 
 function isRecent(path: string): boolean {
 	try {
@@ -29,8 +29,8 @@ function offline(): boolean {
 export default function autoUpdateExtension(pi: ExtensionAPI): void {
 	let resultTimer: ReturnType<typeof setInterval> | undefined;
 
-	function clearStatus(ctx: ExtensionContext): void {
-		ctx.ui.setStatus(STATUS_KEY, undefined);
+	function clearStatus(_ctx: ExtensionContext): void {
+		registerTransientSegment("auto-update", null);
 	}
 
 	pi.on("session_start", (event, ctx) => {
@@ -66,7 +66,11 @@ export default function autoUpdateExtension(pi: ExtensionAPI): void {
 		remove(resultPath);
 
 		if (ctx.mode === "tui") {
-			ctx.ui.setStatus(STATUS_KEY, ctx.ui.theme.fg("dim", "Pi update checking…"));
+			registerTransientSegment("auto-update", {
+				text: "pi updating…",
+				bg: "#414559",
+				fg: "#838ba7",
+			});
 		}
 
 		const script = `
