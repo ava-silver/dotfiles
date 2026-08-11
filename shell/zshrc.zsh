@@ -56,9 +56,10 @@ export GOPRIVATE=
 export GOPROXY="https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/magicmirror/@current/|https://depot-read-api-go.us1.ddbuild.io/magicmirror/testing/@current/"
 # END ANSIBLE MANAGED BLOCK
 
-# Dotfiles bin (gh/gt wrappers, subernetes) -- gh/gt must precede
-# /opt/homebrew/bin so both interactive shells and agents pick up the shims.
-# Kept above the interactive guard so non-interactive agent shells get it too.
+# bun
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/dotfiles/bin:$PATH"
 
 [[ $- != *i* ]] && return
@@ -173,13 +174,5 @@ export SCFW_HOME="/Users/ava.silver/.scfw"
 # Added by Yarn Switch
 source "/Users/ava.silver/.yarn/switch/env"
 
-# bun
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
 eval "$(cdd init)"
 export GITLAB_HOST=gitlab.ddbuild.io
-
-# Trajectory - AI coding agent observability
-export PATH="/Users/ava.silver/.trajectory/bin:$PATH"
