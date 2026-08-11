@@ -250,7 +250,7 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
             const gitBg = hasDiff ? C.yellow : C.green;
             let text = branch;
             if (hasDiff && diff) {
-              text += ` ${fgHex(C.green)}+${diff.added}${fgHex(C.dark)}/${fgHex(C.red)}-${diff.deleted}${fgHex(C.dark)}`;
+              text += ` ${fgHex('#003609')}+${diff.added}${fgHex(C.dark)}/${fgHex('#520104')}-${diff.deleted}${fgHex(C.dark)}`;
             }
             left.push({ text, bg: gitBg, fg: C.dark });
           }
