@@ -19,7 +19,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
 import {
   getTransientSegments,
   setTransientOnChange,
@@ -153,9 +153,36 @@ function renderBar(left: Seg[], right: Seg[], width: number): string {
 
 // ── Data helpers ─────────────────────────────────────────────────────────────
 
-/** "spotify/claude-opus-4-6@default" → "claude-opus-4-6" */
+const MODEL_SHORT: [string, string][] = [
+  ["sonnet", "sonnet"],
+  ["opus", "opus"],
+  ["sol", "sol"],
+  ["terra", "terra"],
+  ["deepseek", "ds4f"],
+];
+
+/** "spotify/claude-opus-4-6@default" → "sonnet" (or short alias) */
 function formatModelName(id: string): string {
-  return id.split("/").pop()?.split("@")[0] ?? id;
+  const base = (id.split("/").pop()?.split("@")[0] ?? id).toLowerCase();
+  return MODEL_SHORT.find(([needle]) => base.includes(needle))?.[1] ?? base;
+}
+
+/**
+ * Shorten a branch name for display.
+ * - Shows the full name if it fits.
+ * - For 3-part branches (user/TICKET/desc), strips down to the tail (desc) and truncates from the back.
+ * - For 2-part branches (prefix/desc), strips to desc and truncates from the back.
+ */
+function formatBranch(branch: string, maxWidth: number): string {
+  if (branch.length <= maxWidth) return branch;
+  const parts = branch.split("/");
+  // Anchor: after 2nd slash for 3+ parts, after 1st slash for 2 parts
+  const anchorIdx = parts.length >= 3 ? 2 : parts.length === 2 ? 1 : 0;
+  const tail = parts.slice(anchorIdx).join("/");
+  // tail is plain ASCII (branch slug), so slice directly to preserve colors when embedded in a segment
+  if (tail.length <= maxWidth) return tail;
+  if (maxWidth > 2) return tail.slice(0, maxWidth - 2) + "..";
+  return tail.slice(0, maxWidth);
 }
 
 /** Parse `git diff --numstat` output into totals. */
@@ -183,7 +210,7 @@ function formatElapsed(ms: number): string {
 }
 
 function formatCost(cost: number): string {
-  return `$${cost.toFixed(cost < 0.01 ? 4 : 2)}`;
+  return `$${cost.toFixed(2)}`;
 }
 
 // ── Extension ────────────────────────────────────────────────────────────────
@@ -243,18 +270,6 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
           const thinking = THINKING[currentThinkingLevel];
           left.push({ text: thinking.label, bg: thinking.bg, fg: thinking.fg });
 
-          // Branch + diff combined — bg shifts with diff state, hidden when no branch
-          const branch = footerData.getGitBranch();
-          if (branch) {
-            const hasDiff = diff && (diff.added > 0 || diff.deleted > 0);
-            const gitBg = hasDiff ? C.yellow : C.green;
-            let text = branch;
-            if (hasDiff && diff) {
-              text += ` ${fgHex('#003609')}+${diff.added}${fgHex(C.dark)}/${fgHex('#520104')}-${diff.deleted}${fgHex(C.dark)}`;
-            }
-            left.push({ text, bg: gitBg, fg: C.dark });
-          }
-
           // ── Right side ───────────────────────────────────────────────────
           const right: Seg[] = [];
 
@@ -283,6 +298,35 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
             bg: C.panelAlt,
             fg: C.dim,
           });
+
+          // Branch + diff — build after right so we can size branch to fit.
+          const branch = footerData.getGitBranch();
+          if (branch) {
+            const hasDiff = diff && (diff.added > 0 || diff.deleted > 0);
+            const gitBg = hasDiff ? C.yellow : C.green;
+            const leftBaseWidth = visibleWidth(renderLeft(left));
+            const rightWidth = visibleWidth(renderRight(right));
+            const branchOverhead = 3; // leading space + trailing space + arrow
+            const maxBranchText = Math.max(8, width - leftBaseWidth - rightWidth - 2 - branchOverhead);
+            let text = formatBranch(branch, maxBranchText);
+            if (hasDiff && diff) {
+              text += ` ${fgHex('#003609')}+${diff.added}${fgHex(C.dark)}/${fgHex('#520104')}-${diff.deleted}${fgHex(C.dark)}`;
+            }
+            left.push({ text, bg: gitBg, fg: C.dark });
+          }
+
+          const leftStr = renderLeft(left);
+          const rightStr = renderRight(right);
+
+          // If too narrow for a single line, stack: left on line 1, right on line 2.
+          if (visibleWidth(leftStr) + visibleWidth(rightStr) + 2 > width) {
+            const rightTrunc = visibleWidth(rightStr) > width ? truncateToWidth(rightStr, width, "") : rightStr;
+            const rightGap = Math.max(0, width - visibleWidth(rightTrunc));
+            return [
+              truncateToWidth(leftStr, width, ""),
+              " ".repeat(rightGap) + rightTrunc,
+            ];
+          }
 
           return [renderBar(left, right, width)];
         },
