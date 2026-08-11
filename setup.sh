@@ -5,6 +5,8 @@ set -euo pipefail
 export REPO_DIR
 REPO_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
+source "$REPO_DIR/shell/zsh_aliases.zsh"
+
 # Set up shell
 
 ## oh-my-zsh
@@ -99,9 +101,11 @@ link "$REPO_DIR/pi/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$REPO_DIR/pi/settings.json" "$HOME/.pi/agent/settings.json"
 link "$REPO_DIR/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
 link "$REPO_DIR/pi/models.json" "$HOME/.pi/agent/models.json"
+link "$REPO_DIR/pi/pi-auto-rename.json" "$HOME/.pi/agent/extensions/pi-auto-rename.json"
 
 # Install dependencies for local Pi extensions.
 if command -v bun >/dev/null 2>&1; then
+    (cd "$REPO_DIR/pi/extensions" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/read-aloud" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/subagents" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/ask-user" && bun install --frozen-lockfile)
@@ -124,3 +128,6 @@ else
     echo " skipped (rtk not on PATH)"
 fi
 echo " done ✅"
+
+
+install-hooks

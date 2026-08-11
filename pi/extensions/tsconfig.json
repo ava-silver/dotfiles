@@ -10,5 +10,6 @@
 		"skipLibCheck": true,
 		"allowImportingTsExtensions": true
 	},
-	"include": ["*.ts", "read-aloud/*.ts"]
+	"include": ["*.ts", "read-aloud/*.ts", "session-secret-redaction/*.ts"],
+	"exclude": ["**/*.test.ts"]
 }
