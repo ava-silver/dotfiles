@@ -189,7 +189,7 @@ function formatCost(cost: number): string {
 // ── Extension ────────────────────────────────────────────────────────────────
 const MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 
-export default function powerlineFooterExtension(pi: ExtensionAPI): void {
+export default function powerlineExtension(pi: ExtensionAPI): void {
   let tui: { requestRender: () => void } | null = null;
   let savedCtx: ExtensionContext | null = null;
   let diff: { added: number; deleted: number } | null = null;
@@ -250,8 +250,8 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
             const onlyAdded  = hasDiff && diff!.deleted === 0;
             const onlyDeleted = hasDiff && diff!.added === 0;
             const gitBg = onlyAdded ? C.green : onlyDeleted ? C.red : hasDiff ? C.yellow : C.selected;
-            const gitFg = hasDiff ? C.dark : C.text;
-            const parts = [` ${branch}`];
+            const gitFg = hasDiff ? C.dark : C.green;
+            const parts = [branch];
             if (diff && diff.added > 0) parts.push(`+${diff.added}`);
             if (diff && diff.deleted > 0) parts.push(`-${diff.deleted}`);
             left.push({ text: parts.join(" "), bg: gitBg, fg: gitFg });

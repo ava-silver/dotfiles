@@ -3,11 +3,10 @@
 // pi only offers `/skill:` autocomplete at the start of a line. This extension adds
 // an autocomplete provider that completes `/skill:` tokens anywhere in a prompt.
 //
-// The `/skill:name` token is left inline as literal text -- the agent already has every
-// skill's name, description, and location in its system prompt, so a bare token is a
-// sufficient signal to load the skill. We deliberately do NOT paste the full skill body
-// mid-prompt (that bloats the UI); the start-of-prompt case is still handled by pi's
-// built-in expansion.
+// Mid-line `/skill:name` tokens are expanded to `[/skill:name](/path/to/SKILL.md)` so
+// the agent sees the exact file path without needing to search, and without the full
+// skill content being pasted inline. Start-of-line `/skill:name` is still handled by
+// pi's built-in expansion (full content).
 
 import {
 	CONFIG_DIR_NAME,
@@ -61,6 +60,18 @@ function patchEditorTriggerSlash(): void {
 // The leading whitespace requirement means start-of-line `/` is left to pi's built-in
 // command menu; this only fires mid-prompt. An explicit `skill:` is optional.
 const SKILL_PREFIX_AT_CURSOR = /\s(\/(?:skill:)?([A-Za-z0-9_.-]*))$/;
+
+// Matches complete mid-line `/skill:name` tokens (preceded by any whitespace, not at the
+// very start of the text). Used to expand them to path links.
+const MID_LINE_SKILL_TOKEN = /(?<=\s)\/skill:([A-Za-z0-9_.-]+)/g;
+
+/** Expand mid-line `/skill:name` tokens to `[/skill:name](path)` in a string. */
+function expandSkillTokens(text: string, map: Map<string, Skill>): string {
+	return text.replace(MID_LINE_SKILL_TOKEN, (_match, name: string) => {
+		const skill = map.get(name);
+		return skill ? `[/skill:${name}](${skill.filePath})` : _match;
+	});
+}
 
 function collectSkillDirs(cwd: string): string[] {
 	const dirs: string[] = [join(homedir(), ".agents", "skills")];
@@ -170,5 +181,55 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("resources_discover", async (event, ctx) => {
 		refresh(event.cwd, ctx.isProjectTrusted());
+	});
+
+	// Sync skillMap from pi's authoritative loaded-skills list right before each agent run.
+	// This fires after `input`, priming the map for subsequent messages.
+	pi.on("before_agent_start", (event, _ctx) => {
+		const skills = (event as any).systemPromptOptions?.skills as Skill[] | undefined;
+		if (skills?.length) {
+			skillMap = new Map(skills.map((s) => [s.name, s]));
+		}
+	});
+
+	// Transform mid-line `/skill:name` tokens in the UI before the message is stored.
+	// Works from the second message onwards (skillMap populated by before_agent_start).
+	// Start-of-line tokens are left for pi's built-in expansion.
+	pi.on("input", async (event, _ctx) => {
+		const expanded = expandSkillTokens(event.text, skillMap);
+		if (expanded !== event.text) return { action: "transform", text: expanded };
+	});
+
+	// Fallback: expand any remaining tokens right before the LLM sees them.
+	// Catches the first message (skillMap not yet primed at input time) and any
+	// tokens that slipped through input (e.g. skill not in map at that moment).
+	pi.on("context", (_event, _ctx) => {
+		if (!skillMap.size) return;
+		let changed = false;
+		const messages = (_event as any).messages.map((msg: any) => {
+			if (msg.role !== "user") return msg;
+			const { content } = msg;
+			if (typeof content === "string") {
+				const expanded = expandSkillTokens(content, skillMap);
+				if (expanded === content) return msg;
+				changed = true;
+				return { ...msg, content: expanded };
+			}
+			if (Array.isArray(content)) {
+				let blockChanged = false;
+				const newContent = content.map((block: any) => {
+					if (block.type !== "text") return block;
+					const expanded = expandSkillTokens(block.text, skillMap);
+					if (expanded === block.text) return block;
+					blockChanged = true;
+					return { ...block, text: expanded };
+				});
+				if (!blockChanged) return msg;
+				changed = true;
+				return { ...msg, content: newContent };
+			}
+			return msg;
+		});
+		if (changed) return { messages };
 	});
 }
