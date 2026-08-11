@@ -30,6 +30,12 @@
     }
   },
   {
+    "context": "Terminal",
+    "bindings": {
+      "cmd-z": ["terminal::SendText", "\u001bZ"]
+    }
+  },
+  {
     "context": "Editor",
     "bindings": {
       "alt-shift-f": "editor::Format",

@@ -17,6 +17,8 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import {
   getTransientSegments,
@@ -35,8 +37,10 @@ const C = {
   panel:    "#292c3c",
   panelAlt: "#232634",
   selected: "#414559",
+  border:   "#626880",
   // Accent backgrounds
   purple:   "#ca9ee6",
+  blue:     "#8caaee",
   cyan:     "#81c8be",
   green:    "#a6d189",
   red:      "#e78284",
@@ -47,6 +51,17 @@ const C = {
   dim:      "#838ba7",
   dark:     "#1e2030", // dark text for use on bright bg segments
 } as const;
+
+// Thinking level → { bg, fg, label }
+const THINKING: Record<ThinkingLevel, { bg: string; fg: string; label: string }> = {
+  off:     { bg: C.panelAlt, fg: C.dim,  label: "off"  },
+  minimal: { bg: C.selected, fg: C.muted, label: "min"  },
+  low:     { bg: C.border,   fg: C.text,  label: "low"  },
+  medium:  { bg: C.cyan,     fg: C.dark,  label: "med"  },
+  high:    { bg: C.blue,     fg: C.dark,  label: "high" },
+  xhigh:   { bg: C.yellow,  fg: C.dark,  label: "x-hi" },
+  max:     { bg: C.red,     fg: C.dark,  label: "max"  },
+};
 
 // ── ANSI helpers ────────────────────────────────────────────────────────────
 function hexToRgb(hex: string): [number, number, number] {
@@ -176,11 +191,12 @@ const MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 
 export default function powerlineFooterExtension(pi: ExtensionAPI): void {
   let tui: { requestRender: () => void } | null = null;
+  let savedCtx: ExtensionContext | null = null;
   let diff: { added: number; deleted: number } | null = null;
-  let contextPct: number | null = null;
   let lastResponseAt: number | null = null;
   let sessionCost = 0;
   let currentModel = "";
+  let currentThinkingLevel: ThinkingLevel = "off";
   let refreshId = 0;
   let timeTimer: ReturnType<typeof setInterval> | null = null;
   let cleanupTransient: (() => void) | null = null;
@@ -200,10 +216,11 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
     if (ctx.mode !== "tui") return;
 
+    savedCtx = ctx;
     currentModel = formatModelName(ctx.model?.id ?? "?");
+    currentThinkingLevel = pi.getThinkingLevel();
     sessionCost = 0;
     diff = null;
-    contextPct = null;
     lastResponseAt = null;
 
     // Re-render every 30s so the "X ago" time stays fresh.
@@ -222,21 +239,22 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
           // Model
           left.push({ text: currentModel, bg: C.purple, fg: C.dark });
 
-          // Git branch
+          // Thinking level
+          const thinking = THINKING[currentThinkingLevel];
+          left.push({ text: thinking.label, bg: thinking.bg, fg: thinking.fg });
+
+          // Branch + diff combined — bg shifts with diff state, hidden when no branch
           const branch = footerData.getGitBranch();
           if (branch) {
-            left.push({ text: ` ${branch}`, bg: C.selected, fg: C.text });
-          }
-
-          // Git diff (hidden when clean)
-          if (diff && (diff.added > 0 || diff.deleted > 0)) {
-            const onlyAdded = diff.deleted === 0;
-            const onlyDeleted = diff.added === 0;
-            const diffBg = onlyAdded ? C.green : onlyDeleted ? C.red : C.yellow;
-            const parts: string[] = [];
-            if (diff.added > 0) parts.push(`+${diff.added}`);
-            if (diff.deleted > 0) parts.push(`-${diff.deleted}`);
-            left.push({ text: parts.join(" "), bg: diffBg, fg: C.dark });
+            const hasDiff = diff && (diff.added > 0 || diff.deleted > 0);
+            const onlyAdded  = hasDiff && diff!.deleted === 0;
+            const onlyDeleted = hasDiff && diff!.added === 0;
+            const gitBg = onlyAdded ? C.green : onlyDeleted ? C.red : hasDiff ? C.yellow : C.selected;
+            const gitFg = hasDiff ? C.dark : C.text;
+            const parts = [` ${branch}`];
+            if (diff && diff.added > 0) parts.push(`+${diff.added}`);
+            if (diff && diff.deleted > 0) parts.push(`-${diff.deleted}`);
+            left.push({ text: parts.join(" "), bg: gitBg, fg: gitFg });
           }
 
           // ── Right side ───────────────────────────────────────────────────
@@ -247,11 +265,12 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
             right.push(seg);
           }
 
-          // Context utilization
-          if (contextPct !== null) {
-            const ctxFg =
-              contextPct < 60 ? C.green : contextPct < 80 ? C.yellow : C.red;
-            right.push({ text: `${contextPct}%`, bg: C.panel, fg: ctxFg });
+          // Context utilization (live from ctx)
+          const ctxUsage = savedCtx?.getContextUsage();
+          if (ctxUsage?.percent != null) {
+            const pct = Math.round(ctxUsage.percent);
+            const ctxFg = pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
+            right.push({ text: `${pct}%`, bg: C.panel, fg: ctxFg });
           }
 
           // Last response time (clock icon from Nerd Fonts)
@@ -294,28 +313,25 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
     await refreshDiff(ctx);
   });
 
+  pi.on("model_select", (event, _ctx) => {
+    currentModel = formatModelName(event.model.id);
+    tui?.requestRender();
+  });
+
+  pi.on("thinking_level_select", (event, _ctx) => {
+    currentThinkingLevel = event.level;
+    tui?.requestRender();
+  });
+
   pi.on("message_end", (event, _ctx) => {
     const msg = event.message;
     if (msg.role !== "assistant") return;
 
     lastResponseAt = Date.now();
-    if (msg.model) currentModel = formatModelName(msg.model);
 
-    // Context utilization: input tokens vs. model context window.
-    const usage = msg.usage;
-    if (usage) {
-      const inputTokens = (usage.input ?? 0) + (usage.cacheRead ?? 0);
-      // Claude models all have 200k context windows.
-      const contextWindow =
-        typeof msg.model === "string" && msg.model.includes("claude")
-          ? 200_000
-          : null;
-      if (contextWindow) {
-        contextPct = Math.min(100, Math.round((inputTokens / contextWindow) * 100));
-      }
-      const cost = usage.cost?.total;
-      if (typeof cost === "number" && Number.isFinite(cost)) sessionCost += cost;
-    }
+    // Track session cost.
+    const cost = msg.usage?.cost?.total;
+    if (typeof cost === "number" && Number.isFinite(cost)) sessionCost += cost;
 
     tui?.requestRender();
   });
@@ -329,6 +345,7 @@ export default function powerlineFooterExtension(pi: ExtensionAPI): void {
     }
     cleanupTransient?.();
     cleanupTransient = null;
+    savedCtx = null;
     refreshId++;
     tui = null;
     ctx.ui.setFooter(undefined);
