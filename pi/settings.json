@@ -1,4 +1,5 @@
 {
+  "npmCommand": ["bun"],
   "warnings": {
     "anthropicExtraUsage": false
   },
