@@ -247,14 +247,12 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
           const branch = footerData.getGitBranch();
           if (branch) {
             const hasDiff = diff && (diff.added > 0 || diff.deleted > 0);
-            const onlyAdded  = hasDiff && diff!.deleted === 0;
-            const onlyDeleted = hasDiff && diff!.added === 0;
-            const gitBg = onlyAdded ? C.green : onlyDeleted ? C.red : hasDiff ? C.yellow : C.selected;
-            const gitFg = hasDiff ? C.dark : C.green;
-            const parts = [branch];
-            if (diff && diff.added > 0) parts.push(`+${diff.added}`);
-            if (diff && diff.deleted > 0) parts.push(`-${diff.deleted}`);
-            left.push({ text: parts.join(" "), bg: gitBg, fg: gitFg });
+            const gitBg = hasDiff ? C.yellow : C.green;
+            let text = branch;
+            if (hasDiff && diff) {
+              text += ` ${fgHex(C.green)}+${diff.added}${fgHex(C.dark)}/${fgHex(C.red)}-${diff.deleted}${fgHex(C.dark)}`;
+            }
+            left.push({ text, bg: gitBg, fg: C.dark });
           }
 
           // ── Right side ───────────────────────────────────────────────────
