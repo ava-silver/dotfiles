@@ -7,6 +7,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { registerTransientSegment } from "./shared/footer-segments.ts";
 
 
 function buildPrompt(repo: string, pr: string, feedback: Feedback): string {
@@ -254,11 +255,11 @@ export default function (pi: ExtensionAPI): void {
       const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
       let frame = 0;
       const tick = () => {
-        ctx.ui.setStatus(
-          "pr-feedback",
-          ctx.ui.theme.fg("accent", SPINNER_FRAMES[frame++ % SPINNER_FRAMES.length]) +
-            ctx.ui.theme.fg("dim", " Fetching PR feedback..."),
-        );
+        registerTransientSegment("pr-feedback", {
+          text: `${SPINNER_FRAMES[frame++ % SPINNER_FRAMES.length]} PR feedback`,
+          bg: "#81c8be",
+          fg: "#1e2030",
+        });
       };
       tick();
       const spinner = setInterval(tick, 80);
@@ -288,7 +289,7 @@ export default function (pi: ExtensionAPI): void {
         return;
       } finally {
         clearInterval(spinner);
-        ctx.ui.setStatus("pr-feedback", undefined);
+        registerTransientSegment("pr-feedback", null);
       }
 
       if (ctx.isIdle()) {

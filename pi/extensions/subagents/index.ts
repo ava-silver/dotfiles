@@ -46,10 +46,8 @@ import {
   REASONING_EFFORTS,
   type SubagentSnapshot,
 } from "./src/domain.ts";
-import {
-  formatActivityStatus,
-  formatContextUtilization,
-} from "./src/format.ts";
+import { formatContextUtilization } from "./src/format.ts";
+import { registerTransientSegment } from "../shared/footer-segments.ts";
 import { SubagentManager, type SubagentManagerShape } from "./src/manager.ts";
 import {
   buildSubagentResultMessage,
@@ -156,16 +154,18 @@ export default function (pi: ExtensionAPI) {
     if (!ui) return;
     const subs = manager.view.list();
     if (subs.length === 0) {
-      ui.setStatus("subagents", undefined);
+      registerTransientSegment("subagents", null);
       return;
     }
     const running = subs.filter((snap) => snap.status === "running").length;
     const failed = subs.filter((snap) => snap.status === "error").length;
     const done = subs.length - running - failed;
-    ui.setStatus(
-      "subagents",
-      formatActivityStatus(ui.theme, { running, done, failed }),
-    );
+    const parts: string[] = [];
+    if (running > 0) parts.push(`${running} running`);
+    if (done > 0) parts.push(`${done} done`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    const bg = failed > 0 ? "#e78284" : running > 0 ? "#81c8be" : "#a6d189";
+    registerTransientSegment("subagents", { text: parts.join(" · "), bg, fg: "#1e2030" });
   };
 
   const deliverResult = (snap: SubagentSnapshot) => {
@@ -215,7 +215,7 @@ export default function (pi: ExtensionAPI) {
     resultDelivery.clear();
     unsubStatus?.();
     unsubStatus = undefined;
-    ui?.setStatus("subagents", undefined);
+    registerTransientSegment("subagents", null);
     const closing = runtime;
     runtime = undefined;
     managerPromise = undefined;

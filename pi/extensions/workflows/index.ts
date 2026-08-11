@@ -33,7 +33,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
-import { formatActivityStatus } from "../shared/activity-status.ts";
+import { registerTransientSegment } from "../shared/footer-segments.ts";
 import { createWorkflowPersistence, persistWorkflowJson } from "./artifacts.ts";
 import { RunController } from "./controller.ts";
 import { sessionWorkflowRunIds, showWorkflowDashboard } from "./dashboard.ts";
@@ -265,17 +265,15 @@ export default function workflows(pi: ExtensionAPI) {
     try {
       const running = activeRuns.size;
       if (running === 0 && completedRuns === 0 && failedRuns === 0) {
-        ui.setStatus("workflows", undefined);
+        registerTransientSegment("workflows", null);
         return;
       }
-      ui.setStatus(
-        "workflows",
-        formatActivityStatus(ui.theme, "workflows", {
-          running,
-          done: completedRuns,
-          failed: failedRuns,
-        }),
-      );
+      const parts: string[] = [];
+      if (running > 0) parts.push(`${running} running`);
+      if (completedRuns > 0) parts.push(`${completedRuns} done`);
+      if (failedRuns > 0) parts.push(`${failedRuns} failed`);
+      const bg = failedRuns > 0 ? "#e78284" : running > 0 ? "#81c8be" : "#a6d189";
+      registerTransientSegment("workflows", { text: parts.join(" · "), bg, fg: "#1e2030" });
     } catch {
       // UI may be unavailable.
     }
@@ -311,7 +309,7 @@ export default function workflows(pi: ExtensionAPI) {
       await Promise.race([Promise.allSettled(completions), timeout]);
       if (timer) clearTimeout(timer);
     }
-    lastUi?.setStatus("workflows", undefined);
+    registerTransientSegment("workflows", null);
     lastUi = undefined;
   });
 
