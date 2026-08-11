@@ -33,8 +33,8 @@
   "themes": [
     "~/dotfiles/pi/themes"
   ],
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-terra",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-8",
   "enabledModels": [
     "dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731",
     "openai-codex/gpt-5.6-sol",

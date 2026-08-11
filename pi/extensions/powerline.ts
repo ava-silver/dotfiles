@@ -8,7 +8,7 @@
  *   [model ►][  branch ►][+N -N ►]
  *
  * Right side — telemetry + transient segments:
- *   [◄ registered transient segments...][◄ N% ◄][◄ 󰥔 Xm ago ◄][◄ $0.00]
+ *   [◄ registered transient segments...][◄ 12.3k/200k (6%) ◄][◄ 󰥔 Xm ago ◄][◄ $0.00]
  *
  * Other extensions can inject temporary segments (e.g. spinners) via:
  *   import { registerTransientSegment } from "./shared/footer-segments.ts";
@@ -213,6 +213,14 @@ function formatCost(cost: number): string {
   return `$${cost.toFixed(2)}`;
 }
 
+function formatTokens(tokens: number): string {
+  if (tokens < 1_000) return String(Math.round(tokens));
+  if (tokens < 10_000) return `${(tokens / 1_000).toFixed(1)}k`;
+  if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
+  if (tokens < 10_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  return `${Math.round(tokens / 1_000_000)}M`;
+}
+
 // ── Extension ────────────────────────────────────────────────────────────────
 const MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 
@@ -285,10 +293,14 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 
           // Context utilization (live from ctx)
           const ctxUsage = savedCtx?.getContextUsage();
-          if (ctxUsage?.percent != null) {
-            const pct = Math.round(ctxUsage.percent);
+          if (ctxUsage?.tokens != null) {
+            const pct = Math.round(ctxUsage.percent ?? 0);
             const ctxFg = pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
-            right.push({ text: `${pct}%`, bg: C.panel, fg: ctxFg });
+            right.push({
+              text: `${formatTokens(ctxUsage.tokens)}/${formatTokens(ctxUsage.contextWindow)} (${pct}%)`,
+              bg: C.panel,
+              fg: ctxFg,
+            });
           }
 
           // Last response time (clock icon from Nerd Fonts)
