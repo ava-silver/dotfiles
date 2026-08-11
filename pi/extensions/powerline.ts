@@ -219,6 +219,7 @@ const MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 export default function powerlineExtension(pi: ExtensionAPI): void {
   let tui: { requestRender: () => void } | null = null;
   let savedCtx: ExtensionContext | null = null;
+  let branch: string | null = null;
   let diff: { added: number; deleted: number } | null = null;
   let lastResponseAt: number | null = null;
   let sessionCost = 0;
@@ -226,17 +227,18 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
   let currentThinkingLevel: ThinkingLevel = "off";
   let refreshId = 0;
   let timeTimer: ReturnType<typeof setInterval> | null = null;
+  let gitTimer: ReturnType<typeof setInterval> | null = null;
   let cleanupTransient: (() => void) | null = null;
 
-  async function refreshDiff(ctx: ExtensionContext): Promise<void> {
+  async function refreshGitState(ctx: ExtensionContext): Promise<void> {
     const id = ++refreshId;
-    const result = await pi.exec(
-      "git",
-      ["-C", ctx.cwd, "diff", "HEAD", "--numstat", "--"],
-      { timeout: 5_000 },
-    );
+    const [branchResult, diffResult] = await Promise.all([
+      pi.exec("git", ["-C", ctx.cwd, "branch", "--show-current"], { timeout: 5_000 }),
+      pi.exec("git", ["-C", ctx.cwd, "diff", "HEAD", "--numstat", "--"], { timeout: 5_000 }),
+    ]);
     if (id !== refreshId) return;
-    diff = result.code === 0 ? parseNumstat(result.stdout) : null;
+    branch = branchResult.code === 0 ? branchResult.stdout.trim() || null : null;
+    diff = diffResult.code === 0 ? parseNumstat(diffResult.stdout) : null;
     tui?.requestRender();
   }
 
@@ -247,16 +249,19 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
     currentModel = formatModelName(ctx.model?.id ?? "?");
     currentThinkingLevel = pi.getThinkingLevel();
     sessionCost = 0;
+    branch = null;
     diff = null;
     lastResponseAt = null;
 
     // Re-render every 30s so the "X ago" time stays fresh.
     timeTimer = setInterval(() => tui?.requestRender(), 30_000);
+    // Pick up branch and working-tree changes made outside pi.
+    gitTimer = setInterval(() => void refreshGitState(ctx), 60_000);
 
     ctx.ui.setFooter((_tui, _theme, footerData) => {
       tui = _tui;
       cleanupTransient = setTransientOnChange(() => tui?.requestRender());
-      const unsubBranch = footerData.onBranchChange(() => tui?.requestRender());
+      const unsubBranch = footerData.onBranchChange(() => void refreshGitState(ctx));
 
       return {
         render(width: number): string[] {
@@ -300,7 +305,6 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
           });
 
           // Branch + diff — build after right so we can size branch to fit.
-          const branch = footerData.getGitBranch();
           if (branch) {
             const hasDiff = diff && (diff.added > 0 || diff.deleted > 0);
             const gitBg = hasDiff ? C.yellow : C.green;
@@ -341,18 +345,18 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
       };
     });
 
-    // Kick off first diff in parallel with session setup.
-    void refreshDiff(ctx);
+    // Kick off the first git-state read in parallel with session setup.
+    void refreshGitState(ctx);
   });
 
   pi.on("tool_execution_end", async (event, ctx) => {
     if (ctx.mode !== "tui" || !MUTATING_TOOLS.has(event.toolName)) return;
-    await refreshDiff(ctx);
+    await refreshGitState(ctx);
   });
 
   pi.on("agent_settled", async (_event, ctx) => {
     if (ctx.mode !== "tui") return;
-    await refreshDiff(ctx);
+    await refreshGitState(ctx);
   });
 
   pi.on("model_select", (event, _ctx) => {
@@ -384,6 +388,10 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
     if (timeTimer) {
       clearInterval(timeTimer);
       timeTimer = null;
+    }
+    if (gitTimer) {
+      clearInterval(gitTimer);
+      gitTimer = null;
     }
     cleanupTransient?.();
     cleanupTransient = null;
