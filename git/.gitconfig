@@ -38,6 +38,11 @@ sm = "!git sw $(git main)"
 pl = "!$HOME/dotfiles/git/scripts/pull.sh"
 pu = push origin HEAD
 su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+ss = stk submit --stack --push --rebuild-overview --draft
+sc = stk sync --push
+sync = sc
+ls = stk list --local
+restack = stk restack
 co = checkout
 rst = reset --hard HEAD
 rstm = "!f() { git checkout $(git main) -- $@; }; f"
@@ -64,13 +69,13 @@ cwt = "!$HOME/dotfiles/git/scripts/clean-worktrees.sh"
 dwt = "!$HOME/dotfiles/git/scripts/delete-worktree.sh"
 copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
 cs = copy-stack
-restack = "!f() { gt restack || pi 'fix the merge conflicts for the current gt restack, stage the fixes, then run gt continue' ; }; f"
-sync = "!gt s && gt ss"
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
 # Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
 # See romkatv/gitstatus#474
 fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
 wt = !$HOME/dotfiles/git/scripts/worktree.sh
+[stk]
+cleanClosed = true
 [filter "lfs"]
 clean = git-lfs clean -- %f
 smudge = git-lfs smudge -- %f

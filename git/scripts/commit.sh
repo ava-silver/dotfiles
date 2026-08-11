@@ -24,8 +24,4 @@ if [ -n "$ticket" ]; then
     ticket="[$ticket] "
 fi
 
-if "$SCRIPT_DIR/is-graphite.sh"; then
-    gt cm -m "$ticket$msg"
-else
-    git commit -m "$ticket$msg"
-fi
+git commit -m "$ticket$msg"
