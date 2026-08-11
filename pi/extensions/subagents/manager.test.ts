@@ -1,38 +1,34 @@
 /**
  * End-to-end smoke tests: manager behavior through a real ManagedRuntime,
- * exactly as the tool handlers drive it. Uses a scripted stub backend for
+ * exactly as the tool handlers drive it. Uses a scripted stub session for
  * deterministic, process-free runs.
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Effect, Layer, ManagedRuntime } from "effect";
-import { ActiveBackend } from "./src/backend.ts";
-import { piBackend } from "./src/backends/pi.ts";
-import { makeStubBackend } from "./src/backends/stub.ts";
+import { Effect, ManagedRuntime } from "effect";
+import { makeStubSpawn } from "./src/backends/stub.ts";
 import type { ParentContext, SpawnTask } from "./src/domain.ts";
 import {
+  makeSubagentManagerLayer,
   SubagentManager,
   SubagentManagerLive,
   type SubagentManagerShape,
 } from "./src/manager.ts";
 import { runTool } from "./src/runtime.ts";
 
-const stubBackend = makeStubBackend({
+const stubSpawn = makeStubSpawn({
   defaultModelLabel: "pi/stub",
   contextWindow: 200_000,
   toolName: "Bash",
   cadenceMs: 30,
 });
 
-const StubBackendLive = Layer.sync(ActiveBackend, () => stubBackend);
-const PiBackendLive = Layer.sync(ActiveBackend, () => piBackend);
-
 const createStubRuntime = () =>
-  ManagedRuntime.make(SubagentManagerLive.pipe(Layer.provide(StubBackendLive)));
+  ManagedRuntime.make(makeSubagentManagerLayer(stubSpawn));
 
-const createPiRuntime = () =>
-  ManagedRuntime.make(SubagentManagerLive.pipe(Layer.provide(PiBackendLive)));
+// Uses production spawnPiSession — fails fast without a model registry.
+const createPiRuntime = () => ManagedRuntime.make(SubagentManagerLive);
 
 const parent: ParentContext = {
   parentCwd: process.cwd(),
@@ -67,7 +63,6 @@ test("stub subagent completes and delivers a final result", async () => {
 
     const snap = await runTool(runtime, manager.spawn(task("Say hello")));
     assert.equal(snap.status, "running");
-    assert.equal(snap.backend, "pi");
     assert.ok(snap.meta.sessionFilePath);
 
     await runTool(runtime, manager.waitFor([snap.id]));
@@ -139,10 +134,10 @@ test("pi spawn fails fast without the parent model registry", async () => {
       runTool(runtime, manager.spawn(task("needs a registry"))),
       /model registry/,
     );
-    // The failed spawn must release its concurrency reservation.
-    // (We can't spawn another pi session without a registry, so just verify
-    // the count is back to 0 by checking no error about the cap.)
-    assert.equal(manager.view.list().filter((s) => s.status === "running").length, 0);
+    assert.equal(
+      manager.view.list().filter((s) => s.status === "running").length,
+      0,
+    );
   } finally {
     await runtime.dispose();
   }
@@ -150,7 +145,6 @@ test("pi spawn fails fast without the parent model registry", async () => {
 
 test("idle restarts respect the concurrency cap", async () => {
   await withManager(async (manager, runtime) => {
-    // Settle one subagent, then fill all four slots with running ones.
     const settled = await runTool(runtime, manager.spawn(task("early finisher")));
     await runTool(runtime, manager.waitFor([settled.id]));
     await runTool(
@@ -159,7 +153,6 @@ test("idle restarts respect the concurrency cap", async () => {
         concurrency: "unbounded",
       }),
     );
-    // Restarting the settled one would be a fifth concurrent run.
     await assert.rejects(
       runTool(runtime, manager.send(settled.id, "go again")),
       /Max 4 subagents/,

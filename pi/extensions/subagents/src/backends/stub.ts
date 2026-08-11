@@ -1,5 +1,5 @@
 /**
- * Scripted stub backend for testing. A stub session:
+ * Scripted stub session for testing:
  *
  * - streams a plausible turn (thinking deltas, one fake tool cycle, text
  *   deltas, usage ramp, a final assistant message, RunSettled);
@@ -15,12 +15,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Cause, Scope } from "effect";
 import { Duration, Effect, Fiber, Queue, Ref, Stream } from "effect";
-import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   QueuedMessage,
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
 } from "../domain.ts";
 import { SendError } from "../domain.ts";
 
@@ -34,18 +34,10 @@ export interface StubProfile {
 const STUB_DIR = path.join(os.tmpdir(), "subagents-stub");
 let sessionCounter = 0;
 
-export function makeStubBackend(profile: StubProfile): SubagentBackend {
-  return {
-    name: "pi",
-    capabilities: {
-      steering: true,
-      modelSelection: true,
-      reasoningEffort: true,
-    },
-    // Real impls probe binary-on-PATH / SDK import / credentials here.
-    available: Effect.succeed(true),
-    spawn: (task) => makeStubSession(profile, task),
-  };
+export function makeStubSpawn(
+  profile: StubProfile,
+): (task: SpawnTask) => Effect.Effect<SubagentSession, never, Scope.Scope> {
+  return (task) => makeStubSession(profile, task);
 }
 
 function firstLine(text: string): string {
@@ -74,7 +66,6 @@ const makeStubSession = (
 
     const state = {
       meta: {
-        backend: profile.backend,
         modelLabel: task.model ?? profile.defaultModelLabel,
         contextWindow: profile.contextWindow,
         sessionFilePath: sessionFile,

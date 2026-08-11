@@ -27,11 +27,11 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Cause, Scope } from "effect";
 import { Effect, Queue, Stream } from "effect";
-import type { SubagentBackend, SubagentSession } from "../backend.ts";
 import type {
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
   TranscriptPart,
 } from "../domain.ts";
 import { SendError, SpawnError } from "../domain.ts";
@@ -317,7 +317,7 @@ function boundedError(error: unknown) {
   );
 }
 
-const makePiSession = (
+export const spawnPiSession = (
   task: SpawnTask,
 ): Effect.Effect<SubagentSession, SpawnError, Scope.Scope> =>
   Effect.gen(function* () {
@@ -405,7 +405,6 @@ const makePiSession = (
     const currentMeta = (): SubagentMeta => {
       const m = activeModel();
       return {
-        backend: "pi",
         modelLabel: m ? `${m.provider}/${m.id}` : undefined,
         contextWindow: m?.contextWindow,
         sessionFilePath: session.sessionFile,
@@ -623,10 +622,4 @@ const makePiSession = (
     } satisfies SubagentSession;
   });
 
-export const piBackend: SubagentBackend = {
-  name: "pi",
-  capabilities: { steering: true, modelSelection: true, reasoningEffort: true },
-  // In-process SDK: always available.
-  available: Effect.succeed(true),
-  spawn: makePiSession,
-};
+

@@ -6,17 +6,11 @@
  * ManagedRuntime.
  */
 
-import { Cause, Exit, Layer, ManagedRuntime, type Effect } from "effect";
-import { ActiveBackend } from "./backend.ts";
-import { piBackend } from "./backends/pi.ts";
+import { Cause, Exit, ManagedRuntime, type Effect } from "effect";
 import { SubagentManagerLive } from "./manager.ts";
 
-const PiBackendLive = Layer.sync(ActiveBackend, () => piBackend);
-
-const AppLayer = SubagentManagerLive.pipe(Layer.provide(PiBackendLive));
-
 export function createSubagentRuntime() {
-  return ManagedRuntime.make(AppLayer);
+  return ManagedRuntime.make(SubagentManagerLive);
 }
 
 export type SubagentRuntime = ReturnType<typeof createSubagentRuntime>;

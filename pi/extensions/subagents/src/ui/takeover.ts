@@ -327,11 +327,10 @@ class SubagentDashboard implements Component {
         : theme.fg("text", snap.title);
       const left = ` ${marker} ${statusGlyph(snap, theme)} ${title} ${theme.fg("dim", snap.id)}`;
 
-      // Right: backend · model · context utilization · elapsed · status
+      // Right: model · context utilization · elapsed · status
       const utilization = formatContextUtilization(snap.usage);
       const dot = theme.fg("dim", " · ");
       const rightParts = [
-        theme.fg("muted", snap.backend),
         theme.fg("muted", snap.meta.modelLabel ?? "?"),
         ...(utilization ? [theme.fg("muted", utilization)] : []),
         theme.fg("muted", formatElapsed(snap)),
@@ -518,7 +517,7 @@ class TakeoverView implements Component, Focusable {
       `${statusGlyph(snap, theme)} ` +
       theme.fg("accent", theme.bold(`${snap.id} · ${snap.title}`)) +
       theme.fg("muted", ` · ${snap.status} · ${formatElapsed(snap)}`) +
-      theme.fg("dim", ` · ${snap.backend}: ${snap.meta.modelLabel ?? "?"}`) +
+      theme.fg("dim", ` · ${snap.meta.modelLabel ?? "?"}`) +
       (utilization ? theme.fg("dim", ` · ${utilization}`) : "");
     lines.push(truncateToWidth(header, width));
     lines.push(border);

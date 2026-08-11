@@ -6,9 +6,7 @@
  */
 
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { Data } from "effect";
-
-export type BackendName = "pi";
+import { Data, type Effect, type Stream } from "effect";
 
 /** Shared reasoning-effort scale (pi's thinking levels). Omitted = inherit the parent level. */
 export const REASONING_EFFORTS = [
@@ -46,7 +44,6 @@ export interface SpawnTask {
 }
 
 export interface SubagentMeta {
-  readonly backend: BackendName;
   readonly modelLabel?: string;
   readonly contextWindow?: number;
   readonly sessionFilePath?: string;
@@ -157,9 +154,17 @@ export type SubagentEvent =
       readonly tokens?: number;
       readonly contextWindow?: number;
     }
-  | { readonly _tag: "MetaChanged"; readonly meta: Partial<SubagentMeta> }
-  /** Non-fatal diagnostics. Fatal failures arrive as a RunSettled outcome. */
-  | { readonly _tag: "BackendError"; readonly message: string };
+  | { readonly _tag: "MetaChanged"; readonly meta: Partial<SubagentMeta> };
+
+// --- Session ----------------------------------------------------------------
+
+/** What the manager consumes from a running subagent session. */
+export interface SubagentSession {
+  readonly meta: Effect<SubagentMeta>;
+  readonly events: Stream<SubagentEvent>;
+  send(text: string): Effect<void, SendError>;
+  readonly interrupt: Effect<void>;
+}
 
 // --- Snapshot ---------------------------------------------------------------
 
@@ -169,7 +174,6 @@ export type SubagentEvent =
  */
 export interface SubagentSnapshot {
   readonly id: string;
-  readonly backend: BackendName;
   readonly title: string;
   readonly prompt: string;
   readonly cwd: string;

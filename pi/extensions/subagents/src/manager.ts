@@ -1,8 +1,8 @@
 /**
  * SubagentManager — owns the registry of running/finished subagents.
  *
- * Each subagent is a scoped `SubagentSession` from a `SubagentBackend` plus a
- * pump fiber that folds its normalized event stream into a mutable
+ * Each subagent is a scoped SubagentSession (spawned by spawnPiSession) plus
+ * a pump fiber that folds its normalized event stream into a mutable
  * `SubagentSnapshot`. Closing a subagent's scope kills the underlying
  * session/process and stops the pump.
  *
@@ -21,19 +21,18 @@ import {
   Scope,
   Stream,
 } from "effect";
-import type { SubagentBackend, SubagentSession } from "./backend.ts";
-import { ActiveBackend } from "./backend.ts";
 import type {
-  BackendName,
   LiveToolState,
   RunOutcome,
   SpawnTask,
   SubagentEvent,
   SubagentMeta,
+  SubagentSession,
   SubagentSnapshot,
   SubagentStatus,
   TranscriptItem,
 } from "./domain.ts";
+import { spawnPiSession } from "./backends/pi.ts";
 import {
   ConcurrencyLimitError,
   SendError,
@@ -54,7 +53,6 @@ function bounded(text: string) {
 /** Mutable snapshot; exposed to readers via the readonly SubagentSnapshot type. */
 interface MutableSnapshot {
   id: string;
-  backend: BackendName;
   title: string;
   prompt: string;
   cwd: string;
@@ -152,8 +150,9 @@ export class SubagentManager extends Context.Service<
 
 // --- Implementation --------------------------------------------------------------
 
-const makeManager = Effect.gen(function* () {
-  const backend = yield* ActiveBackend;
+type SpawnFn = (task: SpawnTask) => Effect.Effect<SubagentSession, SpawnError, Scope.Scope>;
+
+const makeManager = (spawnFn: SpawnFn) => Effect.gen(function* () {
   // Detached forker for sync contexts (read-model commands, pruning) that
   // preserves the manager's services instead of using the global runtime.
   const runDetached = Effect.runForkWith(yield* Effect.context());
@@ -352,9 +351,6 @@ const makeManager = Effect.gen(function* () {
       case "MetaChanged":
         s.meta = { ...s.meta, ...event.meta };
         break;
-      case "BackendError":
-        s.errorText = bounded(event.message);
-        break;
     }
     notify(s.id);
   };
@@ -382,7 +378,7 @@ const makeManager = Effect.gen(function* () {
 
       const doSpawn = Effect.gen(function* () {
         const scope = yield* Scope.make();
-        const session = yield* Scope.provide(backend.spawn(task), scope).pipe(
+        const session = yield* Scope.provide(spawnFn(task), scope).pipe(
           Effect.onError(() => Scope.close(scope, Exit.void)),
         );
         if (disposed) {
@@ -397,7 +393,6 @@ const makeManager = Effect.gen(function* () {
         const entry: Entry = {
           snapshot: {
             id,
-            backend: backend.name,
             title: task.title,
             prompt: task.prompt,
             cwd: task.cwd,
@@ -653,8 +648,8 @@ const makeManager = Effect.gen(function* () {
   });
 });
 
-export const SubagentManagerLive: Layer.Layer<
-  SubagentManager,
-  never,
-  ActiveBackend
-> = Layer.effect(SubagentManager, makeManager);
+export function makeSubagentManagerLayer(spawnFn: SpawnFn) {
+  return Layer.effect(SubagentManager, makeManager(spawnFn));
+}
+
+export const SubagentManagerLive = makeSubagentManagerLayer(spawnPiSession);
