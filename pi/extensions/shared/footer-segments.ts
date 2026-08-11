@@ -17,12 +17,12 @@
  */
 
 export type TransientSegment = {
-  /** Visible text — plain, no ANSI codes. Padded with spaces by the renderer. */
-  text: string;
-  /** Hex background color for the segment, e.g. "#81c8be". */
-  bg: string;
-  /** Hex foreground color for the text, e.g. "#232634". */
-  fg: string;
+	/** Visible text — plain, no ANSI codes. Padded with spaces by the renderer. */
+	text: string;
+	/** Hex background color for the segment, e.g. "#81c8be". */
+	bg: string;
+	/** Hex foreground color for the text, e.g. "#232634". */
+	fg: string;
 };
 
 // Module-level singleton: one shared instance per process.
@@ -34,18 +34,18 @@ let onChangeCallback: (() => void) | undefined;
  * left-to-right, before the built-in right-side segments (context %, time, cost).
  */
 export function registerTransientSegment(key: string, segment: TransientSegment | null): void {
-  if (segment === null) {
-    if (!registry.has(key)) return; // no-op, skip needless re-render
-    registry.delete(key);
-  } else {
-    registry.set(key, segment);
-  }
-  onChangeCallback?.();
+	if (segment === null) {
+		if (!registry.has(key)) return; // no-op, skip needless re-render
+		registry.delete(key);
+	} else {
+		registry.set(key, segment);
+	}
+	onChangeCallback?.();
 }
 
 /** Read all active transient segments in insertion order. */
 export function getTransientSegments(): ReadonlyMap<string, TransientSegment> {
-  return registry;
+	return registry;
 }
 
 /**
@@ -53,8 +53,8 @@ export function getTransientSegments(): ReadonlyMap<string, TransientSegment> {
  * Only one callback is active at a time (the footer owns this).
  */
 export function setTransientOnChange(fn: () => void): () => void {
-  onChangeCallback = fn;
-  return () => {
-    if (onChangeCallback === fn) onChangeCallback = undefined;
-  };
+	onChangeCallback = fn;
+	return () => {
+		if (onChangeCallback === fn) onChangeCallback = undefined;
+	};
 }

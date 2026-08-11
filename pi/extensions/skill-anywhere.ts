@@ -125,10 +125,7 @@ function createSkillAutocompleteProvider(
 			const prefix = match[1]; // "/<query>" or "/skill:<query>"
 			const query = match[2] ?? "";
 			const skills = [...getSkills().values()];
-			const filtered = (query.trim()
-				? fuzzyFilter(skills, query, (s) => s.name)
-				: skills
-			).slice(0, MAX_SUGGESTIONS);
+			const filtered = (query.trim() ? fuzzyFilter(skills, query, (s) => s.name) : skills).slice(0, MAX_SUGGESTIONS);
 
 			if (filtered.length === 0) return null;
 

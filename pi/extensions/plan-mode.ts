@@ -234,6 +234,5 @@ Implement it. Only ask if something is ambiguous or blocked.`;
 			if (data.path) planFilePath = data.path;
 			if (data.planPhase) planPhase = true;
 		}
-
 	});
 }

@@ -23,9 +23,7 @@ Make it tight: lead with the point, use one concrete idea per sentence, and remo
 
 Feel free to paraphrase, restructure sentences, use conversational transitions, combine repetitive points, and omit minor details that do not affect the meaning. Optimize for something a person would naturally say aloud rather than a literal reading. Convert file paths, command flags, identifiers, versions, and other written technical notation into short human descriptions instead of reading their exact syntax. For example, "pi/extensions/read-aloud/index.ts" can become "the read aloud index file." The listener can see the original text if exact details are needed. Preserve the core meaning, decisions, and important caveats, but do not invent new claims. Return only the spoken rendition with no preface, labels, Markdown, or commentary.`;
 
-type AssistantContent =
-	| { type: "text"; text: string }
-	| { type: string; [key: string]: unknown };
+type AssistantContent = { type: "text"; text: string } | { type: string; [key: string]: unknown };
 
 type BranchEntry = {
 	id?: string;
@@ -51,8 +49,9 @@ export function extractLatestAssistantText(entries: readonly BranchEntry[]): Lat
 		if (stopReason !== "stop") return { status: "incomplete", stopReason };
 
 		const text = (entry.message.content ?? [])
-			.filter((content): content is { type: "text"; text: string } =>
-				content.type === "text" && typeof content.text === "string",
+			.filter(
+				(content): content is { type: "text"; text: string } =>
+					content.type === "text" && typeof content.text === "string",
 			)
 			.map((content) => content.text)
 			.join("\n")
@@ -556,11 +555,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (!(await userIsPresent()) || generation !== autoReadGeneration) return;
 
 		const current = latestText(ctx, false);
-		if (
-			(await isAutoReadEnabled()) &&
-			current.status === "found" &&
-			current.entryId === latest.entryId
-		) {
+		if ((await isAutoReadEnabled()) && current.status === "found" && current.entryId === latest.entryId) {
 			startSpeech(current.text, ctx, false, true);
 		}
 	});

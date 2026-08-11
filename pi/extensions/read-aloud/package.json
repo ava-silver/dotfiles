@@ -5,5 +5,7 @@
 	"dependencies": {
 		"kokoro-js": "1.2.1"
 	},
-	"trustedDependencies": ["onnxruntime-node"]
+	"trustedDependencies": [
+		"onnxruntime-node"
+	]
 }

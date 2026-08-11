@@ -56,10 +56,12 @@ async function sessionFiles(dir: string): Promise<string[]> {
 	} catch {
 		return [];
 	}
-	const children = await Promise.all(entries.map((entry) => {
-		const path = join(dir, entry.name);
-		return entry.isDirectory() ? sessionFiles(path) : entry.isFile() && path.endsWith(".jsonl") ? [path] : [];
-	}));
+	const children = await Promise.all(
+		entries.map((entry) => {
+			const path = join(dir, entry.name);
+			return entry.isDirectory() ? sessionFiles(path) : entry.isFile() && path.endsWith(".jsonl") ? [path] : [];
+		}),
+	);
 	return children.flat();
 }
 
@@ -106,14 +108,17 @@ function summary(records: Iterable<SpendRecord>): string {
 		const session = `${record.sessionId.slice(0, 8)} ${basename(record.cwd || "unknown")}`;
 		bySession.set(session, (bySession.get(session) || 0) + record.cost);
 	}
-	const top = (items: Map<string, number>) => [...items]
-		.sort((a, b) => b[1] - a[1])
-		.slice(0, 10)
-		.map(([name, cost]) => `  ${formatCost(cost)}  ${name}`);
+	const top = (items: Map<string, number>) =>
+		[...items]
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 10)
+			.map(([name, cost]) => `  ${formatCost(cost)}  ${name}`);
 	return [
 		`Pi spend: ${formatCost(total)} across ${bySession.size} sessions (${all.length} responses)`,
-		"By model:", ...top(byModel),
-		"By session:", ...top(bySession),
+		"By model:",
+		...top(byModel),
+		"By session:",
+		...top(bySession),
 	].join("\n");
 }
 
@@ -298,9 +303,13 @@ export default function spendExtension(pi: ExtensionAPI): void {
 				try {
 					const record = JSON.parse(line) as SpendRecord;
 					if (record.v === 1 && typeof record.key === "string") records.set(record.key, record);
-				} catch { /* ignore malformed cache entries */ }
+				} catch {
+					/* ignore malformed cache entries */
+				}
 			}
-		} catch { /* the ledger is created on first write */ }
+		} catch {
+			/* the ledger is created on first write */
+		}
 	}
 
 	async function save(newRecords: SpendRecord[]): Promise<void> {
@@ -330,13 +339,21 @@ export default function spendExtension(pi: ExtensionAPI): void {
 		if (event.message.role !== "assistant") return;
 		await loadLedger();
 		const entries = ctx.sessionManager.getEntries();
-		const entry = [...entries].reverse().find((candidate: any) =>
-			candidate.type === "message" && candidate.message.role === "assistant" &&
-			candidate.message.timestamp === event.message.timestamp,
-		);
+		const entry = [...entries]
+			.reverse()
+			.find(
+				(candidate: any) =>
+					candidate.type === "message" &&
+					candidate.message.role === "assistant" &&
+					candidate.message.timestamp === event.message.timestamp,
+			);
 		const header = ctx.sessionManager.getHeader();
 		if (entry && header) {
-			const record = asRecord(entry, { path: ctx.sessionManager.getSessionFile() || "", id: header.id, cwd: header.cwd });
+			const record = asRecord(entry, {
+				path: ctx.sessionManager.getSessionFile() || "",
+				id: header.id,
+				cwd: header.cwd,
+			});
 			if (record) await save([record]);
 		}
 	});
