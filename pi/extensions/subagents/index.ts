@@ -1,10 +1,10 @@
 /**
- * Subagents — spawn background subagents on one of three backends
- * (pi, Claude Code, Codex) unified behind a single Effect service interface.
+ * Subagents — spawn background pi subagents, each a headless in-process
+ * agent session with its own context window.
  *
  * Tools (for the parent LLM):
- * - subagent_spawn: fire-and-forget spawn (prompt, title, agent, working_dir,
- *   model, reasoning_effort). Max 4 running at once across all backends.
+ * - subagent_spawn: fire-and-forget spawn (prompt, name, working_dir,
+ *   model, reasoning_effort). Max 4 running at once.
  * - subagent_wait: block until the listed subagents settle, return results.
  * - subagent_cancel: stop one or more running subagents.
  * - subagent_check: peek at a subagent's status and recent activity.
@@ -12,12 +12,6 @@
  *
  * Unawaited subagents queue their result as a follow-up message when they
  * settle. `/subagents` opens a picker + full interactive takeover view.
- *
- * Architecture: Effect v4 generators throughout (backends -> manager ->
- * runtime); this file is the async boundary where tool handlers run effects
- * against one shared ManagedRuntime. All three backends are real: pi runs
- * in-process SDK sessions, claude drives the Claude Agent SDK, codex speaks
- * JSON-RPC to a scoped `codex app-server` process.
  */
 
 import * as fs from "node:fs";
@@ -47,7 +41,6 @@ import {
 } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
-  BACKEND_NAMES,
   formatElapsed,
   latestText,
   REASONING_EFFORTS,
@@ -90,7 +83,7 @@ const WAIT_PER_AGENT_MAX_BYTES = 16 * 1024;
 
 function describeSubagent(snap: SubagentSnapshot) {
   const details = [
-    `${snap.backend}: ${snap.meta.modelLabel ?? "?"}`,
+    snap.meta.modelLabel ?? "?",
     formatContextUtilization(snap.usage),
     formatElapsed(snap),
     snap.cwd,
@@ -246,9 +239,6 @@ export default function (pi: ExtensionAPI) {
       name: Type.String({
         description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.name,
       }),
-      harness: StringEnum(BACKEND_NAMES, {
-        description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.harness,
-      }),
       working_dir: Type.Optional(
         Type.String({
           description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.workingDir,
@@ -267,8 +257,6 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const manager = await getManager();
-      const harness = params.harness;
-
       const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
       if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
         throw new Error(`working_dir is not a directory: ${cwd}`);
@@ -277,7 +265,7 @@ export default function (pi: ExtensionAPI) {
       const title = params.name.trim().slice(0, 160) || "subagent";
       const snap = await runTool(
         getRuntime(),
-        manager.spawn(harness, {
+        manager.spawn({
           prompt: params.prompt,
           title,
           cwd,
@@ -306,7 +294,6 @@ export default function (pi: ExtensionAPI) {
             text: buildSubagentSpawnResult({
               id: snap.id,
               title: snap.title,
-              harness,
               modelLabel: snap.meta.modelLabel ?? "?",
               cwd,
             }),
@@ -316,7 +303,6 @@ export default function (pi: ExtensionAPI) {
           id: snap.id,
           title: snap.title,
           cwd,
-          harness,
           model: snap.meta.modelLabel,
         },
       };
@@ -511,7 +497,6 @@ export default function (pi: ExtensionAPI) {
           subagents: subs.map((snap) => ({
             id: snap.id,
             title: snap.title,
-            harness: snap.backend,
             status: snap.status,
           })),
         },

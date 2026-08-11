@@ -22,7 +22,7 @@ import {
   Stream,
 } from "effect";
 import type { SubagentBackend, SubagentSession } from "./backend.ts";
-import { BackendRegistry } from "./backend.ts";
+import { ActiveBackend } from "./backend.ts";
 import type {
   BackendName,
   LiveToolState,
@@ -35,7 +35,6 @@ import type {
   TranscriptItem,
 } from "./domain.ts";
 import {
-  BackendUnavailableError,
   ConcurrencyLimitError,
   SendError,
   SpawnError,
@@ -120,11 +119,10 @@ export interface CancelResult {
 
 export interface SubagentManagerShape {
   spawn(
-    backend: BackendName,
     task: SpawnTask,
   ): Effect.Effect<
     SubagentSnapshot,
-    SpawnError | ConcurrencyLimitError | BackendUnavailableError
+    SpawnError | ConcurrencyLimitError
   >;
   /**
    * Wait until all listed subagents are settled. Unknown ids are treated as
@@ -155,7 +153,7 @@ export class SubagentManager extends Context.Service<
 // --- Implementation --------------------------------------------------------------
 
 const makeManager = Effect.gen(function* () {
-  const registry = yield* BackendRegistry;
+  const backend = yield* ActiveBackend;
   // Detached forker for sync contexts (read-model commands, pruning) that
   // preserves the manager's services instead of using the global runtime.
   const runDetached = Effect.runForkWith(yield* Effect.context());
@@ -361,7 +359,7 @@ const makeManager = Effect.gen(function* () {
     notify(s.id);
   };
 
-  const spawn = (backendName: BackendName, task: SpawnTask) =>
+  const spawn = (task: SpawnTask) =>
     Effect.gen(function* () {
       // Reserve synchronously (before the first yield inside doSpawn) so
       // parallel tool calls cannot race past the global cap.
@@ -383,19 +381,6 @@ const makeManager = Effect.gen(function* () {
       );
 
       const doSpawn = Effect.gen(function* () {
-        const backend: SubagentBackend | undefined = registry.get(backendName);
-        if (!backend) {
-          return yield* new BackendUnavailableError({
-            message: `Unknown backend "${backendName}".`,
-          });
-        }
-        const available = yield* backend.available;
-        if (!available) {
-          return yield* new BackendUnavailableError({
-            message: `Backend "${backendName}" is not available on this machine (binary/SDK/credentials missing).`,
-          });
-        }
-
         const scope = yield* Scope.make();
         const session = yield* Scope.provide(backend.spawn(task), scope).pipe(
           Effect.onError(() => Scope.close(scope, Exit.void)),
@@ -412,7 +397,7 @@ const makeManager = Effect.gen(function* () {
         const entry: Entry = {
           snapshot: {
             id,
-            backend: backendName,
+            backend: backend.name,
             title: task.title,
             prompt: task.prompt,
             cwd: task.cwd,
@@ -671,5 +656,5 @@ const makeManager = Effect.gen(function* () {
 export const SubagentManagerLive: Layer.Layer<
   SubagentManager,
   never,
-  BackendRegistry
+  ActiveBackend
 > = Layer.effect(SubagentManager, makeManager);
