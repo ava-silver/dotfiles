@@ -20,8 +20,8 @@ export default function (pi: ExtensionAPI): void {
 					return;
 				}
 
-				// Cmd+Z (via Zed terminal → ESC+Z) or Ctrl+Y: pop and restore
-				if (data === "\x1bZ" || matchesKey(data, "ctrl+y")) {
+				// Cmd+Z (via Zed terminal → ESC+Z), Ctrl+Shift+Z, or Ctrl+Y: pop and restore
+				if (data === "\x1bZ" || matchesKey(data, "ctrl+shift+z") || matchesKey(data, "ctrl+y")) {
 					const text = this.yankStack.pop();
 					if (text !== undefined) {
 						ctx.ui.setEditorText(text);
@@ -36,7 +36,7 @@ export default function (pi: ExtensionAPI): void {
 					if (request.handled) return;
 				}
 
-				if (data === "ç") {
+				if (matchesKey(data, "alt+c") || data === "ç") {
 					const prompt = ctx.ui.getEditorText();
 					if (!prompt.trim()) return;
 
