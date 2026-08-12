@@ -23,8 +23,8 @@ import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
 import { getTransientSegments, setTransientOnChange } from "./shared/footer-segments.ts";
 
 // ── Powerline characters ────────────────────────────────────────────────────
-const ARROW_RIGHT = "\uE0B0"; // ► solid right-pointing arrow
-const ARROW_LEFT = "\uE0B2"; // ◄ solid left-pointing arrow
+const ARROW_RIGHT = "\uE0B4"; //  right half-circle
+const ARROW_LEFT = "\uE0B6"; //  left half-circle
 
 // ── Catppuccin Frappé palette (hardcoded for powerline separator rendering) ─
 // These are used for segment backgrounds; fg choices are derived from them.
@@ -94,7 +94,7 @@ type Seg = {
  */
 function renderLeft(segs: Seg[]): string {
 	if (!segs.length) return "";
-	let out = "";
+	let out = RESET_BG + fgHex(segs[0].bg) + ARROW_LEFT;
 	for (let i = 0; i < segs.length; i++) {
 		const s = segs[i];
 		const nextBg = segs[i + 1]?.bg;
@@ -133,7 +133,8 @@ function renderRight(segs: Seg[]): string {
 		// Segment content
 		out += bgHex(s.bg) + fgHex(s.fg) + ` ${s.text} `;
 	}
-	out += RESET;
+	const last = segs[segs.length - 1];
+	out += RESET_BG + fgHex(last.bg) + ARROW_RIGHT + RESET;
 	return out;
 }
 
@@ -226,7 +227,8 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 	let savedCtx: ExtensionContext | null = null;
 	let branch: string | null = null;
 	let diff: { added: number; deleted: number } | null = null;
-	let lastResponseAt: number | null = null;
+	let agentStartedAt: number | null = null;
+	let agentFinishedAt: number | null = null;
 	let sessionCost = 0;
 	let currentModel = "";
 	let currentThinkingLevel: ThinkingLevel = "off";
@@ -256,10 +258,11 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 		sessionCost = 0;
 		branch = null;
 		diff = null;
-		lastResponseAt = null;
+		agentStartedAt = null;
+		agentFinishedAt = null;
 
-		// Re-render every 30s so the "X ago" time stays fresh.
-		timeTimer = setInterval(() => tui?.requestRender(), 30_000);
+		// Re-render every second so elapsed/ago times stay sharp.
+		timeTimer = setInterval(() => tui?.requestRender(), 1_000);
 		// Pick up branch and working-tree changes made outside pi.
 		gitTimer = setInterval(() => void refreshGitState(ctx), 60_000);
 
@@ -294,16 +297,19 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 						const pct = Math.round(ctxUsage.percent ?? 0);
 						const ctxFg = pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
 						right.push({
-							text: `${formatTokens(ctxUsage.tokens)}/${formatTokens(ctxUsage.contextWindow)} (${pct}%)`,
+							text: `(${pct}%) ${formatTokens(ctxUsage.tokens)}/${formatTokens(ctxUsage.contextWindow)}`,
 							bg: C.panel,
 							fg: ctxFg,
 						});
 					}
 
-					// Last response time (clock icon from Nerd Fonts)
-					if (lastResponseAt !== null) {
-						const elapsed = formatElapsed(Date.now() - lastResponseAt);
-						right.push({ text: `\u{F0554} ${elapsed} ago`, bg: C.panel, fg: C.dim });
+					// Turn timing: show elapsed while running, time-since when idle.
+					if (agentStartedAt !== null) {
+						const elapsed = formatElapsed(Date.now() - agentStartedAt);
+						right.push({ text: `⏱ ${elapsed}`, bg: C.panel, fg: C.cyan });
+					} else if (agentFinishedAt !== null) {
+						const elapsed = formatElapsed(Date.now() - agentFinishedAt);
+						right.push({ text: `󰥔 ${elapsed} ago`, bg: C.panel, fg: C.dim });
 					}
 
 					// Session cost (always shown)
@@ -362,6 +368,9 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		agentFinishedAt = Date.now();
+		agentStartedAt = null;
+		tui?.requestRender();
 		await refreshGitState(ctx);
 	});
 
@@ -375,11 +384,16 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 		tui?.requestRender();
 	});
 
+	pi.on("agent_start", (_event, ctx) => {
+		if (ctx.mode !== "tui") return;
+		agentStartedAt = Date.now();
+		agentFinishedAt = null;
+		tui?.requestRender();
+	});
+
 	pi.on("message_end", (event, _ctx) => {
 		const msg = event.message;
 		if (msg.role !== "assistant") return;
-
-		lastResponseAt = Date.now();
 
 		// Track session cost.
 		const cost = msg.usage?.cost?.total;
