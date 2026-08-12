@@ -7,7 +7,7 @@
   },
   "lastChangelogVersion": "0.84.1",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
@@ -30,7 +30,7 @@
     "~/dotfiles/pi/themes"
   ],
   "defaultProvider": "spotify",
-  "defaultModel": "claude-sonnet-4-6@default",
+  "defaultModel": "claude-opus-4-6@default",
   "enabledModels": [
     "spotify/claude-sonnet-4-6@default",
     "spotify/claude-opus-4-6@default"

@@ -43,7 +43,7 @@ alias xclip="pbcopy"
 
 alias brewi="brew update && brew install -y"
 alias brewr="brew uninstall"
-alias brewu="brew update && brew upgrade -y"
+alias brewu="brew update && brew upgrade --greedy -y"
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"

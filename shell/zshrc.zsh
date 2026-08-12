@@ -1,6 +1,5 @@
 export PATH="/Users/ava/.bun/bin:$PATH"
 export PATH="$HOME/dotfiles/bin:$PATH"
-
 [[ $- != *i* ]] && return
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -61,11 +60,8 @@ export HOMEBREW_NO_ENV_HINTS=1
 
 export HOST_HOOK_RUNNER=1
 
-export VOLTA_HOME="$HOME/.volta"
-export PATH="$VOLTA_HOME/bin:${PATH?}"
-export NODE_OPTIONS="--max-old-space-size=30000"
-
 export PATH="$PATH:$HOME/.local/bin"
+export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
 
 
 export EDITOR="zed --wait"
