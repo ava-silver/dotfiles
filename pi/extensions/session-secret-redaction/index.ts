@@ -66,6 +66,11 @@ async function ensureKingfisher(pi: ExtensionAPI): Promise<void> {
 async function redactSession(pi: ExtensionAPI, ctx: ExtensionContext): Promise<number> {
 	const sessionFile = ctx.sessionManager.getSessionFile();
 	if (!sessionFile) return 0;
+	try {
+		await stat(sessionFile);
+	} catch {
+		return 0;
+	}
 	await ensureKingfisher(pi);
 
 	const result = await pi.exec(
