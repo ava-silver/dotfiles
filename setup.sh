@@ -126,4 +126,4 @@ fi
 echo " done ✅"
 
 
-install-hooks
+prek install
