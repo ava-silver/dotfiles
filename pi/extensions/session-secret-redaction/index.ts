@@ -83,7 +83,8 @@ async function redactSession(pi: ExtensionAPI, ctx: ExtensionContext): Promise<n
 		],
 		{ timeout: 60_000 },
 	);
-	if (![0, 200, 205].includes(result.code)) throw new Error("Kingfisher scan failed");
+	if (![0, 200, 205].includes(result.code))
+		throw new Error(`Kingfisher scan failed: (${result.code}) - ${result.stdout.trim()}${result.stderr.trim()}`);
 
 	const findings = parseFindings(result.stdout);
 	if (findings.length === 0) return 0;
