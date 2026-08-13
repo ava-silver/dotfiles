@@ -21,7 +21,8 @@
     "../../go/src/github.com/DataDog/datadog-pi-packages/packages/dd-ai-gateway"
   ],
   "extensions": [
-    "~/dotfiles/pi/extensions"
+    "~/dotfiles/pi/extensions",
+    "-extensions/trajectory/index.ts"
   ],
   "skills": [
     "~/skills/skills",
@@ -34,7 +35,7 @@
     "~/dotfiles/pi/themes"
   ],
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
+  "defaultModel": "gpt-5.6-terra",
   "enabledModels": [
     "dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731",
     "openai-codex/gpt-5.6-sol",

@@ -17,17 +17,20 @@ for (const scanExitCode of [200, 205]) {
 		temporaryDirectories.push(directory);
 		const sessionFile = join(directory, "session.jsonl");
 		const secret = "0123456789abcdef0123456789abcdef";
-		const content = `${JSON.stringify({ type: "message", message: { content: `{"api_key": "${secret}"}` } })}\n`;
+		const content = `${JSON.stringify({
+			type: "message",
+			message: { content: `{"api_key": "${secret}", "duplicate": "${secret}"}` },
+		})}\n`;
 		await writeFile(sessionFile, content);
 
-		const start = content.indexOf(secret);
-		const finding = {
+		const starts = [content.indexOf(secret), content.lastIndexOf(secret)];
+		const findings = starts.map((start) => ({
 			finding: {
 				line: 1,
 				column_start: start,
 				column_end: start + secret.length - 1,
 			},
-		};
+		}));
 		let sessionStart: ((event: unknown, ctx: unknown) => Promise<void>) | undefined;
 		const commands: string[] = [];
 		const pi = {
@@ -37,7 +40,12 @@ for (const scanExitCode of [200, 205]) {
 			async exec(command: string, args: string[]) {
 				commands.push([command, ...args].join(" "));
 				if (args[0] === "--version") return { code: 0, stdout: "kingfisher", stderr: "" };
-				return { code: scanExitCode, stdout: `${JSON.stringify(finding)}\n`, stderr: "" };
+				const reportedFindings = args.includes("--no-dedup") ? findings : findings.slice(0, 1);
+				return {
+					code: scanExitCode,
+					stdout: `${reportedFindings.map((finding) => JSON.stringify(finding)).join("\n")}\n`,
+					stderr: "",
+				};
 			},
 		};
 		extension(pi as never);
@@ -55,12 +63,12 @@ for (const scanExitCode of [200, 205]) {
 		const result = await readFile(sessionFile, "utf8");
 		assert.equal(Buffer.byteLength(result), Buffer.byteLength(content));
 		assert.equal(result.includes(secret), false);
-		assert.equal(result.includes("*".repeat(secret.length)), true);
+		assert.equal(result.split("*".repeat(secret.length)).length - 1, 2);
 		assert.doesNotThrow(() => JSON.parse(result));
-		assert.deepEqual(notifications, ["Redacted 1 validated secret from this session."]);
+		assert.deepEqual(notifications, ["Redacted 2 validated secrets from this session."]);
 		assert.deepEqual(commands.slice(0, 2), [
 			"kingfisher --version",
-			`kingfisher scan ${sessionFile} --git-history none --only-valid --redact --format jsonl --no-update-check`,
+			`kingfisher scan ${sessionFile} --git-history none --only-valid --redact --no-dedup --format jsonl --no-update-check`,
 		]);
 	});
 }

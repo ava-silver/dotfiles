@@ -81,6 +81,7 @@ async function redactSession(pi: ExtensionAPI, ctx: ExtensionContext): Promise<n
 			"none",
 			"--only-valid",
 			"--redact",
+			"--no-dedup",
 			"--format",
 			"jsonl",
 			"--no-update-check",

@@ -9,13 +9,6 @@
 				"typescript/no-floating-promises": "off",
 				"typescript/unbound-method": "off"
 			}
-		},
-		{
-			"files": ["output-compaction.ts"],
-			"rules": {
-				"typescript/no-base-to-string": "off",
-				"typescript/unbound-method": "off"
-			}
 		}
 	]
 }

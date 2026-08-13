@@ -11,7 +11,7 @@
 - Respect `ctx.isProjectTrusted()` before loading project-controlled configuration or instructions.
 - Validate persisted, network, subprocess, and session data at module boundaries.
 - Do not use `any` outside a documented compatibility adapter.
-- Keep undocumented Pi internals and prototype patches inside `shared/*-compat.ts` modules with installed-runtime tests.
+- Keep undocumented Pi internals and prototype patches inside extension-owned `compat.ts` modules with installed-runtime tests.
 - Add a regression test for every bug fix.
 - Declare dependencies in the root manifest. Do not add nested manifests or lockfiles.
 - Provision external executables through `Brewfile`; extensions only detect and report missing dependencies.

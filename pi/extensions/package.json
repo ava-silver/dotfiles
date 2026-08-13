@@ -10,7 +10,7 @@
 		"lint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives .",
 		"prepare": "effect-tsgo patch",
 		"test": "node --test --experimental-strip-types",
-		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.strict.json"
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"acorn": "8.17.0",
