@@ -55,7 +55,8 @@ import {
 } from "./src/prompt.ts";
 import { createDeferredResultDelivery } from "./src/result-delivery.ts";
 import { createSubagentRuntime, runTool, type SubagentRuntime } from "./src/runtime.ts";
-import { createPickerLauncher, openSubagentPicker } from "./src/ui/takeover.ts";
+import { createPickerLauncher, openTakeoverView } from "./src/ui/takeover.ts";
+import { hasAnyItems, openBackgroundPicker, registerBackgroundProvider } from "../shared/background-hub.ts";
 
 const SUBAGENT_OUTPUT_MAX_BYTES = 24 * 1024;
 const WAIT_OUTPUT_MAX_BYTES = 48 * 1024;
@@ -104,6 +105,7 @@ function resolveChildProjectTrust(options: { parentCwd: string; childCwd: string
 export default function (pi: ExtensionAPI) {
 	let runtime: SubagentRuntime | undefined;
 	let managerPromise: Promise<SubagentManagerShape> | undefined;
+	let managerView: SubagentManagerShape["view"] | undefined;
 	let sessionContext: ExtensionContext | undefined;
 	let ui: ExtensionUIContext | undefined;
 	let unsubStatus: (() => void) | undefined;
@@ -117,6 +119,7 @@ export default function (pi: ExtensionAPI) {
 			.runPromise(SubagentManager)
 			.then((manager) => {
 				manager.view.setOnSettled(onSettled);
+				managerView = manager.view;
 				unsubStatus?.();
 				unsubStatus = manager.view.subscribe(() => updateStatus(manager));
 				updateStatus(manager);
@@ -178,9 +181,40 @@ export default function (pi: ExtensionAPI) {
 		if (sessionContext?.isIdle()) flushResults();
 	};
 
+	let unregisterProvider: (() => void) | undefined;
+
 	pi.on("session_start", (_event, ctx) => {
 		sessionContext = ctx;
 		if (ctx.hasUI) ui = ctx.ui;
+		unregisterProvider?.();
+		unregisterProvider = registerBackgroundProvider("subagents", {
+			label: "Subagents",
+			list() {
+				return (managerView?.list() ?? []).map((snap) => ({
+					id: snap.id,
+					title: snap.title,
+					status: snap.status,
+					elapsed: () => formatElapsed(snap),
+					meta: () => {
+						const parts: string[] = [];
+						if (snap.meta.modelLabel) parts.push(snap.meta.modelLabel);
+						const util = formatContextUtilization(snap.usage);
+						if (util) parts.push(util);
+						return parts;
+					},
+				}));
+			},
+			subscribe(cb) {
+				return managerView?.subscribe(cb) ?? (() => {});
+			},
+			async openDetail(id, ctx) {
+				const manager = await getManager();
+				await openTakeoverView(id, ctx, manager.view);
+			},
+			abort(id) {
+				managerView?.requestAbort(id);
+			},
+		});
 	});
 
 	pi.on("agent_settled", flushResults);
@@ -194,6 +228,9 @@ export default function (pi: ExtensionAPI) {
 		const closing = runtime;
 		runtime = undefined;
 		managerPromise = undefined;
+		managerView = undefined;
+		unregisterProvider?.();
+		unregisterProvider = undefined;
 		// Disposing the runtime runs the manager finalizer, which tears down all
 		// subagent scopes (and, later, their real child processes).
 		await closing?.dispose();
@@ -523,12 +560,7 @@ export default function (pi: ExtensionAPI) {
 				if (ctx.hasUI) ctx.ui.notify("Subagent takeover is only available in the TUI", "error");
 				return;
 			}
-			const manager = await getManager();
-			if (manager.view.size() === 0) {
-				ctx.ui.notify("No subagents yet. The agent spawns them with subagent_spawn.", "info");
-				return;
-			}
-			await openSubagentPicker(ctx, manager.view);
+			await openBackgroundPicker(ctx);
 		},
 	});
 
@@ -539,9 +571,8 @@ export default function (pi: ExtensionAPI) {
 
 	const openSubagentsFromEditor = async (ctx: ExtensionContext) => {
 		if (ctx.mode !== "tui") return;
-		const manager = await getManager();
-		if (manager.view.size() === 0) return;
-		await openSubagentPicker(ctx, manager.view);
+		if (!hasAnyItems()) return;
+		await openBackgroundPicker(ctx);
 	};
 
 	pi.on("session_start", (_event, ctx) => {
