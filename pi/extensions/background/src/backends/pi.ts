@@ -345,9 +345,11 @@ export const spawnPiSession = (task: SpawnTask): Effect.Effect<SubagentSession, 
 						const text = userText(event.message as Message);
 						if (text.trim()) emit({ _tag: "UserMessage", text });
 					} else if (role === "assistant") {
+						const cost = (event.message as AssistantMessage).usage?.cost?.total;
 						emit({
 							_tag: "AssistantMessage",
 							parts: assistantParts(event.message as AssistantMessage),
+							...(typeof cost === "number" && Number.isFinite(cost) ? { cost } : {}),
 						});
 						emitUsage();
 						emit({ _tag: "MetaChanged", meta: currentMeta() });

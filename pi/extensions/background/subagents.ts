@@ -115,7 +115,8 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 		const running = subs.filter((snap) => snap.status === "running").length;
 		const failed = subs.filter((snap) => snap.status === "error").length;
 		const done = subs.length - running - failed;
-		const parts: string[] = [];
+		const cost = subs.reduce((total, snap) => total + snap.cost, 0);
+		const parts: string[] = [`$${cost.toFixed(2)} sub`];
 		if (running > 0) parts.push(`${running} running`);
 		if (done > 0) parts.push(`${done} done`);
 		if (failed > 0) parts.push(`${failed} failed`);

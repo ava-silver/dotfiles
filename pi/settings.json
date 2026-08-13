@@ -26,7 +26,8 @@
   ],
   "skills": [
     "~/skills/skills",
-    "~/dd/claude-marketplace/serverless/skills"
+    "~/dd/claude-marketplace/serverless/skills",
+    "~/dd/experimental/users/ava.silver/ssi/skills/"
   ],
   "prompts": [
     "~/dotfiles/pi/prompts"

@@ -119,6 +119,7 @@ export type SubagentEvent =
 	| {
 			readonly _tag: "AssistantMessage";
 			readonly parts: ReadonlyArray<TranscriptPart>;
+			readonly cost?: number;
 	  }
 	| {
 			readonly _tag: "ToolStart";
@@ -177,6 +178,8 @@ export interface SubagentSnapshot {
 	readonly errorText?: string;
 	readonly meta: SubagentMeta;
 	readonly usage: { readonly tokens?: number; readonly contextWindow?: number };
+	/** Cumulative cost of finalized assistant messages. */
+	readonly cost: number;
 	readonly transcript: ReadonlyArray<TranscriptItem>;
 	/** Streaming assistant buffers, cleared when the finalized message lands. */
 	readonly liveAssistant?: { readonly text: string; readonly thinking: string };

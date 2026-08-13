@@ -49,6 +49,7 @@ interface MutableSnapshot {
 	errorText?: string;
 	meta: SubagentMeta;
 	usage: { tokens?: number; contextWindow?: number };
+	cost: number;
 	transcript: TranscriptItem[];
 	liveAssistant?: { text: string; thinking: string };
 	liveTools: LiveToolState[];
@@ -274,6 +275,7 @@ const makeManager = (spawnFn: SpawnFn) =>
 				}
 				case "AssistantMessage":
 					s.transcript.push({ kind: "assistant", parts: event.parts });
+					if (typeof event.cost === "number" && Number.isFinite(event.cost)) s.cost += event.cost;
 					delete s.liveAssistant;
 					s.turns++;
 					break;
@@ -369,6 +371,7 @@ const makeManager = (spawnFn: SpawnFn) =>
 
 							meta,
 							usage: meta.contextWindow === undefined ? {} : { contextWindow: meta.contextWindow },
+							cost: 0,
 							transcript: [],
 							liveTools: [],
 							queued: [],
