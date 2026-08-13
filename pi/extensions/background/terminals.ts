@@ -10,7 +10,7 @@
  * - terminal_list: list all terminals.
  *
  * Unawaited terminals queue their output as a follow-up message when they
- * settle. `/terminals` lists all terminals.
+ * settle. `/background` opens the shared task picker.
  */
 
 import * as child_process from "node:child_process";
@@ -21,7 +21,7 @@ import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { registerTransientSegment } from "../shared/footer-segments.ts";
-import { openBackgroundPicker, registerBackgroundProvider } from "../shared/background-hub.ts";
+import type { BackgroundHub } from "./src/hub.ts";
 
 // --- Config ----------------------------------------------------------------
 
@@ -91,7 +91,7 @@ function tailOutput(output: string, maxBytes: number): { text: string; truncated
 
 // --- Extension -------------------------------------------------------------
 
-export function setupTerminals(pi: ExtensionAPI) {
+export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	const terminals = new Map<string, Terminal>();
 	/** Terminals whose results should be delivered as follow-ups when idle. */
 	const pending = new Map<string, Terminal>();
@@ -184,6 +184,7 @@ export function setupTerminals(pi: ExtensionAPI) {
 		proc.stderr.on("data", (chunk: Buffer) => appendOutput(t, chunk.toString()));
 
 		proc.on("close", (code: number | null) => {
+			if (t.endedAt !== undefined) return;
 			t.exitCode = code ?? undefined;
 			t.status = code === 0 ? "done" : "error";
 			t.endedAt = Date.now();
@@ -192,6 +193,7 @@ export function setupTerminals(pi: ExtensionAPI) {
 		});
 
 		proc.on("error", (err: Error) => {
+			if (t.endedAt !== undefined) return;
 			appendOutput(t, `\n[spawn error: ${err.message}]`);
 			t.status = "error";
 			t.endedAt = Date.now();
@@ -209,7 +211,7 @@ export function setupTerminals(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		sessionCtx = ctx;
 		unregisterProvider?.();
-		unregisterProvider = registerBackgroundProvider("terminals", {
+		unregisterProvider = background.registerProvider("terminals", {
 			label: "Terminals",
 			list() {
 				return [...terminals.values()].map((t) => ({
@@ -325,16 +327,26 @@ export function setupTerminals(pi: ExtensionAPI) {
 			}
 
 			await new Promise<void>((resolve, reject) => {
-				if (signal) signal.addEventListener("abort", () => reject(new Error("Wait aborted. Terminals keep running.")));
-
 				let settled = false;
-				const finish = () => {
+				let poll: ReturnType<typeof setInterval> | undefined;
+				const watched: child_process.ChildProcess[] = [];
+
+				const cleanup = () => {
+					if (poll) clearInterval(poll);
+					signal?.removeEventListener("abort", abort);
+					for (const proc of watched) {
+						proc.removeListener("close", checkDone);
+						proc.removeListener("error", checkDone);
+					}
+				};
+				const finish = (error?: Error) => {
 					if (settled) return;
 					settled = true;
-					clearInterval(poll);
-					resolve();
+					cleanup();
+					if (error) reject(error);
+					else resolve();
 				};
-
+				const abort = () => finish(new Error("Wait aborted. Terminals keep running."));
 				const checkDone = () => {
 					if (settled) return;
 					const still = ids.filter((id) => terminals.get(id)?.status === "running");
@@ -348,17 +360,21 @@ export function setupTerminals(pi: ExtensionAPI) {
 					});
 				};
 
-				// Register close listeners before the initial check to avoid missing events.
+				if (signal?.aborted) {
+					abort();
+					return;
+				}
+				signal?.addEventListener("abort", abort, { once: true });
 				for (const id of ids) {
 					const t = terminals.get(id);
 					if (t?.status === "running" && t.proc) {
-						t.proc.once("close", checkDone);
-						t.proc.once("error", checkDone);
+						watched.push(t.proc);
+						t.proc.on("close", checkDone);
+						t.proc.on("error", checkDone);
 					}
 				}
 
-				// Fallback poll so we never get stuck if an event is missed.
-				const poll = setInterval(checkDone, 250);
+				poll = setInterval(checkDone, 250);
 				checkDone();
 			});
 
@@ -438,6 +454,7 @@ export function setupTerminals(pi: ExtensionAPI) {
 				}
 			}
 			updateStatus();
+			notifyListeners();
 			return {
 				content: [{ type: "text", text: lines.join("\n") }],
 				details: { ids },
@@ -484,14 +501,7 @@ export function setupTerminals(pi: ExtensionAPI) {
 		},
 	});
 
-	// -- Command / detail view -----------------------------------------------
-
-	pi.registerCommand("terminals", {
-		description: "List and inspect background terminals",
-		handler: async (_args, ctx) => {
-			await openBackgroundPicker(ctx);
-		},
-	});
+	// -- Detail view ---------------------------------------------------------
 }
 
 // --- TerminalOutputView -----------------------------------------------------

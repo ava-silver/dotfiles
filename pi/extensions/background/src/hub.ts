@@ -1,10 +1,9 @@
 /**
- * Background task hub: a process-level registry that aggregates background
+ * Background task hub: a session-scoped registry that aggregates background
  * providers (subagents, terminals, …) and exposes a unified picker UI.
  *
- * Usage:
- *   import { registerBackgroundProvider, openBackgroundPicker, hasAnyItems }
- *     from "../shared/background-hub.ts";
+ * Each background extension instance owns one hub and passes it to its
+ * providers. This keeps task state session-scoped without process globals.
  */
 
 import type { ExtensionContext, KeybindingsManager, Theme } from "@earendil-works/pi-coding-agent";
@@ -35,75 +34,58 @@ export interface BackgroundProvider {
 	abort?(id: string): void;
 }
 
-// --- Registry ---------------------------------------------------------------
+// --- Hub --------------------------------------------------------------------
 
-// Pin the providers Map to globalThis so it's shared across all module
-// instances. Jiti may load this file once per importing extension (separate
-// module caches), which would give each a private Map. globalThis is the only
-// truly process-wide scope.
-declare global {
-	// eslint-disable-next-line no-var
-	var __pi_background_providers__: Map<string, BackgroundProvider> | undefined;
-}
-globalThis.__pi_background_providers__ ??= new Map<string, BackgroundProvider>();
-const providers = globalThis.__pi_background_providers__;
+export class BackgroundHub {
+	private readonly providers = new Map<string, BackgroundProvider>();
 
-/**
- * Register a background provider. Returns an unregister function.
- * Call from session_start; unregister from session_shutdown.
- */
-export function registerBackgroundProvider(key: string, provider: BackgroundProvider): () => void {
-	providers.set(key, provider);
-	return () => providers.delete(key);
-}
-
-export function hasAnyItems(): boolean {
-	for (const p of providers.values()) {
-		if (p.list().length > 0) return true;
-	}
-	return false;
-}
-
-// --- Picker -----------------------------------------------------------------
-
-/**
- * Open the unified background-tasks picker.
- * Shows all registered providers' items grouped by section.
- * On selection, delegates to provider.openDetail(); then loops back to the
- * dashboard so Esc from a detail view returns here.
- */
-export async function openBackgroundPicker(ctx: ExtensionContext): Promise<void> {
-	if (!hasAnyItems()) {
-		ctx.ui.notify("No background tasks.", "info");
-		return;
+	/** Register a session-scoped provider and return its unregister function. */
+	registerProvider(key: string, provider: BackgroundProvider): () => void {
+		this.providers.set(key, provider);
+		return () => {
+			if (this.providers.get(key) === provider) this.providers.delete(key);
+		};
 	}
 
-	// Persist selection index across dashboard re-opens (after returning from a
-	// detail view) so the cursor stays where the user left it.
-	let selIdx = 0;
-	const onSelChange = (idx: number) => {
-		selIdx = idx;
-	};
+	hasAnyItems(): boolean {
+		for (const provider of this.providers.values()) {
+			if (provider.list().length > 0) return true;
+		}
+		return false;
+	}
 
-	while (true) {
-		if (!hasAnyItems()) return;
+	/** Open the picker and return to it whenever a provider detail view closes. */
+	async openPicker(ctx: ExtensionContext): Promise<void> {
+		if (!this.hasAnyItems()) {
+			ctx.ui.notify("No background tasks.", "info");
+			return;
+		}
 
-		const picked = await ctx.ui.custom<{ providerId: string; itemId: string } | null>(
-			(tui, theme, keybindings, done) => new BackgroundDashboard(tui, theme, keybindings, done, selIdx, onSelChange),
-			{
-				overlay: true,
-				overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" },
-			},
-		);
+		let selIdx = 0;
+		const onSelChange = (idx: number) => {
+			selIdx = idx;
+		};
 
-		if (!picked) return;
+		while (true) {
+			if (!this.hasAnyItems()) return;
 
-		const provider = providers.get(picked.providerId);
-		if (!provider) continue;
-		if (!provider.list().find((i) => i.id === picked.itemId)) continue;
+			const picked = await ctx.ui.custom<{ providerId: string; itemId: string } | null>(
+				(tui, theme, keybindings, done) =>
+					new BackgroundDashboard(this.providers, tui, theme, keybindings, done, selIdx, onSelChange),
+				{
+					overlay: true,
+					overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" },
+				},
+			);
 
-		await provider.openDetail(picked.itemId, ctx);
-		// Detail view closed → fall back to the dashboard.
+			if (!picked) return;
+
+			const provider = this.providers.get(picked.providerId);
+			if (!provider) continue;
+			if (!provider.list().find((item) => item.id === picked.itemId)) continue;
+
+			await provider.openDetail(picked.itemId, ctx);
+		}
 	}
 }
 
@@ -119,7 +101,7 @@ type FlatRow =
 			selIdx: number;
 	  };
 
-function buildRows(): FlatRow[] {
+function buildRows(providers: ReadonlyMap<string, BackgroundProvider>): FlatRow[] {
 	const rows: FlatRow[] = [];
 	let selIdx = 0;
 	for (const [providerId, provider] of providers) {
@@ -134,10 +116,10 @@ function buildRows(): FlatRow[] {
 	return rows;
 }
 
-function totalItems(): number {
-	let n = 0;
-	for (const p of providers.values()) n += p.list().length;
-	return n;
+function totalItems(providers: ReadonlyMap<string, BackgroundProvider>): number {
+	let total = 0;
+	for (const provider of providers.values()) total += provider.list().length;
+	return total;
 }
 
 function kbKeys(kb: KeybindingsManager, binding: Parameters<KeybindingsManager["getKeys"]>[0]): string {
@@ -169,6 +151,7 @@ function statusWord(item: BackgroundItem, theme: Theme): string {
 // --- BackgroundDashboard component ------------------------------------------
 
 class BackgroundDashboard implements Component {
+	private providers: ReadonlyMap<string, BackgroundProvider>;
 	private tui: TUI;
 	private theme: Theme;
 	private keybindings: KeybindingsManager;
@@ -181,6 +164,7 @@ class BackgroundDashboard implements Component {
 	private unsubs: Array<() => void> = [];
 
 	constructor(
+		providers: ReadonlyMap<string, BackgroundProvider>,
 		tui: TUI,
 		theme: Theme,
 		keybindings: KeybindingsManager,
@@ -188,6 +172,7 @@ class BackgroundDashboard implements Component {
 		initialSelIdx: number,
 		onSelChange: (idx: number) => void,
 	) {
+		this.providers = providers;
 		this.tui = tui;
 		this.theme = theme;
 		this.keybindings = keybindings;
@@ -197,7 +182,7 @@ class BackgroundDashboard implements Component {
 		// Elapsed times and statuses tick along at 1 Hz.
 		this.ticker = setInterval(() => this.tui.requestRender(), 1000);
 		// Re-render whenever any provider reports a change.
-		for (const provider of providers.values()) {
+		for (const provider of this.providers.values()) {
 			this.unsubs.push(provider.subscribe(() => this.tui.requestRender()));
 		}
 	}
@@ -227,7 +212,7 @@ class BackgroundDashboard implements Component {
 	}
 
 	handleInput(data: string): void {
-		const total = totalItems();
+		const total = totalItems(this.providers);
 		this.clampSel(total);
 
 		if (this.keybindings.matches(data, "tui.select.cancel")) {
@@ -239,7 +224,7 @@ class BackgroundDashboard implements Component {
 				this.close(null);
 				return;
 			}
-			const rows = buildRows();
+			const rows = buildRows(this.providers);
 			const row = rows.find(
 				(r): r is Extract<FlatRow, { kind: "item" }> => r.kind === "item" && r.selIdx === this.selIdx,
 			);
@@ -263,7 +248,7 @@ class BackgroundDashboard implements Component {
 			return;
 		}
 		if (data === "x") {
-			const rows = buildRows();
+			const rows = buildRows(this.providers);
 			const row = rows.find(
 				(r): r is Extract<FlatRow, { kind: "item" }> => r.kind === "item" && r.selIdx === this.selIdx,
 			);
@@ -279,7 +264,7 @@ class BackgroundDashboard implements Component {
 
 	render(width: number): string[] {
 		const theme = this.theme;
-		const rows = buildRows();
+		const rows = buildRows(this.providers);
 		const total = rows.filter((r) => r.kind === "item").length;
 		this.clampSel(total);
 

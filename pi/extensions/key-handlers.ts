@@ -1,4 +1,5 @@
 import { copyToClipboard, CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { EditorComponent } from "@earendil-works/pi-tui";
 import { matchesKey } from "@earendil-works/pi-tui";
 
 interface EscapeEscalationRequest {
@@ -7,25 +8,26 @@ interface EscapeEscalationRequest {
 
 export default function (pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
-		class KeyHandlingEditor extends CustomEditor {
-			private yankStack: string[] = [];
+		const previous = ctx.ui.getEditorComponent();
+		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+			const editor = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
+			const handleInput = editor.handleInput.bind(editor);
+			const yankStack: string[] = [];
 
-			handleInput(data: string): void {
-				// Ctrl+U / Cmd+Delete / Option+Delete: push content before the kill
+			editor.handleInput = (data: string) => {
 				if (matchesKey(data, "ctrl+u") || matchesKey(data, "alt+backspace")) {
 					const text = ctx.ui.getEditorText();
-					if (text) this.yankStack.push(text);
-					super.handleInput(data);
-					this.tui.requestRender();
+					if (text) yankStack.push(text);
+					handleInput(data);
+					tui.requestRender();
 					return;
 				}
 
-				// Cmd+Z (via Zed terminal → ESC+Z), Ctrl+Shift+Z, or Ctrl+Y: pop and restore
 				if (data === "\x1bZ" || matchesKey(data, "ctrl+shift+z") || matchesKey(data, "ctrl+y")) {
-					const text = this.yankStack.pop();
+					const text = yankStack.pop();
 					if (text !== undefined) {
 						ctx.ui.setEditorText(text);
-						this.tui.requestRender();
+						tui.requestRender();
 					}
 					return;
 				}
@@ -43,7 +45,7 @@ export default function (pi: ExtensionAPI): void {
 					void copyToClipboard(prompt)
 						.then(() => {
 							ctx.ui.setEditorText("");
-							this.tui.requestRender();
+							tui.requestRender();
 						})
 						.catch((error: unknown) => {
 							ctx.ui.notify(`Could not copy prompt: ${String(error)}`, "error");
@@ -51,10 +53,10 @@ export default function (pi: ExtensionAPI): void {
 					return;
 				}
 
-				super.handleInput(data);
-			}
-		}
+				handleInput(data);
+			};
 
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => new KeyHandlingEditor(tui, theme, keybindings));
+			return editor as EditorComponent;
+		});
 	});
 }

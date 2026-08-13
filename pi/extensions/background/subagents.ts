@@ -11,18 +11,13 @@
  * - subagent_list: list all subagents.
  *
  * Unawaited subagents queue their result as a follow-up message when they
- * settle. `/subagents` opens a picker + full interactive takeover view.
+ * settle. `/background` opens the shared task picker and takeover view.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import {
-	CustomEditor,
-	type ExtensionAPI,
-	type ExtensionContext,
-	type ExtensionUIContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -32,7 +27,7 @@ import {
 	ProjectTrustStore,
 	truncateHead,
 } from "@earendil-works/pi-coding-agent";
-import { Editor, Markdown, matchesKey, Text, type EditorComponent } from "@earendil-works/pi-tui";
+import { Markdown, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { formatElapsed, latestText, REASONING_EFFORTS, type SubagentSnapshot } from "./src/domain.ts";
 import { formatContextUtilization } from "./src/format.ts";
@@ -55,8 +50,8 @@ import {
 } from "./src/prompt.ts";
 import { createDeferredResultDelivery } from "./src/result-delivery.ts";
 import { createSubagentRuntime, runTool, type SubagentRuntime } from "./src/runtime.ts";
-import { createPickerLauncher, openTakeoverView } from "./src/ui/takeover.ts";
-import { hasAnyItems, openBackgroundPicker, registerBackgroundProvider } from "../shared/background-hub.ts";
+import { openTakeoverView } from "./src/ui/takeover.ts";
+import type { BackgroundHub } from "./src/hub.ts";
 
 const SUBAGENT_OUTPUT_MAX_BYTES = 24 * 1024;
 const WAIT_OUTPUT_MAX_BYTES = 48 * 1024;
@@ -102,7 +97,7 @@ function resolveChildProjectTrust(options: { parentCwd: string; childCwd: string
 	}
 }
 
-export function setupSubagents(pi: ExtensionAPI) {
+export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 	let runtime: SubagentRuntime | undefined;
 	let managerPromise: Promise<SubagentManagerShape> | undefined;
 	let managerView: SubagentManagerShape["view"] | undefined;
@@ -187,7 +182,7 @@ export function setupSubagents(pi: ExtensionAPI) {
 		sessionContext = ctx;
 		if (ctx.hasUI) ui = ctx.ui;
 		unregisterProvider?.();
-		unregisterProvider = registerBackgroundProvider("subagents", {
+		unregisterProvider = background.registerProvider("subagents", {
 			label: "Subagents",
 			list() {
 				return (managerView?.list() ?? []).map((snap) => ({
@@ -549,66 +544,5 @@ export function setupSubagents(pi: ExtensionAPI) {
 				md.invalidate();
 			},
 		};
-	});
-
-	// --- Command ------------------------------------------------------------
-
-	pi.registerCommand("subagents", {
-		description: "List, inspect, and take over subagents",
-		handler: async (_args, ctx) => {
-			if (ctx.mode !== "tui") {
-				if (ctx.hasUI) ctx.ui.notify("Subagent takeover is only available in the TUI", "error");
-				return;
-			}
-			await openBackgroundPicker(ctx);
-		},
-	});
-
-	// --- Down-arrow opens /subagents ---------------------------------------
-	// Pressing ↓ at the bottom of prompt history (no more history to browse)
-	// opens the subagent picker, like Claude Code's ↓ at the transcript bottom.
-	// Only when subagents exist; otherwise ↓ stays a no-op.
-
-	const openSubagentsFromEditor = async (ctx: ExtensionContext) => {
-		if (ctx.mode !== "tui") return;
-		await openBackgroundPicker(ctx);
-	};
-
-	pi.on("session_start", (_event, ctx) => {
-		if (!ctx.hasUI) return;
-		const launchPicker = createPickerLauncher(
-			() => openSubagentsFromEditor(ctx),
-			(error) => ctx.ui.notify(`Could not open subagents: ${String(error)}`, "error"),
-		);
-
-		// Capture the previous factory BEFORE setting ours: getEditorComponent()
-		// inside the factory would return the factory currently being set (itself)
-		// and recurse forever.
-		const previous = ctx.ui.getEditorComponent();
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-			const base = previous?.(tui, theme, keybindings);
-			const editor = base ?? new CustomEditor(tui, theme, keybindings);
-
-			// Narrow to the concrete Editor so we can inspect cursor/history state.
-			if (editor instanceof Editor) {
-				const originalHandleInput = editor.handleInput.bind(editor);
-				editor.handleInput = (data: string) => {
-					if (matchesKey(data, "down") && !editor.isShowingAutocomplete()) {
-						const lines = editor.getLines();
-						const cursor = editor.getCursor();
-						// Only when the input is empty (nothing typed) and the cursor is
-						// at the end: history browsing starts from an empty editor, so this
-						// is the "no more history to browse" state.
-						const atBottom = lines.length === 1 && lines[0] === "" && cursor.line === 0 && cursor.col === 0;
-						if (atBottom) {
-							void launchPicker();
-							return;
-						}
-					}
-					originalHandleInput(data);
-				};
-			}
-			return editor as EditorComponent;
-		});
 	});
 }

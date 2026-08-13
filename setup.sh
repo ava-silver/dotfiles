@@ -107,7 +107,7 @@ link "$REPO_DIR/pi/pi-auto-rename.json" "$HOME/.pi/agent/extensions/pi-auto-rena
 if command -v bun >/dev/null 2>&1; then
     (cd "$REPO_DIR/pi/extensions" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/read-aloud" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/pi/extensions/subagents" && bun install --frozen-lockfile)
+    (cd "$REPO_DIR/pi/extensions/background" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/ask-user" && bun install --frozen-lockfile)
     (cd "$REPO_DIR/pi/extensions/workflows" && bun install --frozen-lockfile)
 else

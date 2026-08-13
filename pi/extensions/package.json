@@ -7,8 +7,8 @@
 		"format": "oxfmt --write .",
 		"format:check": "oxfmt --check .",
 		"lint": "oxlint .",
-		"test": "bun test",
-		"typecheck": "tsc --noEmit"
+		"test": "node --test --experimental-strip-types shared/*.test.ts && bun test session-secret-redaction/index.test.ts && cd background && bun run test && cd ../workflows && bun run test",
+		"typecheck": "tsc --noEmit && cd background && bun run check"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "^0.84.1",
