@@ -1,0 +1,4 @@
+{
+	"extends": "../tsconfig.json",
+	"include": ["index.ts", "subagents.ts", "terminals.ts", "../shared/*.ts"]
+}

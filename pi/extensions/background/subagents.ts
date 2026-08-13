@@ -102,7 +102,7 @@ function resolveChildProjectTrust(options: { parentCwd: string; childCwd: string
 	}
 }
 
-export default function (pi: ExtensionAPI) {
+export function setupSubagents(pi: ExtensionAPI) {
 	let runtime: SubagentRuntime | undefined;
 	let managerPromise: Promise<SubagentManagerShape> | undefined;
 	let managerView: SubagentManagerShape["view"] | undefined;
@@ -571,7 +571,6 @@ export default function (pi: ExtensionAPI) {
 
 	const openSubagentsFromEditor = async (ctx: ExtensionContext) => {
 		if (ctx.mode !== "tui") return;
-		if (!hasAnyItems()) return;
 		await openBackgroundPicker(ctx);
 	};
 

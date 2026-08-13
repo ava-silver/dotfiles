@@ -91,7 +91,7 @@ function tailOutput(output: string, maxBytes: number): { text: string; truncated
 
 // --- Extension -------------------------------------------------------------
 
-export default function (pi: ExtensionAPI) {
+export function setupTerminals(pi: ExtensionAPI) {
 	const terminals = new Map<string, Terminal>();
 	/** Terminals whose results should be delivered as follow-ups when idle. */
 	const pending = new Map<string, Terminal>();
@@ -217,7 +217,10 @@ export default function (pi: ExtensionAPI) {
 					title: t.title,
 					status: t.status,
 					elapsed: () => elapsed(t),
-					meta: () => [] as string[],
+					meta: () => {
+						const cmd = t.command.length > 48 ? t.command.slice(0, 45) + "…" : t.command;
+						return [cmd];
+					},
 				}));
 			},
 			subscribe(cb) {
@@ -576,7 +579,8 @@ class TerminalOutputView implements Component, Focusable {
 	}
 
 	private viewportHeight(): number {
-		return Math.max(6, (this.tui.terminal.rows || 30) - 7);
+		// 8 chrome rows: top border, header, command, content border, content border, hints, bottom border, +1 overlap
+		return Math.max(6, (this.tui.terminal.rows || 30) - 8);
 	}
 
 	handleInput(data: string): void {
@@ -632,6 +636,7 @@ class TerminalOutputView implements Component, Focusable {
 				width,
 			),
 		);
+		lines.push(truncateToWidth(theme.fg("dim", `  $ ${t.command}`), width));
 		lines.push(border);
 
 		const viewport = this.viewportHeight();
@@ -643,7 +648,7 @@ class TerminalOutputView implements Component, Focusable {
 		const visible = rawLines.slice(Math.max(0, end - viewport), end);
 		for (const line of visible) lines.push(truncateToWidth(line, width));
 		// Pad to fixed height so overlay height stays stable.
-		while (lines.length < 3 + viewport) lines.push("");
+		while (lines.length < 4 + viewport) lines.push("");
 
 		if (this.scrollOffset > 0) {
 			lines[lines.length - 1] = truncateToWidth(
