@@ -206,7 +206,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 				const manager = await getManager();
 				await openTakeoverView(id, ctx, manager.view);
 			},
-			abort(id) {
+			kill(id) {
 				managerView?.requestAbort(id);
 			},
 		});

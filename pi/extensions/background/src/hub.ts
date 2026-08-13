@@ -31,7 +31,7 @@ export interface BackgroundProvider {
 	/** Open the provider-specific detail view for an item. */
 	openDetail(id: string, ctx: ExtensionContext): Promise<void>;
 	/** Optional: kill a running item (triggered by 'x' in the picker). */
-	abort?(id: string): void;
+	kill?(id: string): void;
 }
 
 // --- Hub --------------------------------------------------------------------
@@ -252,7 +252,7 @@ class BackgroundDashboard implements Component {
 			const row = rows.find(
 				(r): r is Extract<FlatRow, { kind: "item" }> => r.kind === "item" && r.selIdx === this.selIdx,
 			);
-			if (row?.item.status === "running") row.provider.abort?.(row.item.id);
+			if (row?.item.status === "running") row.provider.kill?.(row.item.id);
 			return;
 		}
 	}
@@ -322,7 +322,7 @@ class BackgroundDashboard implements Component {
 			truncateToWidth(
 				theme.fg(
 					"dim",
-					`  ${kbKeys(this.keybindings, "tui.select.up")}/${kbKeys(this.keybindings, "tui.select.down")}/jk select · ${kbKeys(this.keybindings, "tui.select.confirm")} open · x abort · ${kbKeys(this.keybindings, "tui.select.cancel")} close`,
+					`  ${kbKeys(this.keybindings, "tui.select.up")}/${kbKeys(this.keybindings, "tui.select.down")}/jk select · ${kbKeys(this.keybindings, "tui.select.confirm")} open · x kill · ${kbKeys(this.keybindings, "tui.select.cancel")} close`,
 				),
 				width,
 			),

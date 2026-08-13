@@ -21,6 +21,7 @@ import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { registerTransientSegment } from "../shared/footer-segments.ts";
+import { killProcessTree } from "../shared/process-tree.ts";
 import type { BackgroundHub } from "./src/hub.ts";
 
 // --- Config ----------------------------------------------------------------
@@ -173,6 +174,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 
 		const proc = child_process.spawn("bash", ["-c", opts.command], {
 			cwd: opts.cwd,
+			detached: process.platform !== "win32",
 			env: process.env,
 			stdio: ["ignore", "pipe", "pipe"],
 		});
@@ -202,6 +204,22 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		});
 
 		return t;
+	};
+
+	const killTerminal = (t: Terminal, notify: boolean): boolean => {
+		if (t.status !== "running") return false;
+		const pid = t.pid;
+		t.status = "error";
+		t.endedAt = Date.now();
+		t.proc = undefined;
+		pending.delete(t.id);
+		appendOutput(t, "\n[process killed]\n");
+		if (pid !== undefined) killProcessTree(pid);
+		if (notify) {
+			notifyListeners();
+			updateStatus();
+		}
+		return true;
 	};
 
 	// -- Session lifecycle ---------------------------------------------------
@@ -238,19 +256,9 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 					{ overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" } },
 				);
 			},
-			abort(id) {
+			kill(id) {
 				const t = terminals.get(id);
-				if (t?.status === "running" && t.proc) {
-					try {
-						t.proc.kill();
-					} catch {}
-					t.status = "error";
-					t.endedAt = Date.now();
-					t.proc = undefined;
-					pending.delete(id);
-					notifyListeners();
-					updateStatus();
-				}
+				if (t) killTerminal(t, true);
 			},
 		});
 	});
@@ -263,13 +271,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		unregisterProvider?.();
 		unregisterProvider = undefined;
 		listeners.clear();
-		for (const t of terminals.values()) {
-			if (t.proc) {
-				try {
-					t.proc.kill();
-				} catch {}
-			}
-		}
+		for (const t of terminals.values()) killTerminal(t, false);
 		terminals.clear();
 		registerTransientSegment("terminals", null);
 	});
@@ -438,17 +440,8 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			for (const id of ids) {
 				const t = terminals.get(id);
 				if (!t) continue;
-				if (t.status === "running") {
-					if (t.proc) {
-						try {
-							t.proc.kill();
-						} catch {}
-					}
-					t.status = "error";
-					t.endedAt = Date.now();
-					t.proc = undefined;
-					pending.delete(id);
-					lines.push(`Cancelled ${id} "${t.title}".`);
+				if (killTerminal(t, false)) {
+					lines.push(`Killed ${id} "${t.title}".`);
 				} else {
 					lines.push(`${id} "${t.title}" was already ${t.status}.`);
 				}

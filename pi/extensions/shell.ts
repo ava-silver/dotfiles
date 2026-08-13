@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
+import { killProcessTree } from "./shared/process-tree.ts";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGKILL"] as const;
 const TIMEOUT_ESCALATION_DELAY_MS = 5_000;
@@ -41,15 +42,11 @@ function resolveZshPath(): string | undefined {
 }
 
 function signalProcessTree(pid: number, signal: NodeJS.Signals): void {
-	if (process.platform === "win32") {
-		if (signal === "SIGKILL") {
-			spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
-				stdio: "ignore",
-				windowsHide: true,
-			});
-		}
+	if (signal === "SIGKILL") {
+		killProcessTree(pid);
 		return;
 	}
+	if (process.platform === "win32") return;
 
 	try {
 		process.kill(-pid, signal);
@@ -61,7 +58,6 @@ function signalProcessTree(pid: number, signal: NodeJS.Signals): void {
 		}
 	}
 }
-
 function waitForChild(child: ChildProcess): Promise<number | null> {
 	return new Promise((resolve, reject) => {
 		let settled = false;
