@@ -1,0 +1,662 @@
+/**
+ * Terminals — run shell commands in the background, inspect output, wait for
+ * completion, or cancel them.
+ *
+ * Tools (for the parent LLM):
+ * - terminal_run: fire-and-forget command spawn (command, title, working_dir).
+ * - terminal_wait: block until the listed terminals finish, return output.
+ * - terminal_cancel: kill one or more running terminals.
+ * - terminal_check: peek at status and recent output.
+ * - terminal_list: list all terminals.
+ *
+ * Unawaited terminals queue their output as a follow-up message when they
+ * settle. `/terminals` lists all terminals.
+ */
+
+import * as child_process from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import type { ExtensionAPI, ExtensionContext, KeybindingsManager, Theme } from "@earendil-works/pi-coding-agent";
+import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
+import { registerTransientSegment } from "../shared/footer-segments.ts";
+import { openBackgroundPicker, registerBackgroundProvider } from "../shared/background-hub.ts";
+
+// --- Config ----------------------------------------------------------------
+
+const OUTPUT_CAP_BYTES = 512 * 1024; // rolling buffer cap per terminal
+const CHECK_PREVIEW_BYTES = 4 * 1024;
+const WAIT_TOTAL_BYTES = 1024 * 1024;
+const WAIT_PER_TERMINAL_BYTES = 256 * 1024;
+const FOLLOW_UP_BYTES = 24 * 1024;
+
+// --- Domain ----------------------------------------------------------------
+
+type TerminalStatus = "running" | "done" | "error";
+
+interface Terminal {
+	id: string;
+	title: string;
+	command: string;
+	cwd: string;
+	status: TerminalStatus;
+	exitCode: number | undefined;
+	/** Combined stdout+stderr, trimmed to OUTPUT_CAP_BYTES. */
+	output: string;
+	pid: number | undefined;
+	startedAt: number;
+	endedAt: number | undefined;
+	proc: child_process.ChildProcess | undefined;
+}
+
+let counter = 0;
+function nextId() {
+	return `tr-${++counter}`;
+}
+
+function elapsed(t: Terminal): string {
+	const ms = (t.endedAt ?? Date.now()) - t.startedAt;
+	if (ms < 1000) return `${ms}ms`;
+	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+	return `${Math.floor(ms / 60_000)}m${Math.floor((ms % 60_000) / 1000)}s`;
+}
+
+function describe(t: Terminal): string {
+	return `${t.id} [${t.status}] "${t.title}" (${elapsed(t)}, ${t.cwd})`;
+}
+
+/** Append a chunk to a terminal's output buffer, enforcing the rolling cap. */
+function appendOutput(t: Terminal, chunk: string): void {
+	t.output += chunk;
+	if (Buffer.byteLength(t.output, "utf8") > OUTPUT_CAP_BYTES * 1.5) {
+		const buf = Buffer.from(t.output, "utf8");
+		t.output = buf.slice(buf.length - OUTPUT_CAP_BYTES).toString("utf8");
+	}
+}
+
+/**
+ * Truncate output to maxBytes, keeping the tail (most recent output).
+ * Returns the trimmed string and whether truncation happened.
+ */
+function tailOutput(output: string, maxBytes: number): { text: string; truncated: boolean } {
+	const bytes = Buffer.byteLength(output, "utf8");
+	if (bytes <= maxBytes) return { text: output, truncated: false };
+	const buf = Buffer.from(output, "utf8");
+	const raw = buf.slice(buf.length - maxBytes).toString("utf8");
+	// Drop the first (likely incomplete) line produced by the byte slice.
+	const nl = raw.indexOf("\n");
+	return { text: nl >= 0 ? raw.slice(nl + 1) : raw, truncated: true };
+}
+
+// --- Extension -------------------------------------------------------------
+
+export default function (pi: ExtensionAPI) {
+	const terminals = new Map<string, Terminal>();
+	/** Terminals whose results should be delivered as follow-ups when idle. */
+	const pending = new Map<string, Terminal>();
+	let sessionCtx: ExtensionContext | undefined;
+
+	// -- Status footer -------------------------------------------------------
+
+	const updateStatus = () => {
+		const all = [...terminals.values()];
+		if (all.length === 0) {
+			registerTransientSegment("terminals", null);
+			return;
+		}
+		const running = all.filter((t) => t.status === "running").length;
+		const failed = all.filter((t) => t.status === "error").length;
+		const done = all.length - running - failed;
+		const parts: string[] = [];
+		if (running > 0) parts.push(`${running} running`);
+		if (done > 0) parts.push(`${done} done`);
+		if (failed > 0) parts.push(`${failed} failed`);
+		const bg = failed > 0 ? "#e78284" : running > 0 ? "#81c8be" : "#a6d189";
+		registerTransientSegment("terminals", { text: `$ ${parts.join(" · ")}`, bg, fg: "#1e2030" });
+	};
+
+	// -- Result delivery -----------------------------------------------------
+
+	const deliverResult = (t: Terminal) => {
+		const verb = t.status === "error" ? "failed" : "finished";
+		const exitInfo = t.exitCode !== undefined ? ` (exit ${t.exitCode})` : "";
+		const { text, truncated } = tailOutput(t.output || "(no output)", FOLLOW_UP_BYTES);
+		const body = truncated ? `[output truncated — ${elapsed(t)} elapsed, full output in memory]\n${text}` : text;
+		pi.sendMessage(
+			{
+				customType: "terminal-result",
+				content: `Terminal ${t.id} "${t.title}" ${verb}${exitInfo}\n\n${body}`,
+				display: true,
+				details: { id: t.id, title: t.title, status: t.status, exitCode: t.exitCode },
+			},
+			{ deliverAs: "followUp", triggerTurn: true },
+		);
+	};
+
+	const flushPending = () => {
+		for (const t of pending.values()) deliverResult(t);
+		pending.clear();
+	};
+
+	const listeners = new Set<() => void>();
+	const notifyListeners = () => {
+		for (const cb of listeners) cb();
+	};
+
+	const onSettled = (t: Terminal, consumed: boolean) => {
+		updateStatus();
+		notifyListeners();
+		if (consumed) return;
+		pending.set(t.id, { ...t }); // snapshot
+		if (sessionCtx?.isIdle()) flushPending();
+	};
+
+	// -- Spawn ---------------------------------------------------------------
+
+	const spawnTerminal = (opts: { command: string; title: string; cwd: string }): Terminal => {
+		const t: Terminal = {
+			id: nextId(),
+			title: opts.title,
+			command: opts.command,
+			cwd: opts.cwd,
+			status: "running",
+			exitCode: undefined,
+			output: "",
+			pid: undefined,
+			startedAt: Date.now(),
+			endedAt: undefined,
+			proc: undefined,
+		};
+		terminals.set(t.id, t);
+		updateStatus();
+
+		const proc = child_process.spawn("bash", ["-c", opts.command], {
+			cwd: opts.cwd,
+			env: process.env,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+
+		t.proc = proc;
+		t.pid = proc.pid;
+
+		proc.stdout.on("data", (chunk: Buffer) => appendOutput(t, chunk.toString()));
+		proc.stderr.on("data", (chunk: Buffer) => appendOutput(t, chunk.toString()));
+
+		proc.on("close", (code: number | null) => {
+			t.exitCode = code ?? undefined;
+			t.status = code === 0 ? "done" : "error";
+			t.endedAt = Date.now();
+			t.proc = undefined;
+			onSettled(t, false);
+		});
+
+		proc.on("error", (err: Error) => {
+			appendOutput(t, `\n[spawn error: ${err.message}]`);
+			t.status = "error";
+			t.endedAt = Date.now();
+			t.proc = undefined;
+			onSettled(t, false);
+		});
+
+		return t;
+	};
+
+	// -- Session lifecycle ---------------------------------------------------
+
+	let unregisterProvider: (() => void) | undefined;
+
+	pi.on("session_start", (_event, ctx) => {
+		sessionCtx = ctx;
+		unregisterProvider?.();
+		unregisterProvider = registerBackgroundProvider("terminals", {
+			label: "Terminals",
+			list() {
+				return [...terminals.values()].map((t) => ({
+					id: t.id,
+					title: t.title,
+					status: t.status,
+					elapsed: () => elapsed(t),
+					meta: () => [] as string[],
+				}));
+			},
+			subscribe(cb) {
+				listeners.add(cb);
+				return () => listeners.delete(cb);
+			},
+			async openDetail(id, ctx) {
+				const t = terminals.get(id);
+				if (!t) return;
+				await ctx.ui.custom<null>(
+					(tui, theme, keybindings, done) =>
+						new TerminalOutputView(tui, theme, keybindings, id, () => terminals.get(id), listeners, done),
+					{ overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" } },
+				);
+			},
+			abort(id) {
+				const t = terminals.get(id);
+				if (t?.status === "running" && t.proc) {
+					try {
+						t.proc.kill();
+					} catch {}
+					t.status = "error";
+					t.endedAt = Date.now();
+					t.proc = undefined;
+					pending.delete(id);
+					notifyListeners();
+					updateStatus();
+				}
+			},
+		});
+	});
+
+	pi.on("agent_settled", flushPending);
+
+	pi.on("session_shutdown", () => {
+		sessionCtx = undefined;
+		pending.clear();
+		unregisterProvider?.();
+		unregisterProvider = undefined;
+		listeners.clear();
+		for (const t of terminals.values()) {
+			if (t.proc) {
+				try {
+					t.proc.kill();
+				} catch {}
+			}
+		}
+		terminals.clear();
+		registerTransientSegment("terminals", null);
+	});
+
+	// -- Tools ---------------------------------------------------------------
+
+	pi.registerTool({
+		name: "terminal_run",
+		label: "Run Terminal",
+		description:
+			"Run a shell command in the background. Returns immediately with a terminal ID. " +
+			"The result arrives as a follow-up message when the command finishes, or collect it " +
+			"explicitly with terminal_wait. Use terminal_check to peek at live output.",
+		parameters: Type.Object({
+			command: Type.String({ description: "Shell command to execute" }),
+			title: Type.String({ description: "Short human-readable label for this terminal, shown in listings" }),
+			working_dir: Type.Optional(Type.String({ description: "Working directory (default: current directory)" })),
+		}),
+		async execute(_id, params, _signal, _onUpdate, ctx) {
+			const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
+			if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
+				throw new Error(`working_dir is not a directory: ${cwd}`);
+			}
+			const title = params.title.trim().slice(0, 160) || "terminal";
+			const t = spawnTerminal({ command: params.command, title, cwd });
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Started terminal ${t.id} "${t.title}" (pid ${t.pid ?? "?"}) in ${cwd}`,
+					},
+				],
+				details: { id: t.id, title: t.title, pid: t.pid, cwd },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "terminal_wait",
+		label: "Wait for Terminals",
+		description: "Block until the listed terminals finish. Returns their combined output.",
+		parameters: Type.Object({
+			ids: Type.Array(Type.String(), {
+				description: 'Terminal IDs to wait for, e.g. ["tr-1", "tr-2"]',
+				maxItems: 64,
+			}),
+		}),
+		async execute(_id, params, signal, onUpdate) {
+			const ids = [...new Set(params.ids)];
+			if (ids.length === 0) throw new Error("Provide at least one terminal id.");
+			const unknown = ids.filter((id) => !terminals.has(id));
+			if (unknown.length > 0) {
+				const known = [...terminals.keys()];
+				throw new Error(`Unknown terminal id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
+			}
+
+			await new Promise<void>((resolve, reject) => {
+				if (signal) signal.addEventListener("abort", () => reject(new Error("Wait aborted. Terminals keep running.")));
+
+				let settled = false;
+				const finish = () => {
+					if (settled) return;
+					settled = true;
+					clearInterval(poll);
+					resolve();
+				};
+
+				const checkDone = () => {
+					if (settled) return;
+					const still = ids.filter((id) => terminals.get(id)?.status === "running");
+					if (still.length === 0) {
+						finish();
+						return;
+					}
+					onUpdate?.({
+						content: [{ type: "text", text: `Waiting for ${still.join(", ")}...` }],
+						details: { pending: still },
+					});
+				};
+
+				// Register close listeners before the initial check to avoid missing events.
+				for (const id of ids) {
+					const t = terminals.get(id);
+					if (t?.status === "running" && t.proc) {
+						t.proc.once("close", checkDone);
+						t.proc.once("error", checkDone);
+					}
+				}
+
+				// Fallback poll so we never get stuck if an event is missed.
+				const poll = setInterval(checkDone, 250);
+				checkDone();
+			});
+
+			// Terminals settled — suppress the automatic follow-up delivery.
+			for (const id of ids) pending.delete(id);
+
+			const sections: string[] = [];
+			let remaining = WAIT_TOTAL_BYTES;
+			for (const id of ids) {
+				const t = terminals.get(id);
+				if (!t) {
+					sections.push(`## ${id}\n\n(not found)`);
+					continue;
+				}
+				const verb = t.status === "error" ? "failed" : "finished";
+				const exitInfo = t.exitCode !== undefined ? ` (exit ${t.exitCode})` : "";
+				const header = `## ${t.id} "${t.title}" ${verb}${exitInfo} — ${elapsed(t)}`;
+				const budget = Math.max(512, Math.min(WAIT_PER_TERMINAL_BYTES, remaining));
+				const { text, truncated } = tailOutput(t.output || "(no output)", budget);
+				const body = truncated ? `[output truncated]\n${text}` : text;
+				const section = `${header}\n\n${body}`;
+				const bytes = Buffer.byteLength(section, "utf8");
+				if (bytes > remaining) {
+					sections.push(`## ${t.id} "${t.title}"\n\n[omitted: total output limit reached]`);
+					break;
+				}
+				sections.push(section);
+				remaining -= bytes;
+			}
+
+			return {
+				content: [{ type: "text", text: sections.join("\n\n---\n\n") }],
+				details: {
+					results: ids.map((id) => {
+						const t = terminals.get(id);
+						return { id, title: t?.title, status: t?.status, exitCode: t?.exitCode };
+					}),
+				},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "terminal_cancel",
+		label: "Cancel Terminals",
+		description: "Kill one or more running background terminals.",
+		parameters: Type.Object({
+			ids: Type.Array(Type.String(), {
+				description: 'Terminal IDs to cancel, e.g. ["tr-1", "tr-2"]',
+			}),
+		}),
+		async execute(_id, params) {
+			const ids = [...new Set(params.ids)];
+			if (ids.length === 0) throw new Error("Provide at least one terminal id.");
+			const unknown = ids.filter((id) => !terminals.has(id));
+			if (unknown.length > 0) {
+				const known = [...terminals.keys()];
+				throw new Error(`Unknown terminal id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
+			}
+			const lines: string[] = [];
+			for (const id of ids) {
+				const t = terminals.get(id);
+				if (!t) continue;
+				if (t.status === "running") {
+					if (t.proc) {
+						try {
+							t.proc.kill();
+						} catch {}
+					}
+					t.status = "error";
+					t.endedAt = Date.now();
+					t.proc = undefined;
+					pending.delete(id);
+					lines.push(`Cancelled ${id} "${t.title}".`);
+				} else {
+					lines.push(`${id} "${t.title}" was already ${t.status}.`);
+				}
+			}
+			updateStatus();
+			return {
+				content: [{ type: "text", text: lines.join("\n") }],
+				details: { ids },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "terminal_check",
+		label: "Check Terminal",
+		description: "Peek at a terminal's current status and recent output without blocking.",
+		parameters: Type.Object({
+			id: Type.String({ description: "Terminal ID to check" }),
+		}),
+		async execute(_callId, params) {
+			const t = terminals.get(params.id);
+			if (!t) {
+				const known = [...terminals.keys()];
+				throw new Error(`Unknown terminal id "${params.id}". Known: ${known.join(", ") || "none"}.`);
+			}
+			let text = `${describe(t)}\nCommand: ${t.command}`;
+			if (t.exitCode !== undefined) text += `\nExit code: ${t.exitCode}`;
+			const { text: preview, truncated } = tailOutput(t.output, CHECK_PREVIEW_BYTES);
+			text += preview ? `\n\nRecent output:\n${preview}${truncated ? "\n[...]" : ""}` : "\n\n(no output yet)";
+			return {
+				content: [{ type: "text", text }],
+				details: { id: t.id, status: t.status, exitCode: t.exitCode },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "terminal_list",
+		label: "List Terminals",
+		description: "List all background terminals and their current status.",
+		parameters: Type.Object({}),
+		async execute() {
+			const all = [...terminals.values()];
+			const text = all.length === 0 ? "No terminals." : all.map(describe).join("\n");
+			return {
+				content: [{ type: "text", text }],
+				details: { terminals: all.map((t) => ({ id: t.id, title: t.title, status: t.status })) },
+			};
+		},
+	});
+
+	// -- Command / detail view -----------------------------------------------
+
+	pi.registerCommand("terminals", {
+		description: "List and inspect background terminals",
+		handler: async (_args, ctx) => {
+			await openBackgroundPicker(ctx);
+		},
+	});
+}
+
+// --- TerminalOutputView -----------------------------------------------------
+
+const SCROLL_STEP = 6;
+
+// Strip ANSI codes and problematic control characters for clean TUI rendering.
+const ANSI_RE =
+	// eslint-disable-next-line no-control-regex
+	/[\u001B\u009B][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?|(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])/g;
+function sanitize(text: string): string {
+	return text
+		.replace(ANSI_RE, "")
+		.replaceAll("\t", "  ")
+		.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
+}
+
+class TerminalOutputView implements Component, Focusable {
+	private tui: TUI;
+	private theme: Theme;
+	private keybindings: KeybindingsManager;
+	private id: string;
+	private getTerminal: () => Terminal | undefined;
+	private done: (value: null) => void;
+
+	private scrollOffset = 0;
+	private unsubscribe: () => void;
+	private ticker: ReturnType<typeof setInterval>;
+	private renderTimer?: ReturnType<typeof setTimeout>;
+	private closed = false;
+
+	private _focused = false;
+	get focused(): boolean {
+		return this._focused;
+	}
+	set focused(v: boolean) {
+		this._focused = v;
+	}
+
+	constructor(
+		tui: TUI,
+		theme: Theme,
+		keybindings: KeybindingsManager,
+		id: string,
+		getTerminal: () => Terminal | undefined,
+		listeners: Set<() => void>,
+		done: (value: null) => void,
+	) {
+		this.tui = tui;
+		this.theme = theme;
+		this.keybindings = keybindings;
+		this.id = id;
+		this.getTerminal = getTerminal;
+		this.done = done;
+		const scheduleRender = () => this.scheduleRender();
+		listeners.add(scheduleRender);
+		this.unsubscribe = () => listeners.delete(scheduleRender);
+		// Poll at 200 ms so live output stays fresh.
+		this.ticker = setInterval(() => this.tui.requestRender(), 200);
+	}
+
+	private scheduleRender() {
+		if (this.renderTimer) return;
+		this.renderTimer = setTimeout(() => {
+			this.renderTimer = undefined;
+			if (!this.closed) this.tui.requestRender();
+		}, 50);
+	}
+
+	private cleanup() {
+		if (this.closed) return false;
+		this.closed = true;
+		this.unsubscribe();
+		clearInterval(this.ticker);
+		if (this.renderTimer) clearTimeout(this.renderTimer);
+		return true;
+	}
+
+	private close() {
+		if (this.cleanup()) this.done(null);
+	}
+
+	dispose(): void {
+		this.cleanup();
+	}
+
+	private viewportHeight(): number {
+		return Math.max(6, (this.tui.terminal.rows || 30) - 7);
+	}
+
+	handleInput(data: string): void {
+		if (this.keybindings.matches(data, "app.interrupt") || this.keybindings.matches(data, "tui.select.cancel")) {
+			this.close();
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.editor.cursorUp")) {
+			this.scrollOffset += SCROLL_STEP;
+			this.tui.requestRender();
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.editor.cursorDown")) {
+			this.scrollOffset = Math.max(0, this.scrollOffset - SCROLL_STEP);
+			this.tui.requestRender();
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.editor.pageUp")) {
+			this.scrollOffset += this.viewportHeight();
+			this.tui.requestRender();
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.editor.pageDown")) {
+			this.scrollOffset = Math.max(0, this.scrollOffset - this.viewportHeight());
+			this.tui.requestRender();
+			return;
+		}
+	}
+
+	render(width: number): string[] {
+		const theme = this.theme;
+		const border = theme.fg("borderAccent", "─".repeat(Math.max(1, width)));
+		const t = this.getTerminal();
+		const lines: string[] = [];
+		lines.push(border);
+
+		if (!t) {
+			lines.push(theme.fg("dim", `${this.id} is no longer tracked`));
+			lines.push(border);
+			return lines;
+		}
+
+		const glyph =
+			t.status === "running"
+				? theme.fg("warning", "■")
+				: t.status === "done"
+					? theme.fg("success", "■")
+					: theme.fg("error", "■");
+		const exitInfo = t.exitCode !== undefined ? ` · exit ${t.exitCode}` : "";
+		lines.push(
+			truncateToWidth(
+				`${glyph} ${theme.fg("accent", theme.bold(`${t.id} · ${t.title}`))}${theme.fg("muted", ` · ${t.status} · ${elapsed(t)}${exitInfo}`)}`,
+				width,
+			),
+		);
+		lines.push(border);
+
+		const viewport = this.viewportHeight();
+		const rawLines = sanitize(t.output || "(no output)").split("\n");
+		const maxOffset = Math.max(0, rawLines.length - viewport);
+		if (this.scrollOffset > maxOffset) this.scrollOffset = maxOffset;
+
+		const end = rawLines.length - this.scrollOffset;
+		const visible = rawLines.slice(Math.max(0, end - viewport), end);
+		for (const line of visible) lines.push(truncateToWidth(line, width));
+		// Pad to fixed height so overlay height stays stable.
+		while (lines.length < 3 + viewport) lines.push("");
+
+		if (this.scrollOffset > 0) {
+			lines[lines.length - 1] = truncateToWidth(
+				theme.fg("dim", `... ${this.scrollOffset} lines below · ↓/pgdn`),
+				width,
+			);
+		}
+
+		lines.push(border);
+		lines.push(truncateToWidth(theme.fg("dim", `  esc/ctrl-c back · ↑/↓ scroll · pgup/pgdn page`), width));
+		lines.push(border);
+		return lines;
+	}
+
+	invalidate(): void {}
+}
