@@ -105,7 +105,7 @@ function buildRows(providers: ReadonlyMap<string, BackgroundProvider>): FlatRow[
 	const rows: FlatRow[] = [];
 	let selIdx = 0;
 	for (const [providerId, provider] of providers) {
-		const items = provider.list();
+		const items = [...provider.list()].reverse();
 		if (items.length === 0) continue;
 		const running = items.filter((i) => i.status === "running").length;
 		rows.push({ kind: "header", label: provider.label, total: items.length, running });
