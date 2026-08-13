@@ -15,8 +15,18 @@
 
 import * as child_process from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import type { ExtensionAPI, ExtensionContext, KeybindingsManager, Theme } from "@earendil-works/pi-coding-agent";
+import {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	formatSize,
+	truncateTail,
+	type ExtensionAPI,
+	type ExtensionContext,
+	type KeybindingsManager,
+	type Theme,
+} from "@earendil-works/pi-coding-agent";
 import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -27,14 +37,15 @@ import type { BackgroundHub } from "./src/hub.ts";
 // --- Config ----------------------------------------------------------------
 
 const OUTPUT_CAP_BYTES = 512 * 1024; // rolling buffer cap per terminal
+export const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
 const CHECK_PREVIEW_BYTES = 4 * 1024;
-const WAIT_TOTAL_BYTES = 1024 * 1024;
-const WAIT_PER_TERMINAL_BYTES = 256 * 1024;
 const FOLLOW_UP_BYTES = 24 * 1024;
+export const MAX_RUNNING_TERMINALS = 16;
+export const MAX_TRACKED_TERMINALS = 128;
 
 // --- Domain ----------------------------------------------------------------
 
-type TerminalStatus = "running" | "done" | "error";
+export type TerminalStatus = "running" | "done" | "error";
 
 interface Terminal {
 	id: string;
@@ -49,6 +60,12 @@ interface Terminal {
 	startedAt: number;
 	endedAt: number | undefined;
 	proc: child_process.ChildProcess | undefined;
+	artifactDir: string | undefined;
+	artifactPath: string | undefined;
+	artifactFd: number | undefined;
+	artifactBytes: number;
+	artifactStatus: "available" | "truncated" | "unavailable";
+	abortCleanup: (() => void) | undefined;
 }
 
 let counter = 0;
@@ -64,30 +81,118 @@ function elapsed(t: Terminal): string {
 }
 
 function describe(t: Terminal): string {
-	return `${t.id} [${t.status}] "${t.title}" (${elapsed(t)}, ${t.cwd})`;
+	const artifact = artifactNotice(t);
+	return `${t.id} [${t.status}] "${t.title}" (${elapsed(t)}, ${t.cwd})${artifact ? ` ${artifact}` : ""}`;
+}
+
+type ArtifactWriter = (fd: number, buffer: Buffer, offset: number, length: number) => number;
+
+/** Write no more than the remaining artifact quota. Never throws. */
+export function writeArtifactChunk(
+	fd: number,
+	chunk: Buffer,
+	remainingBytes: number,
+	writer: ArtifactWriter = (file, buffer, offset, length) => fs.writeSync(file, buffer, offset, length),
+): { written: number; truncated: boolean; failed: boolean } {
+	const length = Math.min(chunk.length, Math.max(0, remainingBytes));
+	let written = 0;
+	try {
+		while (written < length) {
+			const count = writer(fd, chunk, written, length - written);
+			if (count <= 0) return { written, truncated: false, failed: true };
+			written += count;
+		}
+	} catch {
+		return { written, truncated: false, failed: true };
+	}
+	return { written, truncated: chunk.length > length, failed: false };
+}
+
+function closeArtifactFd(t: Terminal): void {
+	const fd = t.artifactFd;
+	t.artifactFd = undefined;
+	if (fd !== undefined) {
+		try {
+			fs.closeSync(fd);
+		} catch {}
+	}
 }
 
 /** Append a chunk to a terminal's output buffer, enforcing the rolling cap. */
-function appendOutput(t: Terminal, chunk: string): void {
-	t.output += chunk;
+function appendOutput(t: Terminal, chunk: Buffer | string): void {
+	const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+	if (t.artifactFd !== undefined) {
+		const result = writeArtifactChunk(t.artifactFd, bytes, MAX_ARTIFACT_BYTES - t.artifactBytes);
+		t.artifactBytes += result.written;
+		if (result.failed) {
+			t.artifactStatus = "unavailable";
+			closeArtifactFd(t);
+		} else if (result.truncated) {
+			t.artifactStatus = "truncated";
+			closeArtifactFd(t);
+		}
+	}
+	t.output += bytes.toString();
 	if (Buffer.byteLength(t.output, "utf8") > OUTPUT_CAP_BYTES * 1.5) {
 		const buf = Buffer.from(t.output, "utf8");
 		t.output = buf.slice(buf.length - OUTPUT_CAP_BYTES).toString("utf8");
 	}
 }
 
-/**
- * Truncate output to maxBytes, keeping the tail (most recent output).
- * Returns the trimmed string and whether truncation happened.
- */
-function tailOutput(output: string, maxBytes: number): { text: string; truncated: boolean } {
-	const bytes = Buffer.byteLength(output, "utf8");
-	if (bytes <= maxBytes) return { text: output, truncated: false };
-	const buf = Buffer.from(output, "utf8");
-	const raw = buf.slice(buf.length - maxBytes).toString("utf8");
-	// Drop the first (likely incomplete) line produced by the byte slice.
-	const nl = raw.indexOf("\n");
-	return { text: nl >= 0 ? raw.slice(nl + 1) : raw, truncated: true };
+export function truncateTerminalText(content: string, notice?: string): { text: string; truncated: boolean } {
+	const suffix = notice ? `\n${notice}` : "";
+	const truncation = truncateTail(content, {
+		maxBytes: Math.max(0, DEFAULT_MAX_BYTES - Buffer.byteLength(suffix, "utf8")),
+		maxLines: notice ? DEFAULT_MAX_LINES - 1 : DEFAULT_MAX_LINES,
+	});
+	return { text: truncation.content + (truncation.truncated ? suffix : ""), truncated: truncation.truncated };
+}
+
+function artifactNotice(t: Terminal): string | undefined {
+	if (t.artifactStatus === "truncated")
+		return `[Artifact truncated at ${formatSize(MAX_ARTIFACT_BYTES)}; not full output.]`;
+	if (t.artifactStatus === "unavailable") return "[Artifact unavailable; not full output.]";
+	return undefined;
+}
+
+function terminalOutput(t: Terminal, maxBytes = DEFAULT_MAX_BYTES): { text: string; truncated: boolean } {
+	const artifact = artifactNotice(t);
+	const outputNotice =
+		t.artifactStatus === "available"
+			? `[Output truncated at ${formatSize(maxBytes)}. Full output: ${t.artifactPath}]`
+			: `[Output truncated at ${formatSize(maxBytes)}. ${artifact}]`;
+	const reservedBytes =
+		Buffer.byteLength(outputNotice, "utf8") + (artifact ? Buffer.byteLength(artifact, "utf8") + 1 : 0) + 1;
+	const truncation = truncateTail(t.output || "(no output)", {
+		maxBytes: Math.max(0, Math.min(maxBytes, DEFAULT_MAX_BYTES) - reservedBytes),
+		maxLines: DEFAULT_MAX_LINES - (artifact ? 2 : 1),
+	});
+	const notices = [truncation.truncated ? outputNotice : undefined, artifact].filter(
+		(notice): notice is string => notice !== undefined,
+	);
+	return {
+		text: truncation.content + (notices.length ? `\n${notices.join("\n")}` : ""),
+		truncated: truncation.truncated,
+	};
+}
+
+export function settledTerminalIdsToPrune(
+	terminals: ReadonlyArray<{ id: string; status: TerminalStatus; startedAt: number; endedAt: number | undefined }>,
+	maxTracked: number = MAX_TRACKED_TERMINALS,
+): string[] {
+	return terminals
+		.filter((t) => t.status !== "running")
+		.sort((a, b) => (a.endedAt ?? a.startedAt) - (b.endedAt ?? b.startedAt) || a.id.localeCompare(b.id))
+		.slice(0, Math.max(0, terminals.length - maxTracked))
+		.map((t) => t.id);
+}
+
+/** Best-effort cleanup so retention never turns a failed removal into an extension failure. */
+export function removeTerminalArtifactDirectory(artifactDir: string | undefined): void {
+	if (!artifactDir) return;
+	try {
+		fs.rmSync(artifactDir, { recursive: true, force: true });
+	} catch {}
 }
 
 // --- Extension -------------------------------------------------------------
@@ -122,12 +227,11 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	const deliverResult = (t: Terminal) => {
 		const verb = t.status === "error" ? "failed" : "finished";
 		const exitInfo = t.exitCode !== undefined ? ` (exit ${t.exitCode})` : "";
-		const { text, truncated } = tailOutput(t.output || "(no output)", FOLLOW_UP_BYTES);
-		const body = truncated ? `[output truncated — ${elapsed(t)} elapsed, full output in memory]\n${text}` : text;
+		const { text: body } = terminalOutput(t, FOLLOW_UP_BYTES);
 		pi.sendMessage(
 			{
 				customType: "terminal-result",
-				content: `Terminal ${t.id} "${t.title}" ${verb}${exitInfo}\n\n${body}`,
+				content: truncateTerminalText(`Terminal ${t.id} "${t.title}" ${verb}${exitInfo}\n\n${body}`).text,
 				display: true,
 				details: { id: t.id, title: t.title, status: t.status, exitCode: t.exitCode },
 			},
@@ -155,7 +259,54 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 
 	// -- Spawn ---------------------------------------------------------------
 
-	const spawnTerminal = (opts: { command: string; title: string; cwd: string }): Terminal => {
+	const closeArtifact = (t: Terminal) => {
+		closeArtifactFd(t);
+		t.abortCleanup?.();
+		t.abortCleanup = undefined;
+	};
+
+	const removeArtifact = (t: Terminal) => {
+		closeArtifact(t);
+		removeTerminalArtifactDirectory(t.artifactDir);
+	};
+
+	const pruneTerminals = () => {
+		for (const id of settledTerminalIdsToPrune([...terminals.values()], MAX_TRACKED_TERMINALS - 1)) {
+			const t = terminals.get(id);
+			if (!t) continue;
+			// Once untracked, no tool result can disclose this artifact path.
+			terminals.delete(id);
+			pending.delete(id);
+			removeArtifact(t);
+		}
+	};
+
+	const spawnTerminal = (opts: { command: string; title: string; cwd: string }, signal?: AbortSignal): Terminal => {
+		pruneTerminals();
+		if ([...terminals.values()].filter((t) => t.status === "running").length >= MAX_RUNNING_TERMINALS)
+			throw new Error(`Max ${MAX_RUNNING_TERMINALS} running terminals reached.`);
+		if (terminals.size >= MAX_TRACKED_TERMINALS)
+			throw new Error(`Max ${MAX_TRACKED_TERMINALS} tracked terminals reached.`);
+		let artifactDir: string | undefined;
+		let artifactPath: string | undefined;
+		let artifactFd: number | undefined;
+		let artifactStatus: Terminal["artifactStatus"] = "available";
+		try {
+			artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-terminal-"));
+			fs.chmodSync(artifactDir, 0o700);
+			artifactPath = path.join(artifactDir, "output.log");
+			artifactFd = fs.openSync(artifactPath, "w", 0o600);
+		} catch {
+			artifactStatus = "unavailable";
+			if (artifactFd !== undefined) {
+				try {
+					fs.closeSync(artifactFd);
+				} catch {}
+			}
+			removeTerminalArtifactDirectory(artifactDir);
+			artifactDir = undefined;
+			artifactPath = undefined;
+		}
 		const t: Terminal = {
 			id: nextId(),
 			title: opts.title,
@@ -168,10 +319,15 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			startedAt: Date.now(),
 			endedAt: undefined,
 			proc: undefined,
+			artifactDir,
+			artifactPath,
+			artifactFd,
+			artifactBytes: 0,
+			artifactStatus,
+			abortCleanup: undefined,
 		};
 		terminals.set(t.id, t);
 		updateStatus();
-
 		const proc = child_process.spawn("bash", ["-c", opts.command], {
 			cwd: opts.cwd,
 			detached: process.platform !== "win32",
@@ -182,10 +338,11 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		t.proc = proc;
 		t.pid = proc.pid;
 
-		proc.stdout.on("data", (chunk: Buffer) => appendOutput(t, chunk.toString()));
-		proc.stderr.on("data", (chunk: Buffer) => appendOutput(t, chunk.toString()));
+		proc.stdout.on("data", (chunk: Buffer) => appendOutput(t, chunk));
+		proc.stderr.on("data", (chunk: Buffer) => appendOutput(t, chunk));
 
 		proc.on("close", (code: number | null) => {
+			closeArtifact(t);
 			if (t.endedAt !== undefined) return;
 			t.exitCode = code ?? undefined;
 			t.status = code === 0 ? "done" : "error";
@@ -195,14 +352,24 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		});
 
 		proc.on("error", (err: Error) => {
-			if (t.endedAt !== undefined) return;
+			if (t.endedAt !== undefined) {
+				closeArtifact(t);
+				return;
+			}
 			appendOutput(t, `\n[spawn error: ${err.message}]`);
+			closeArtifact(t);
 			t.status = "error";
 			t.endedAt = Date.now();
 			t.proc = undefined;
 			onSettled(t, false);
 		});
 
+		const abort = () => killTerminal(t, true);
+		if (signal?.aborted) abort();
+		else if (signal) {
+			signal.addEventListener("abort", abort, { once: true });
+			t.abortCleanup = () => signal.removeEventListener("abort", abort);
+		}
 		return t;
 	};
 
@@ -212,6 +379,8 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		t.status = "error";
 		t.endedAt = Date.now();
 		t.proc = undefined;
+		t.abortCleanup?.();
+		t.abortCleanup = undefined;
 		pending.delete(t.id);
 		appendOutput(t, "\n[process killed]\n");
 		if (pid !== undefined) killProcessTree(pid);
@@ -271,8 +440,10 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		unregisterProvider?.();
 		unregisterProvider = undefined;
 		listeners.clear();
-		for (const t of terminals.values()) killTerminal(t, false);
+		const tracked = [...terminals.values()];
+		for (const t of tracked) killTerminal(t, false);
 		terminals.clear();
+		for (const t of tracked) removeArtifact(t);
 		registerTransientSegment("terminals", null);
 	});
 
@@ -290,21 +461,24 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			title: Type.String({ description: "Short human-readable label for this terminal, shown in listings" }),
 			working_dir: Type.Optional(Type.String({ description: "Working directory (default: current directory)" })),
 		}),
-		async execute(_id, params, _signal, _onUpdate, ctx) {
+		async execute(_id, params, signal, _onUpdate, ctx) {
 			const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
 			if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
 				throw new Error(`working_dir is not a directory: ${cwd}`);
 			}
 			const title = params.title.trim().slice(0, 160) || "terminal";
-			const t = spawnTerminal({ command: params.command, title, cwd });
+			if (signal?.aborted) throw new Error("Terminal run aborted.");
+			const t = spawnTerminal({ command: params.command, title, cwd }, signal);
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Started terminal ${t.id} "${t.title}" (pid ${t.pid ?? "?"}) in ${cwd}`,
+						text: truncateTerminalText(
+							`Started terminal ${t.id} "${t.title}" (pid ${t.pid ?? "?"}) in ${cwd}${artifactNotice(t) ? `\n${artifactNotice(t)}` : ""}`,
+						).text,
 					},
 				],
-				details: { id: t.id, title: t.title, pid: t.pid, cwd },
+				details: { id: t.id, title: t.title, pid: t.pid, cwd, artifactStatus: t.artifactStatus },
 			};
 		},
 	});
@@ -335,6 +509,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 
 				const cleanup = () => {
 					if (poll) clearInterval(poll);
+					listeners.delete(checkDone);
 					signal?.removeEventListener("abort", abort);
 					for (const proc of watched) {
 						proc.removeListener("close", checkDone);
@@ -367,6 +542,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 					return;
 				}
 				signal?.addEventListener("abort", abort, { once: true });
+				listeners.add(checkDone);
 				for (const id of ids) {
 					const t = terminals.get(id);
 					if (t?.status === "running" && t.proc) {
@@ -384,7 +560,6 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			for (const id of ids) pending.delete(id);
 
 			const sections: string[] = [];
-			let remaining = WAIT_TOTAL_BYTES;
 			for (const id of ids) {
 				const t = terminals.get(id);
 				if (!t) {
@@ -394,25 +569,26 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 				const verb = t.status === "error" ? "failed" : "finished";
 				const exitInfo = t.exitCode !== undefined ? ` (exit ${t.exitCode})` : "";
 				const header = `## ${t.id} "${t.title}" ${verb}${exitInfo} — ${elapsed(t)}`;
-				const budget = Math.max(512, Math.min(WAIT_PER_TERMINAL_BYTES, remaining));
-				const { text, truncated } = tailOutput(t.output || "(no output)", budget);
-				const body = truncated ? `[output truncated]\n${text}` : text;
-				const section = `${header}\n\n${body}`;
-				const bytes = Buffer.byteLength(section, "utf8");
-				if (bytes > remaining) {
-					sections.push(`## ${t.id} "${t.title}"\n\n[omitted: total output limit reached]`);
-					break;
-				}
-				sections.push(section);
-				remaining -= bytes;
+				const { text: body } = terminalOutput(t);
+				sections.push(`${header}\n\n${body}`);
 			}
 
+			const { text } = truncateTerminalText(
+				sections.join("\n\n---\n\n"),
+				"[Response truncated. See artifact status above.]",
+			);
 			return {
-				content: [{ type: "text", text: sections.join("\n\n---\n\n") }],
+				content: [{ type: "text", text }],
 				details: {
 					results: ids.map((id) => {
 						const t = terminals.get(id);
-						return { id, title: t?.title, status: t?.status, exitCode: t?.exitCode };
+						return {
+							id,
+							title: t?.title,
+							status: t?.status,
+							exitCode: t?.exitCode,
+							artifactStatus: t?.artifactStatus,
+						};
 					}),
 				},
 			};
@@ -426,6 +602,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		parameters: Type.Object({
 			ids: Type.Array(Type.String(), {
 				description: 'Terminal IDs to cancel, e.g. ["tr-1", "tr-2"]',
+				maxItems: 64,
 			}),
 		}),
 		async execute(_id, params) {
@@ -441,7 +618,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 				const t = terminals.get(id);
 				if (!t) continue;
 				if (killTerminal(t, false)) {
-					lines.push(`Killed ${id} "${t.title}".`);
+					lines.push(`Killed ${id} "${t.title}".${artifactNotice(t) ? ` ${artifactNotice(t)}` : ""}`);
 				} else {
 					lines.push(`${id} "${t.title}" was already ${t.status}.`);
 				}
@@ -449,7 +626,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			updateStatus();
 			notifyListeners();
 			return {
-				content: [{ type: "text", text: lines.join("\n") }],
+				content: [{ type: "text", text: truncateTerminalText(lines.join("\n")).text }],
 				details: { ids },
 			};
 		},
@@ -470,11 +647,16 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			}
 			let text = `${describe(t)}\nCommand: ${t.command}`;
 			if (t.exitCode !== undefined) text += `\nExit code: ${t.exitCode}`;
-			const { text: preview, truncated } = tailOutput(t.output, CHECK_PREVIEW_BYTES);
-			text += preview ? `\n\nRecent output:\n${preview}${truncated ? "\n[...]" : ""}` : "\n\n(no output yet)";
+			const { text: preview } = terminalOutput(t, CHECK_PREVIEW_BYTES);
+			text += preview ? `\n\nRecent output:\n${preview}` : "\n\n(no output yet)";
 			return {
-				content: [{ type: "text", text }],
-				details: { id: t.id, status: t.status, exitCode: t.exitCode },
+				content: [
+					{
+						type: "text",
+						text: truncateTerminalText(text, "[Response truncated. See artifact status above.]").text,
+					},
+				],
+				details: { id: t.id, status: t.status, exitCode: t.exitCode, artifactStatus: t.artifactStatus },
 			};
 		},
 	});
@@ -488,8 +670,10 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			const all = [...terminals.values()];
 			const text = all.length === 0 ? "No terminals." : all.map(describe).join("\n");
 			return {
-				content: [{ type: "text", text }],
-				details: { terminals: all.map((t) => ({ id: t.id, title: t.title, status: t.status })) },
+				content: [{ type: "text", text: truncateTerminalText(text).text }],
+				details: {
+					terminals: all.map((t) => ({ id: t.id, title: t.title, status: t.status, artifactStatus: t.artifactStatus })),
+				},
 			};
 		},
 	});
@@ -503,7 +687,6 @@ const SCROLL_STEP = 6;
 
 // Strip ANSI codes and problematic control characters for clean TUI rendering.
 const ANSI_RE =
-	// eslint-disable-next-line no-control-regex
 	/[\u001B\u009B][[\]()#;?]*(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?|(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])/g;
 function sanitize(text: string): string {
 	return text
@@ -523,7 +706,7 @@ class TerminalOutputView implements Component, Focusable {
 	private scrollOffset = 0;
 	private unsubscribe: () => void;
 	private ticker: ReturnType<typeof setInterval>;
-	private renderTimer?: ReturnType<typeof setTimeout>;
+	private renderTimer: ReturnType<typeof setTimeout> | undefined;
 	private closed = false;
 
 	private _focused = false;

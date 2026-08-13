@@ -26,10 +26,25 @@ Do not start working on any fixes until given permission. Do not reply to commen
 }
 
 const execFileAsync = promisify(execFile);
+export const GH_TIMEOUT_MS = 15_000;
+// REST pagination is one `gh` process, so it gets four request windows.
+const PAGINATED_GH_TIMEOUT_MS = 60_000;
+
+export function ghTimeout(args: string[]): number {
+	return args.includes("--paginate") ? PAGINATED_GH_TIMEOUT_MS : GH_TIMEOUT_MS;
+}
 
 async function gh(cwd: string, args: string[]): Promise<string> {
-	const { stdout } = await execFileAsync("gh", args, { cwd, encoding: "utf-8" });
-	return stdout.trim();
+	const timeout = ghTimeout(args);
+	try {
+		const { stdout } = await execFileAsync("gh", args, { cwd, encoding: "utf-8", timeout });
+		return stdout.trim();
+	} catch (error) {
+		if ((error as { killed?: boolean }).killed) {
+			throw new Error(`gh timed out after ${timeout / 1_000} seconds.`, { cause: error });
+		}
+		throw error;
+	}
 }
 
 function repoSlug(cwd: string): Promise<string> {
@@ -68,28 +83,103 @@ interface Review {
 	body: string;
 }
 
+export interface PageInfo {
+	hasNextPage: boolean;
+	endCursor: string | null;
+}
+
+export interface ConnectionPage<T> {
+	nodes: T[];
+	pageInfo: PageInfo;
+}
+
+export async function paginateConnection<T>(
+	fetchPage: (after: string | null) => Promise<ConnectionPage<T>>,
+): Promise<T[]> {
+	let page = await fetchPage(null);
+	const nodes = [...page.nodes];
+	while (page.pageInfo.hasNextPage) {
+		page = await fetchPage(page.pageInfo.endCursor);
+		nodes.push(...page.nodes);
+	}
+	return nodes;
+}
+
+export async function mapWithConcurrency<T, R>(
+	items: readonly T[],
+	maxConcurrency: number,
+	map: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = [];
+	results.length = items.length;
+	let nextIndex = 0;
+	const worker = async (): Promise<void> => {
+		while (nextIndex < items.length) {
+			const index = nextIndex++;
+			results[index] = await map(items[index]!, index);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(maxConcurrency, items.length) }, worker));
+	return results;
+}
+
+export function resolvedCommentIds(threads: Array<{ isResolved: boolean; comments: number[] }>): Set<number> {
+	return new Set(threads.filter((thread) => thread.isResolved).flatMap((thread) => thread.comments));
+}
+
+export function graphqlArgs(query: string, variables: Record<string, string | number>): string[] {
+	const args = ["api", "graphql", "-f", `query=${query}`];
+	for (const [name, value] of Object.entries(variables)) {
+		args.push(typeof value === "number" ? "-F" : "-f", `${name}=${value}`);
+	}
+	return args;
+}
+
+async function ghGraphql<T>(cwd: string, query: string, variables: Record<string, string | number>): Promise<T> {
+	return JSON.parse(await gh(cwd, graphqlArgs(query, variables))) as T;
+}
+
+interface ReviewThread {
+	id: string;
+	isResolved: boolean;
+}
+
+interface GraphqlResponse<T> {
+	data: T;
+}
+
 // Resolution status lives only on GraphQL `reviewThreads.isResolved`, not on the
 // REST comments endpoint -- fetch the set of comment IDs that belong to resolved
 // threads so we can drop them.
 async function fetchResolvedCommentIds(cwd: string, repo: string, pr: string): Promise<Set<number>> {
-	const [owner, name] = repo.split("/");
-	const query = `query($owner:String!,$name:String!,$pr:Int!){repository(owner:$owner,name:$name){pullRequest(number:$pr){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{databaseId}}}}}}}`;
-	const out = await gh(cwd, [
-		"api",
-		"graphql",
-		"-f",
-		`query=${query}`,
-		"-F",
-		`owner=${owner}`,
-		"-F",
-		`name=${name}`,
-		"-F",
-		`pr=${pr}`,
-		"--jq",
-		"[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved) | .comments.nodes[].databaseId]",
-	]);
-	if (!out.trim()) return new Set();
-	return new Set(JSON.parse(out) as number[]);
+	const [owner = "", name = ""] = repo.split("/");
+	const prNumber = Number(pr);
+	if (!Number.isSafeInteger(prNumber) || prNumber <= 0) throw new Error(`Invalid PR number: ${pr}`);
+	const threadsQuery = `query($owner:String!,$name:String!,$pr:Int!,$after:String){repository(owner:$owner,name:$name){pullRequest(number:$pr){reviewThreads(first:100,after:$after){nodes{id isResolved} pageInfo{hasNextPage endCursor}}}}}`;
+	const threads = await paginateConnection(async (after) => {
+		const response = await ghGraphql<
+			GraphqlResponse<{ repository: { pullRequest: { reviewThreads: ConnectionPage<ReviewThread> } } }>
+		>(cwd, threadsQuery, { owner, name, pr: prNumber, ...(after === null ? {} : { after }) });
+		return response.data.repository.pullRequest.reviewThreads;
+	});
+	const commentsQuery = `query($id:ID!,$after:String){node(id:$id){... on PullRequestReviewThread{comments(first:100,after:$after){nodes{databaseId} pageInfo{hasNextPage endCursor}}}}}`;
+	const resolvedThreads = threads.filter((thread) => thread.isResolved);
+	const comments = await mapWithConcurrency(resolvedThreads, 4, async (thread) =>
+		paginateConnection(async (after) => {
+			const response = await ghGraphql<GraphqlResponse<{ node: { comments: ConnectionPage<{ databaseId: number }> } }>>(
+				cwd,
+				commentsQuery,
+				{ id: thread.id, ...(after === null ? {} : { after }) },
+			);
+			return response.data.node.comments;
+		}),
+	);
+	return resolvedCommentIds(
+		resolvedThreads.map((thread, index) => ({
+			isResolved: thread.isResolved,
+			comments: comments[index]!.map((comment) => comment.databaseId),
+		})),
+	);
 }
 
 interface Feedback {
@@ -140,12 +230,12 @@ function cleanBody(raw: string): { label: string | null; text: string } {
 	const lines = body.split("\n");
 	let firstLine = (lines[0] ?? "").trim();
 	const boldMatch = firstLine.match(/^\*\*(.*)\*\*$/);
-	if (boldMatch) firstLine = boldMatch[1].trim();
+	if (boldMatch) firstLine = (boldMatch[1] ?? "").trim();
 	let label: string | null = null;
 	const badgeMatch = firstLine.match(/^\s*(?:<sub>\s*)*!\[(\w+)\s*Badge\]\([^)]*\)(?:\s*<\/sub>)*\s*/i);
 	if (badgeMatch) {
-		label = badgeMatch[1].toUpperCase();
-		firstLine = firstLine.slice(badgeMatch[0].length).trim();
+		label = (badgeMatch[1] ?? "").toUpperCase();
+		firstLine = firstLine.slice((badgeMatch[0] ?? "").length).trim();
 	}
 	body = [firstLine, ...lines.slice(1)].join("\n");
 	body = body.replace(/<\/?sub>/gi, "");

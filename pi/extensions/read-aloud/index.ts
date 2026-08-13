@@ -17,6 +17,7 @@ const MAX_SPEED = 2.5;
 const PRESENCE_IDLE_LIMIT_MS = 5 * 60 * 1000;
 const AUTO_READ_DISABLED_FILE = join(homedir(), ".pi", "agent", "read-aloud-auto-disabled");
 const AUTO_READ_POLL_MS = 1_000;
+const SHUTDOWN_WAIT_MS = 2_000;
 const REWRITE_PROMPT = `Rewrite the written assistant text as a natural spoken rendition.
 
 Make it tight: lead with the point, use one concrete idea per sentence, and remove filler. Keep only details the listener needs to act or decide. Use active, present-tense language.
@@ -57,7 +58,9 @@ export function extractLatestAssistantText(entries: readonly BranchEntry[]): Lat
 			.join("\n")
 			.trim();
 
-		return text ? { status: "found", entryId: entry.id, text } : { status: "missing" };
+		return text
+			? { status: "found", ...(entry.id === undefined ? {} : { entryId: entry.id }), text }
+			: { status: "missing" };
 	}
 
 	return { status: "missing" };
@@ -165,6 +168,20 @@ export function parseRate(input: string): number | undefined {
 	return Number.isFinite(speed) && speed >= MIN_SPEED && speed <= MAX_SPEED ? speed : undefined;
 }
 
+export async function waitForTasks(tasks: Iterable<Promise<unknown>>, timeoutMs: number): Promise<void> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		await Promise.race([
+			Promise.allSettled(tasks),
+			new Promise<void>((resolve) => {
+				timer = setTimeout(resolve, timeoutMs);
+			}),
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
+
 type ActiveSpeech = {
 	generation: number;
 	autoRead: boolean;
@@ -183,6 +200,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 	let lastSpokenText: string | undefined;
 	let lastAutoReadEntryId: string | undefined;
 	let autoReadGeneration = 0;
+	let autoReadPresence: AbortController | undefined;
 	let modelPromise: Promise<KokoroTTS> | undefined;
 	let autoReadPoll: ReturnType<typeof setInterval> | undefined;
 	const rewriteCache = new Map<string, string>();
@@ -332,8 +350,8 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 				},
 				{
 					apiKey: auth.apiKey,
-					headers: auth.headers,
-					env: auth.env,
+					...(auth.headers === undefined ? {} : { headers: auth.headers }),
+					...(auth.env === undefined ? {} : { env: auth.env }),
 					signal: speech.abortController.signal,
 					reasoning: "minimal",
 					maxTokens: 4096,
@@ -372,7 +390,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (player.stdin.destroyed) throw new Error("Audio player closed unexpectedly");
 	}
 
-	async function runSpeech(text: string, ctx: ExtensionContext, notify: boolean, speech: ActiveSpeech): Promise<void> {
+	async function runSpeech(text: string, ctx: ExtensionContext, speech: ActiveSpeech): Promise<void> {
 		try {
 			const [model, spokenText] = await Promise.all([loadModel(ctx, speech), rewriteForSpeech(text, ctx, speech)]);
 			if (speech.cancelled || activeSpeech !== speech) return;
@@ -437,7 +455,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		};
 		activeSpeech = speech;
 		if (notify) ctx.ui.notify(`Rewriting with Haiku, then playing locally at ${playbackSpeed}x`, "info");
-		const task = runSpeech(normalized, ctx, notify, speech);
+		const task = runSpeech(normalized, ctx, speech);
 		speech.task = task;
 		speechTasks.add(task);
 		void task.finally(() => speechTasks.delete(task));
@@ -464,11 +482,11 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (latest.status === "found") startSpeech(latest.text, ctx, true);
 	}
 
-	async function userIsPresent(): Promise<boolean> {
+	async function userIsPresent(signal: AbortSignal): Promise<boolean> {
 		try {
 			const [root, hid] = await Promise.all([
-				pi.exec("/usr/sbin/ioreg", ["-n", "Root", "-d1"]),
-				pi.exec("/usr/sbin/ioreg", ["-l", "-c", "IOHIDSystem"]),
+				pi.exec("/usr/sbin/ioreg", ["-n", "Root", "-d1"], { signal, timeout: 5_000 }),
+				pi.exec("/usr/sbin/ioreg", ["-l", "-c", "IOHIDSystem"], { signal, timeout: 5_000 }),
 			]);
 			if (root.code !== 0 || hid.code !== 0) return false;
 			const locked = parseScreenLocked(root.stdout);
@@ -539,6 +557,7 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
+		if (ctx.mode !== "tui") return;
 		autoReadPoll = setInterval(() => {
 			void isAutoReadEnabled().then((enabled) => {
 				if (!enabled && activeSpeech?.autoRead) stopSpeech();
@@ -546,13 +565,15 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		}, AUTO_READ_POLL_MS);
 	});
 
-	pi.on("agent_end", async (_event, ctx) => {
+	pi.on("agent_settled", async (_event, ctx) => {
+		autoReadPresence?.abort();
 		if (ctx.mode !== "tui" || !(await isAutoReadEnabled())) return;
 		const latest = latestText(ctx, false);
 		if (latest.status !== "found" || latest.entryId === lastAutoReadEntryId) return;
 		lastAutoReadEntryId = latest.entryId;
 		const generation = ++autoReadGeneration;
-		if (!(await userIsPresent()) || generation !== autoReadGeneration) return;
+		const presence = (autoReadPresence = new AbortController());
+		if (!(await userIsPresent(presence.signal)) || generation !== autoReadGeneration || presence.signal.aborted) return;
 
 		const current = latestText(ctx, false);
 		if ((await isAutoReadEnabled()) && current.status === "found" && current.entryId === latest.entryId) {
@@ -564,9 +585,11 @@ export default function readAloudExtension(pi: ExtensionAPI): void {
 		if (autoReadPoll) clearInterval(autoReadPoll);
 		autoReadPoll = undefined;
 		autoReadGeneration++;
+		autoReadPresence?.abort();
+		autoReadPresence = undefined;
 		stopSpeech();
 		clearSpeechStatuses(ctx);
-		await Promise.allSettled(speechTasks);
+		await waitForTasks(speechTasks, SHUTDOWN_WAIT_MS);
 
 		// ONNX Runtime 1.21 can abort on macOS when native sessions are disposed during
 		// session teardown. Let process teardown reclaim the model instead.

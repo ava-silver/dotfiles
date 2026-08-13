@@ -149,6 +149,8 @@ const makeManager = (spawnFn: SpawnFn) =>
 			const waiters = changeWaiters;
 			changeWaiters = [];
 			for (const waiter of waiters) waiter();
+			// Snapshot so listeners may unsubscribe without skipping another callback.
+			// oxlint-disable-next-line unicorn/no-useless-spread
 			for (const listener of [...listeners]) {
 				try {
 					listener();
@@ -217,7 +219,7 @@ const makeManager = (spawnFn: SpawnFn) =>
 			switch (outcome._tag) {
 				case "Completed":
 					s.status = "done";
-					s.errorText = undefined;
+					delete s.errorText;
 					s.finalText = outcome.finalText;
 					break;
 				case "Failed":
@@ -232,7 +234,7 @@ const makeManager = (spawnFn: SpawnFn) =>
 					s.finalText = outcome.partialText ?? "";
 					break;
 			}
-			s.liveAssistant = undefined;
+			delete s.liveAssistant;
 			entry.liveToolMap.clear();
 			s.liveTools = [];
 			s.queued = [];
@@ -253,8 +255,8 @@ const makeManager = (spawnFn: SpawnFn) =>
 				case "RunStarted":
 					entry.restarting = false;
 					s.status = "running";
-					s.settledAt = undefined;
-					s.errorText = undefined;
+					delete s.settledAt;
+					delete s.errorText;
 					break;
 				case "RunSettled":
 					settle(entry, event.outcome);
@@ -272,14 +274,14 @@ const makeManager = (spawnFn: SpawnFn) =>
 				}
 				case "AssistantMessage":
 					s.transcript.push({ kind: "assistant", parts: event.parts });
-					s.liveAssistant = undefined;
+					delete s.liveAssistant;
 					s.turns++;
 					break;
 				case "ToolStart":
 					entry.liveToolMap.set(event.toolId, {
 						toolId: event.toolId,
 						name: event.name,
-						argsPreview: event.argsPreview,
+						...(event.argsPreview === undefined ? {} : { argsPreview: event.argsPreview }),
 					});
 					s.liveTools = [...entry.liveToolMap.values()];
 					break;
@@ -288,7 +290,7 @@ const makeManager = (spawnFn: SpawnFn) =>
 					if (current) {
 						entry.liveToolMap.set(event.toolId, {
 							...current,
-							outputPreview: event.outputPreview ?? current.outputPreview,
+							...(event.outputPreview === undefined ? {} : { outputPreview: event.outputPreview }),
 						});
 						s.liveTools = [...entry.liveToolMap.values()];
 					}
@@ -302,16 +304,18 @@ const makeManager = (spawnFn: SpawnFn) =>
 						toolId: event.toolId,
 						name: event.name,
 						isError: event.isError,
-						outputPreview: event.outputPreview,
+						...(event.outputPreview === undefined ? {} : { outputPreview: event.outputPreview }),
 					});
 					break;
 				case "QueueChanged":
 					s.queued = event.queued;
 					break;
 				case "UsageChanged":
+					const tokens = event.tokens ?? s.usage.tokens;
+					const contextWindow = event.contextWindow ?? s.usage.contextWindow;
 					s.usage = {
-						tokens: event.tokens ?? s.usage.tokens,
-						contextWindow: event.contextWindow ?? s.usage.contextWindow,
+						...(tokens === undefined ? {} : { tokens }),
+						...(contextWindow === undefined ? {} : { contextWindow }),
 					};
 					break;
 				case "MetaChanged":
@@ -362,8 +366,9 @@ const makeManager = (spawnFn: SpawnFn) =>
 							cwd: task.cwd,
 							status: "running",
 							createdAt: Date.now(),
+
 							meta,
-							usage: { contextWindow: meta.contextWindow },
+							usage: meta.contextWindow === undefined ? {} : { contextWindow: meta.contextWindow },
 							transcript: [],
 							liveTools: [],
 							queued: [],

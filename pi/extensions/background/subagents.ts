@@ -22,16 +22,15 @@ import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	formatSize,
-	getAgentDir,
 	getMarkdownTheme,
-	ProjectTrustStore,
 	truncateHead,
 } from "@earendil-works/pi-coding-agent";
 import { Markdown, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { formatElapsed, latestText, REASONING_EFFORTS, type SubagentSnapshot } from "./src/domain.ts";
-import { formatContextUtilization } from "./src/format.ts";
+import { formatContextUtilization } from "../shared/context-utilization.ts";
 import { registerTransientSegment } from "../shared/footer-segments.ts";
+import { resolveStandaloneChildProjectTrust } from "../shared/child-session.ts";
 import { SubagentManager, type SubagentManagerShape } from "./src/manager.ts";
 import {
 	buildSubagentResultMessage,
@@ -78,23 +77,6 @@ function truncatedOutput(snap: SubagentSnapshot, maxBytes = SUBAGENT_OUTPUT_MAX_
 		text += `\n\n[Output truncated: ${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)} shown. Full transcript in session file: ${snap.meta.sessionFilePath ?? "?"}]`;
 	}
 	return text;
-}
-
-/**
- * Same-directory children inherit the live parent decision. An alternate cwd
- * is trusted only when pi's persisted trust store explicitly trusts it (or a
- * containing directory); unreadable/invalid trust data fails closed.
- */
-function resolveChildProjectTrust(options: { parentCwd: string; childCwd: string; parentTrusted: boolean }) {
-	if (path.resolve(options.childCwd) === path.resolve(options.parentCwd)) {
-		return options.parentTrusted;
-	}
-	try {
-		const trustStore = new ProjectTrustStore(getAgentDir());
-		return trustStore.get(options.childCwd) === true;
-	} catch {
-		return false;
-	}
 }
 
 export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
@@ -149,7 +131,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 					id: snap.id,
 					title: snap.title,
 					status: snap.status,
-					errorText: snap.errorText,
+					...(snap.errorText === undefined ? {} : { errorText: snap.errorText }),
 					output: truncatedOutput(snap),
 				}),
 				display: true,
@@ -283,16 +265,16 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 					prompt: params.prompt,
 					title,
 					cwd,
-					model: params.model,
-					reasoningEffort: params.reasoning_effort,
+					...(params.model === undefined ? {} : { model: params.model }),
+					...(params.reasoning_effort === undefined ? {} : { reasoningEffort: params.reasoning_effort }),
 					parent: {
 						parentCwd: ctx.cwd,
-						projectTrusted: resolveChildProjectTrust({
+						projectTrusted: resolveStandaloneChildProjectTrust({
 							parentCwd: ctx.cwd,
 							childCwd: cwd,
 							parentTrusted: ctx.isProjectTrusted(),
 						}),
-						inheritedModel: ctx.model ? { provider: ctx.model.provider, id: ctx.model.id } : undefined,
+						...(ctx.model ? { inheritedModel: { provider: ctx.model.provider, id: ctx.model.id } } : {}),
 						inheritedThinkingLevel: pi.getThinkingLevel(),
 						modelRegistry: ctx.modelRegistry,
 					},
@@ -353,7 +335,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 						details: { pending },
 					});
 				}),
-				{ signal, interruptMessage: "Wait aborted. Subagents keep running." },
+				{ ...(signal === undefined ? {} : { signal }), interruptMessage: "Wait aborted. Subagents keep running." },
 			);
 
 			// Settlement may have happened before this wait began. Remove any

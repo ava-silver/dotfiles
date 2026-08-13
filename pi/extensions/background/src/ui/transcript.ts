@@ -9,7 +9,6 @@ import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works
 import type { SubagentSnapshot, TranscriptItem } from "../domain.ts";
 
 const ANSI_PATTERN =
-	// eslint-disable-next-line no-control-regex
 	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 /**
@@ -30,7 +29,7 @@ function renderUserText(theme: Theme, text: string, width: number, out: string[]
 	const wrapped = wrapTextWithAnsi(clean, Math.max(10, width - 2));
 	for (let i = 0; i < wrapped.length; i++) {
 		const prefix = i === 0 ? theme.fg("accent", "> ") : "  ";
-		out.push(truncateToWidth(prefix + theme.fg("userMessageText", wrapped[i]), width));
+		out.push(truncateToWidth(prefix + theme.fg("userMessageText", wrapped[i] ?? ""), width));
 	}
 }
 
@@ -40,7 +39,7 @@ function renderThinking(theme: Theme, text: string, width: number, out: string[]
 	const prefix = theme.fg("dim", "~ ");
 	const wrapped = wrapTextWithAnsi(reasoning, Math.max(10, width - 2));
 	for (let i = 0; i < wrapped.length; i++) {
-		out.push(truncateToWidth((i === 0 ? prefix : "  ") + theme.fg("muted", theme.italic(wrapped[i])), width));
+		out.push(truncateToWidth((i === 0 ? prefix : "  ") + theme.fg("muted", theme.italic(wrapped[i] ?? "")), width));
 	}
 }
 
@@ -131,7 +130,10 @@ export function buildTranscriptLines(snap: SubagentSnapshot, width: number, them
 		const wrapped = wrapTextWithAnsi(sanitizeText(message.text), Math.max(10, width - visibleWidth(prefix)));
 		for (let i = 0; i < wrapped.length; i++) {
 			out.push(
-				truncateToWidth((i === 0 ? prefix : " ".repeat(visibleWidth(prefix))) + theme.fg("muted", wrapped[i]), width),
+				truncateToWidth(
+					(i === 0 ? prefix : " ".repeat(visibleWidth(prefix))) + theme.fg("muted", wrapped[i] ?? ""),
+					width,
+				),
 			);
 		}
 	}

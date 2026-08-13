@@ -7,7 +7,9 @@ const FILENAME = "AGENTS.local.md";
 // Walk from cwd up to the filesystem root, collecting AGENTS.local.md files.
 // Ordered root-first, same as pi's own AGENTS.md discovery, so nearer files
 // take precedence when read top-to-bottom.
-function findLocalAgentsFiles(cwd: string): string[] {
+export function findLocalAgentsFiles(cwd: string, projectTrusted: boolean): string[] {
+	if (!projectTrusted) return [];
+
 	const found: string[] = [];
 	let dir = cwd;
 	while (true) {
@@ -22,7 +24,7 @@ function findLocalAgentsFiles(cwd: string): string[] {
 
 export default function localAgentsMdExtension(pi: ExtensionAPI): void {
 	pi.on("before_agent_start", async (event, ctx) => {
-		const files = findLocalAgentsFiles(ctx.cwd);
+		const files = findLocalAgentsFiles(ctx.cwd, ctx.isProjectTrusted());
 		if (files.length === 0) return;
 
 		const blocks = files.map((path) => {

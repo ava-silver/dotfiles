@@ -32,7 +32,7 @@ interface RunningProcess {
 
 function resolveZshPath(): string | undefined {
 	const candidates = [
-		process.env.SHELL && /\/zsh$/.test(process.env.SHELL) ? process.env.SHELL : undefined,
+		process.env.SHELL?.endsWith("/zsh") ? process.env.SHELL : undefined,
 		"/bin/zsh",
 		"/usr/bin/zsh",
 		"/opt/homebrew/bin/zsh",
@@ -146,7 +146,9 @@ function createEscalatingOperations(
 			const sendNextSignal = () => {
 				if (!tracked?.child.pid) return;
 				const index = Math.min(tracked.nextSignal, SIGNALS.length - 1);
-				signalProcessTree(tracked.child.pid, SIGNALS[index]);
+				const nextSignal = SIGNALS[index];
+				if (!nextSignal) return;
+				signalProcessTree(tracked.child.pid, nextSignal);
 				tracked.nextSignal = Math.min(index + 1, SIGNALS.length);
 			};
 			const onAbort = () => sendNextSignal();
@@ -212,7 +214,9 @@ export default function (pi: ExtensionAPI): void {
 		for (const process of running) {
 			if (!process.child.pid) continue;
 			const index = Math.min(process.nextSignal, SIGNALS.length - 1);
-			signalProcessTree(process.child.pid, SIGNALS[index]);
+			const nextSignal = SIGNALS[index];
+			if (!nextSignal) continue;
+			signalProcessTree(process.child.pid, nextSignal);
 			process.nextSignal = Math.min(index + 1, SIGNALS.length);
 		}
 	});

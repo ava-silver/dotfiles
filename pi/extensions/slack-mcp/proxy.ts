@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 import { createInterface } from "node:readline";
 
-import { refreshCredentials } from "./auth.ts";
+import { refreshCredentials, withDeadline } from "./auth.ts";
 import { readCredentials } from "./credentials.ts";
 
 const MCP_URL = "https://mcp.slack.com/mcp";
+const REQUEST_TIMEOUT_MS = 60_000;
 const AUTH_REQUIRED =
 	"Slack authentication required. Call slack_auth to open Slack authorization; the user must approve it in their browser.";
 
@@ -25,7 +26,7 @@ function errorResponse(request: JsonRpcRequest | undefined, code: number, messag
 	});
 }
 
-async function forward(body: string, accessToken: string): Promise<Response> {
+async function forward(body: string, accessToken: string, signal?: AbortSignal): Promise<Response> {
 	return fetch(MCP_URL, {
 		method: "POST",
 		headers: {
@@ -33,10 +34,11 @@ async function forward(body: string, accessToken: string): Promise<Response> {
 			authorization: `Bearer ${accessToken}`,
 		},
 		body,
+		signal: withDeadline(signal, REQUEST_TIMEOUT_MS),
 	});
 }
 
-async function handle(line: string): Promise<string> {
+async function handle(line: string, signal?: AbortSignal): Promise<string> {
 	let request: JsonRpcRequest;
 	try {
 		request = JSON.parse(line) as JsonRpcRequest;
@@ -49,7 +51,7 @@ async function handle(line: string): Promise<string> {
 		return errorResponse(request, -32001, AUTH_REQUIRED);
 	}
 
-	let response = await forward(line, credentials.accessToken);
+	let response = await forward(line, credentials.accessToken, signal);
 	if (response.status !== 401) return response.text();
 
 	if (!credentials.refreshToken) {
@@ -57,8 +59,8 @@ async function handle(line: string): Promise<string> {
 	}
 
 	try {
-		const refreshed = await refreshCredentials(credentials.refreshToken);
-		response = await forward(line, refreshed.accessToken);
+		const refreshed = await refreshCredentials(credentials.refreshToken, signal);
+		response = await forward(line, refreshed.accessToken, signal);
 	} catch (error) {
 		log(`Token refresh failed: ${error instanceof Error ? error.message : String(error)}`);
 		return errorResponse(request, -32001, AUTH_REQUIRED);
@@ -68,12 +70,20 @@ async function handle(line: string): Promise<string> {
 	return response.text();
 }
 
+const shutdown = new AbortController();
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+function stop(): void {
+	shutdown.abort();
+	input.close();
+}
+process.once("SIGINT", stop);
+process.once("SIGTERM", stop);
+if (process.env.PI_SLACK_MCP_PROXY_READY === "1") process.stderr.write("ready\n");
 for await (const line of input) {
 	if (!line.trim()) continue;
 
 	try {
-		process.stdout.write(`${await handle(line)}\n`);
+		process.stdout.write(`${await handle(line, shutdown.signal)}\n`);
 	} catch (error) {
 		log(`Request failed: ${error instanceof Error ? error.message : String(error)}`);
 		process.stdout.write(`${errorResponse(undefined, -32603, "Slack MCP request failed. Retry the operation.")}\n`);

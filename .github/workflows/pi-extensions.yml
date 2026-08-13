@@ -1,0 +1,34 @@
+name: Pi extensions
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pi-extensions.yml"
+      - ".pre-commit-config.yaml"
+      - "pi/extensions/**"
+  push:
+    branches: [mac]
+    paths:
+      - ".github/workflows/pi-extensions.yml"
+      - ".pre-commit-config.yaml"
+      - "pi/extensions/**"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: pi/extensions/.node-version
+      - run: bun install --frozen-lockfile
+        working-directory: pi/extensions
+      - run: bun run check
+        working-directory: pi/extensions

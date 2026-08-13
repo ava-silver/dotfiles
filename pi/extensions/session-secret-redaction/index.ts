@@ -56,11 +56,10 @@ async function ensureKingfisher(pi: ExtensionAPI): Promise<void> {
 		const result = await pi.exec("kingfisher", ["--version"], { timeout: 10_000 });
 		if (result.code === 0) return;
 	} catch {
-		// Install it below.
+		// Report the missing provisioned dependency below.
 	}
 
-	const result = await pi.exec("brew", ["install", "kingfisher"], { timeout: 10 * 60_000 });
-	if (result.code !== 0) throw new Error("brew install kingfisher failed");
+	throw new Error("Kingfisher is not installed. Run Brew bundle or ./setup.sh.");
 }
 
 async function redactSession(pi: ExtensionAPI, ctx: ExtensionContext): Promise<number> {

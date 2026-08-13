@@ -8,8 +8,14 @@
 		"strict": true,
 		"noEmit": true,
 		"skipLibCheck": true,
-		"allowImportingTsExtensions": true
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noUncheckedSideEffectImports": true,
+		"verbatimModuleSyntax": true,
+		"plugins": [{ "name": "@effect/language-service" }]
 	},
-	"include": ["*.ts", "read-aloud/*.ts", "session-secret-redaction/*.ts"],
-	"exclude": ["**/*.test.ts"]
+	"include": ["**/*.ts"],
+	"exclude": ["node_modules"]
 }

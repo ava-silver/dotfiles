@@ -35,14 +35,20 @@ test("a hung tool call fails clearly and receives an abort signal", async () => 
 	assert.equal(executionSignal?.reason instanceof ToolCallTimeoutError, true);
 });
 
-test("parent cancellation still stops the timeout wrapper immediately", async () => {
+test("parent cancellation promptly rejects the wrapper and aborts the child tool", async () => {
 	const controller = new AbortController();
 	const reason = new Error("cancelled fixture");
-	const pending = runWithToolCallTimeout("hung_fixture", 60_000, controller.signal, () => new Promise(() => {}));
+	let executionSignal: AbortSignal | undefined;
+	const pending = runWithToolCallTimeout("hung_fixture", 60_000, controller.signal, (signal) => {
+		executionSignal = signal;
+		return new Promise(() => {});
+	});
 
 	controller.abort(reason);
 
 	await assert.rejects(pending, (error: unknown) => error === reason);
+	assert.equal(executionSignal?.aborted, true);
+	assert.equal(executionSignal?.reason, reason);
 });
 
 test("the guard wraps each definition once and can discover later tools", () => {

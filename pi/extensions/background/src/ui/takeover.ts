@@ -10,7 +10,7 @@ import type { ExtensionContext, KeybindingsManager, Theme } from "@earendil-work
 import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
 import { Input, truncateToWidth } from "@earendil-works/pi-tui";
 import { formatElapsed, type SubagentSnapshot } from "../domain.ts";
-import { formatContextUtilization } from "../format.ts";
+import { formatContextUtilization } from "../../../shared/context-utilization.ts";
 import type { SubagentReadModel } from "../manager.ts";
 import { buildTranscriptLines } from "./transcript.ts";
 
@@ -55,7 +55,7 @@ class TakeoverView implements Component, Focusable {
 	/** Scroll offset in lines from the bottom of the transcript. 0 = pinned to bottom. */
 	private scrollOffset = 0;
 	private unsubscribe: () => void;
-	private renderTimer?: ReturnType<typeof setTimeout>;
+	private renderTimer: ReturnType<typeof setTimeout> | undefined;
 	private ticker: ReturnType<typeof setInterval>;
 	private closed = false;
 

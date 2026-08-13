@@ -143,7 +143,7 @@ function metadataDeclaration(statement: Program["body"][number]) {
 		throw new Error("workflow metadata must be declared as `export const meta = {...}`");
 	}
 	const declarator = declaration.declarations[0];
-	if (declarator.id.type !== "Identifier" || declarator.id.name !== "meta" || !declarator.init) {
+	if (!declarator || declarator.id.type !== "Identifier" || declarator.id.name !== "meta" || !declarator.init) {
 		throw new Error("workflow scripts may only export a `meta` declaration");
 	}
 	return { exported, initializer: declarator.init };

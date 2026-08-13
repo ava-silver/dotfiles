@@ -8,6 +8,7 @@ interface EscapeEscalationRequest {
 
 export default function (pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
+		if (ctx.mode !== "tui") return;
 		const previous = ctx.ui.getEditorComponent();
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 			const editor = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);

@@ -61,9 +61,9 @@ export interface AgentRecord {
 	label: string;
 	phase?: string;
 	state: AgentState;
-	model?: string;
+	model?: string | undefined;
 	/** Context capacity of the active model used for this agent. */
-	contextWindow?: number;
+	contextWindow?: number | undefined;
 	startedAt: number;
 	finishedAt?: number;
 	error?: string;
@@ -142,8 +142,8 @@ export function formatUsage(usage: AgentUsage, model?: string): string {
 /** Current per-agent context-window utilization, e.g. "7%/372k". */
 export function agentContext(agent: AgentRecord): string {
 	return formatContextUtilization({
-		tokens: agent.usage.contextTokens,
-		contextWindow: agent.contextWindow,
+		...(agent.usage.contextTokens === undefined ? {} : { tokens: agent.usage.contextTokens }),
+		...(agent.contextWindow === undefined ? {} : { contextWindow: agent.contextWindow }),
 	});
 }
 

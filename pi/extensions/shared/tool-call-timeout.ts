@@ -76,6 +76,8 @@ export function createToolCallTimeoutGuard(timeoutMs = CHILD_TOOL_CALL_TIMEOUT_M
 		if (wrapped.has(definition)) return;
 		wrapped.add(definition);
 
+		// Preserve the original receiver when invoking the wrapped tool below.
+		// oxlint-disable-next-line typescript/unbound-method
 		const execute = definition.execute;
 		definition.execute = async (toolCallId, params, signal, onUpdate, ctx) =>
 			runWithToolCallTimeout(definition.name, timeoutMs, signal, (signal) =>

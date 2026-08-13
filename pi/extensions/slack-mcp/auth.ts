@@ -12,6 +12,8 @@ const CALLBACK_PORT = 3118;
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/callback`;
 const AUTH_ENDPOINT = "https://slack.com/oauth/v2_user/authorize";
 const TOKEN_ENDPOINT = "https://slack.com/api/oauth.v2.user.access";
+const TOKEN_REQUEST_TIMEOUT_MS = 30_000;
+export const OPEN_TIMEOUT_MS = 10_000;
 const SCOPES = [
 	"channels:history",
 	"groups:history",
@@ -46,6 +48,18 @@ export interface AuthenticateOptions {
 	onAuthorizationUrl?: (url: string) => void;
 }
 
+export function withDeadline(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+	const deadline = AbortSignal.timeout(timeoutMs);
+	return signal ? AbortSignal.any([signal, deadline]) : deadline;
+}
+
+export function openOptions(signal?: AbortSignal) {
+	return {
+		timeout: OPEN_TIMEOUT_MS,
+		...(signal === undefined ? {} : { signal }),
+	};
+}
+
 function createPkcePair(): { verifier: string; challenge: string } {
 	const verifier = randomBytes(32).toString("base64url");
 	const challenge = createHash("sha256").update(verifier).digest("base64url");
@@ -62,7 +76,7 @@ function authorizationUrl(challenge: string, state: string): string {
 		code_challenge: challenge,
 		code_challenge_method: "S256",
 	});
-	return `${AUTH_ENDPOINT}?${params}`;
+	return `${AUTH_ENDPOINT}?${params.toString()}`;
 }
 
 async function waitForAuthorization(expectedState: string, signal?: AbortSignal): Promise<string> {
@@ -126,7 +140,11 @@ async function waitForAuthorization(expectedState: string, signal?: AbortSignal)
 	});
 }
 
-async function exchangeCode(code: string, verifier: string): Promise<{ credentials: SlackCredentials; team: string }> {
+async function exchangeCode(
+	code: string,
+	verifier: string,
+	signal?: AbortSignal,
+): Promise<{ credentials: SlackCredentials; team: string }> {
 	const response = await fetch(TOKEN_ENDPOINT, {
 		method: "POST",
 		headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -136,6 +154,7 @@ async function exchangeCode(code: string, verifier: string): Promise<{ credentia
 			redirect_uri: REDIRECT_URI,
 			code_verifier: verifier,
 		}),
+		signal: withDeadline(signal, TOKEN_REQUEST_TIMEOUT_MS),
 	});
 	const payload = (await response.json()) as TokenResponse;
 
@@ -147,7 +166,7 @@ async function exchangeCode(code: string, verifier: string): Promise<{ credentia
 		credentials: {
 			accessToken: payload.access_token,
 			refreshToken: payload.refresh_token ?? "",
-			expiresAt: payload.expires_in ? Date.now() + payload.expires_in * 1_000 : undefined,
+			...(payload.expires_in === undefined ? {} : { expiresAt: Date.now() + payload.expires_in * 1_000 }),
 		},
 		team: payload.team?.name ?? "your Slack workspace",
 	};
@@ -160,19 +179,17 @@ export async function authenticate(options: AuthenticateOptions = {}): Promise<A
 	const authorization = waitForAuthorization(state, options.signal);
 
 	options.onAuthorizationUrl?.(url);
-	try {
-		await execFileAsync("open", [url]);
-	} catch {
+	void execFileAsync("open", [url], openOptions(options.signal)).catch(() => {
 		// The URL is surfaced to the caller so it can be opened manually.
-	}
+	});
 
 	const code = await authorization;
-	const { credentials, team } = await exchangeCode(code, verifier);
-	await saveCredentials(credentials);
+	const { credentials, team } = await exchangeCode(code, verifier, options.signal);
+	await saveCredentials(credentials, options.signal);
 	return { team };
 }
 
-export async function refreshCredentials(refreshToken: string): Promise<SlackCredentials> {
+export async function refreshCredentials(refreshToken: string, signal?: AbortSignal): Promise<SlackCredentials> {
 	const response = await fetch(TOKEN_ENDPOINT, {
 		method: "POST",
 		headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -181,6 +198,7 @@ export async function refreshCredentials(refreshToken: string): Promise<SlackCre
 			client_id: SLACK_CLIENT_ID,
 			refresh_token: refreshToken,
 		}),
+		signal: withDeadline(signal, TOKEN_REQUEST_TIMEOUT_MS),
 	});
 	const payload = (await response.json()) as TokenResponse;
 
@@ -191,8 +209,8 @@ export async function refreshCredentials(refreshToken: string): Promise<SlackCre
 	const credentials: SlackCredentials = {
 		accessToken: payload.access_token,
 		refreshToken: payload.refresh_token ?? refreshToken,
-		expiresAt: payload.expires_in ? Date.now() + payload.expires_in * 1_000 : undefined,
+		...(payload.expires_in === undefined ? {} : { expiresAt: Date.now() + payload.expires_in * 1_000 }),
 	};
-	await saveCredentials(credentials);
+	await saveCredentials(credentials, signal);
 	return credentials;
 }

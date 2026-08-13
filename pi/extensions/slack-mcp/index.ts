@@ -11,14 +11,16 @@ async function connectSlack(ctx: ExtensionContext, signal?: AbortSignal): Promis
 		throw new Error("Slack authentication requires Pi's interactive UI. Run /slack-auth in Pi.");
 	}
 
-	const approved = await ctx.ui.confirm("Connect Slack?", AUTH_REQUIRED_MESSAGE, {
-		signal,
-	});
+	const approved = await ctx.ui.confirm(
+		"Connect Slack?",
+		AUTH_REQUIRED_MESSAGE,
+		signal === undefined ? {} : { signal },
+	);
 	if (!approved) return undefined;
 
 	ctx.ui.notify("Opening Slack authorization in your browser…", "info");
 	const result = await authenticate({
-		signal,
+		...(signal === undefined ? {} : { signal }),
 		onAuthorizationUrl: (url) => ctx.ui.notify(`If no browser opened, open: ${url}`, "info"),
 	});
 	ctx.ui.notify(`Connected to ${result.team}.`, "info");
