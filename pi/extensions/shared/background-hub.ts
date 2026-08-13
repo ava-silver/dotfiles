@@ -37,7 +37,16 @@ export interface BackgroundProvider {
 
 // --- Registry ---------------------------------------------------------------
 
-const providers = new Map<string, BackgroundProvider>();
+// Pin the providers Map to globalThis so it's shared across all module
+// instances. Jiti may load this file once per importing extension (separate
+// module caches), which would give each a private Map. globalThis is the only
+// truly process-wide scope.
+declare global {
+	// eslint-disable-next-line no-var
+	var __pi_background_providers__: Map<string, BackgroundProvider> | undefined;
+}
+globalThis.__pi_background_providers__ ??= new Map<string, BackgroundProvider>();
+const providers = globalThis.__pi_background_providers__;
 
 /**
  * Register a background provider. Returns an unregister function.
