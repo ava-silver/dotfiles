@@ -104,7 +104,7 @@ source $HOME/.zsh_aliases
 [[ ! -f $HOME/.cargo_vars ]] || source $HOME/.cargo_vars
 
 
-
+export AWS_PROFILE=sso-serverless-sandbox-account-admin
 export GITLAB_TOKEN=$(security find-generic-password -a ${USER} -s GITLAB_TOKEN -w)
 
 export DO_NOT_TRACK=true
