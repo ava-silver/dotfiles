@@ -1,10 +1,9 @@
 /**
- * Terminals — run shell commands in the background, inspect output, wait for
- * completion, or cancel them.
+ * Terminals — run long-lived shell commands in the background, inspect output,
+ * or cancel them.
  *
  * Tools (for the parent LLM):
  * - terminal_run: fire-and-forget command spawn (command, title, working_dir).
- * - terminal_wait: block until the listed terminals finish, return output.
  * - terminal_cancel: kill one or more running terminals.
  * - terminal_check: peek at status and recent output.
  * - terminal_list: list all terminals.
@@ -249,10 +248,9 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		for (const cb of listeners) cb();
 	};
 
-	const onSettled = (t: Terminal, consumed: boolean) => {
+	const onSettled = (t: Terminal) => {
 		updateStatus();
 		notifyListeners();
-		if (consumed) return;
 		pending.set(t.id, { ...t }); // snapshot
 		if (sessionCtx?.isIdle()) flushPending();
 	};
@@ -348,7 +346,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			t.status = code === 0 ? "done" : "error";
 			t.endedAt = Date.now();
 			t.proc = undefined;
-			onSettled(t, false);
+			onSettled(t);
 		});
 
 		proc.on("error", (err: Error) => {
@@ -361,7 +359,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			t.status = "error";
 			t.endedAt = Date.now();
 			t.proc = undefined;
-			onSettled(t, false);
+			onSettled(t);
 		});
 
 		const abort = () => killTerminal(t, true);
@@ -453,9 +451,8 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		name: "terminal_run",
 		label: "Run Terminal",
 		description:
-			"Run a shell command in the background. Returns immediately with a terminal ID. " +
-			"The result arrives as a follow-up message when the command finishes, or collect it " +
-			"explicitly with terminal_wait. Use terminal_check to peek at live output.",
+			"Run a shell command expected to keep running, such as a dev server. Use the bash tool for commands that finish on their own. " +
+			"Returns immediately with a terminal ID. Use terminal_check to peek at live output.",
 		parameters: Type.Object({
 			command: Type.String({ description: "Shell command to execute" }),
 			title: Type.String({ description: "Short human-readable label for this terminal, shown in listings" }),
@@ -487,118 +484,6 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 					},
 				],
 				details: { id: t.id, title: t.title, pid: t.pid, cwd, artifactStatus: t.artifactStatus },
-			};
-		},
-	});
-
-	pi.registerTool({
-		name: "terminal_wait",
-		label: "Wait for Terminals",
-		description: "Block until the listed terminals finish. Returns their combined output.",
-		parameters: Type.Object({
-			ids: Type.Array(Type.String(), {
-				description: 'Terminal IDs to wait for, e.g. ["tr-1", "tr-2"]',
-				maxItems: 64,
-			}),
-		}),
-		async execute(_id, params, signal, onUpdate) {
-			const ids = [...new Set(params.ids)];
-			if (ids.length === 0) throw new Error("Provide at least one terminal id.");
-			const unknown = ids.filter((id) => !terminals.has(id));
-			if (unknown.length > 0) {
-				const known = [...terminals.keys()];
-				throw new Error(`Unknown terminal id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
-			}
-
-			await new Promise<void>((resolve, reject) => {
-				let settled = false;
-				let poll: ReturnType<typeof setInterval> | undefined;
-				const watched: child_process.ChildProcess[] = [];
-
-				const cleanup = () => {
-					if (poll) clearInterval(poll);
-					listeners.delete(checkDone);
-					signal?.removeEventListener("abort", abort);
-					for (const proc of watched) {
-						proc.removeListener("close", checkDone);
-						proc.removeListener("error", checkDone);
-					}
-				};
-				const finish = (error?: Error) => {
-					if (settled) return;
-					settled = true;
-					cleanup();
-					if (error) reject(error);
-					else resolve();
-				};
-				const abort = () => finish(new Error("Wait aborted. Terminals keep running."));
-				const checkDone = () => {
-					if (settled) return;
-					const still = ids.filter((id) => terminals.get(id)?.status === "running");
-					if (still.length === 0) {
-						finish();
-						return;
-					}
-					onUpdate?.({
-						content: [{ type: "text", text: `Waiting for ${still.join(", ")}...` }],
-						details: { pending: still },
-					});
-				};
-
-				if (signal?.aborted) {
-					abort();
-					return;
-				}
-				signal?.addEventListener("abort", abort, { once: true });
-				listeners.add(checkDone);
-				for (const id of ids) {
-					const t = terminals.get(id);
-					if (t?.status === "running" && t.proc) {
-						watched.push(t.proc);
-						t.proc.on("close", checkDone);
-						t.proc.on("error", checkDone);
-					}
-				}
-
-				poll = setInterval(checkDone, 250);
-				checkDone();
-			});
-
-			// Terminals settled — suppress the automatic follow-up delivery.
-			for (const id of ids) pending.delete(id);
-
-			const sections: string[] = [];
-			for (const id of ids) {
-				const t = terminals.get(id);
-				if (!t) {
-					sections.push(`## ${id}\n\n(not found)`);
-					continue;
-				}
-				const verb = t.status === "error" ? "failed" : "finished";
-				const exitInfo = t.exitCode !== undefined ? ` (exit ${t.exitCode})` : "";
-				const header = `## ${t.id} "${t.title}" ${verb}${exitInfo} — ${elapsed(t)}`;
-				const { text: body } = terminalOutput(t);
-				sections.push(`${header}\n\n${body}`);
-			}
-
-			const { text } = truncateTerminalText(
-				sections.join("\n\n---\n\n"),
-				"[Response truncated. See artifact status above.]",
-			);
-			return {
-				content: [{ type: "text", text }],
-				details: {
-					results: ids.map((id) => {
-						const t = terminals.get(id);
-						return {
-							id,
-							title: t?.title,
-							status: t?.status,
-							exitCode: t?.exitCode,
-							artifactStatus: t?.artifactStatus,
-						};
-					}),
-				},
 			};
 		},
 	});
