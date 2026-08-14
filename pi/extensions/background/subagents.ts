@@ -29,7 +29,7 @@ import { Markdown, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { formatElapsed, latestText, REASONING_EFFORTS, type SubagentSnapshot } from "./src/domain.ts";
 import { formatContextUtilization } from "../shared/context-utilization.ts";
-import { registerTransientSegment } from "../shared/footer-segments.ts";
+import { registerBackgroundCost, registerTransientSegment } from "../shared/footer-segments.ts";
 import { resolveStandaloneChildProjectTrust } from "../shared/child-session.ts";
 import { SubagentManager, type SubagentManagerShape } from "./src/manager.ts";
 import {
@@ -86,6 +86,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 	let sessionContext: ExtensionContext | undefined;
 	let ui: ExtensionUIContext | undefined;
 	let unsubStatus: (() => void) | undefined;
+	let costKey: string | undefined;
 	const resultDelivery = createDeferredResultDelivery<SubagentSnapshot>();
 
 	const getRuntime = () => (runtime ??= createSubagentRuntime());
@@ -106,8 +107,13 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 	};
 
 	const updateStatus = (manager: SubagentManagerShape) => {
-		if (!ui) return;
 		const subs = manager.view.list();
+		if (costKey)
+			registerBackgroundCost(
+				costKey,
+				subs.reduce((total, snap) => total + snap.cost, 0),
+			);
+		if (!ui) return;
 		if (subs.length === 0) {
 			registerTransientSegment("subagents", null);
 			return;
@@ -115,8 +121,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 		const running = subs.filter((snap) => snap.status === "running").length;
 		const failed = subs.filter((snap) => snap.status === "error").length;
 		const done = subs.length - running - failed;
-		const cost = subs.reduce((total, snap) => total + snap.cost, 0);
-		const parts: string[] = [`$${cost.toFixed(2)} sub`];
+		const parts: string[] = [];
 		if (running > 0) parts.push(`${running} running`);
 		if (done > 0) parts.push(`${done} done`);
 		if (failed > 0) parts.push(`${failed} failed`);
@@ -163,6 +168,7 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 
 	pi.on("session_start", (_event, ctx) => {
 		sessionContext = ctx;
+		costKey = `subagents:${ctx.sessionManager.getSessionId()}`;
 		if (ctx.hasUI) ui = ctx.ui;
 		unregisterProvider?.();
 		unregisterProvider = background.registerProvider("subagents", {
@@ -203,6 +209,8 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 		unsubStatus?.();
 		unsubStatus = undefined;
 		registerTransientSegment("subagents", null);
+		if (costKey) registerBackgroundCost(costKey, null);
+		costKey = undefined;
 		const closing = runtime;
 		runtime = undefined;
 		managerPromise = undefined;
@@ -246,11 +254,14 @@ export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 			),
 		}),
 		renderCall(args, theme) {
-			return new Text(
-				theme.fg("toolTitle", "subagent_spawn") + (args.name ? " " + theme.fg("dim", String(args.name)) : ""),
-				0,
-				0,
-			);
+			const lines = [
+				theme.fg("toolTitle", "subagent_spawn") + (args.name ? " " + theme.fg("dim", args.name) : ""),
+				...(args.prompt ? [theme.fg("text", args.prompt)] : []),
+				...(args.working_dir ? [theme.fg("muted", `cwd: ${args.working_dir}`)] : []),
+				...(args.model ? [theme.fg("muted", `model: ${args.model}`)] : []),
+				...(args.reasoning_effort ? [theme.fg("muted", `effort: ${args.reasoning_effort}`)] : []),
+			];
+			return new Text(lines.join("\n"), 0, 0);
 		},
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const manager = await getManager();

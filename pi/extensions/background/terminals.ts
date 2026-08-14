@@ -28,7 +28,7 @@ import {
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { registerTransientSegment } from "../shared/footer-segments.ts";
 import { killProcessTree } from "../shared/process-tree.ts";
@@ -461,6 +461,14 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			title: Type.String({ description: "Short human-readable label for this terminal, shown in listings" }),
 			working_dir: Type.Optional(Type.String({ description: "Working directory (default: current directory)" })),
 		}),
+		renderCall(args, theme) {
+			const lines = [
+				theme.fg("toolTitle", "terminal_run") + (args.title ? " " + theme.fg("dim", args.title) : ""),
+				...(args.command ? [theme.fg("text", `$ ${args.command}`)] : []),
+				...(args.working_dir ? [theme.fg("muted", `cwd: ${args.working_dir}`)] : []),
+			];
+			return new Text(lines.join("\n"), 0, 0);
+		},
 		async execute(_id, params, signal, _onUpdate, ctx) {
 			const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
 			if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {

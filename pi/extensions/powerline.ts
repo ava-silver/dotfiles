@@ -20,7 +20,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
-import { getTransientSegments, setTransientOnChange } from "./shared/footer-segments.ts";
+import { getBackgroundCost, getTransientSegments, setTransientOnChange } from "./shared/footer-segments.ts";
 
 // ── Powerline characters ────────────────────────────────────────────────────
 const ARROW_RIGHT = "\uE0B4"; //  right half-circle
@@ -332,9 +332,9 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 						right.push({ text: `󰥔 ${elapsed} ago`, bg: C.panel, fg: C.dim });
 					}
 
-					// Session cost (always shown)
+					// Session cost, including background subagents (always shown)
 					right.push({
-						text: formatCost(sessionCost),
+						text: formatCost(sessionCost + getBackgroundCost()),
 						bg: C.panelAlt,
 						fg: C.dim,
 					});

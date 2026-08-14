@@ -18,6 +18,7 @@
 
 ## Tools
 
+- Use the normal bash tool unless a command is expected to run indefinitely, such as a dev server.
 - Run commands needing AWS auth through `aws-sso-exec` (for example, `aws-sso-exec aws sts get-caller-identity`). It uses native AWS SSO and opens a browser for the user to auth only when required.
 - Use Colima instead of Docker.
 - Use the `ffgrep` tool or `rg` instead of `grep`
