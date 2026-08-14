@@ -399,16 +399,18 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 		unregisterProvider = background.registerProvider("terminals", {
 			label: "Background Shells",
 			list() {
-				return [...terminals.values()].map((t) => ({
-					id: t.id,
-					title: t.title,
-					status: t.status,
-					elapsed: () => elapsed(t),
-					meta: () => {
-						const cmd = t.command.length > 48 ? t.command.slice(0, 45) + "…" : t.command;
-						return [cmd];
-					},
-				}));
+				return [...terminals.values()]
+					.filter((t) => t.status === "running")
+					.map((t) => ({
+						id: t.id,
+						title: t.title,
+						status: t.status,
+						elapsed: () => elapsed(t),
+						meta: () => {
+							const cmd = t.command.length > 48 ? t.command.slice(0, 45) + "…" : t.command;
+							return [cmd];
+						},
+					}));
 			},
 			subscribe(cb) {
 				listeners.add(cb);
@@ -419,7 +421,19 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 				if (!t) return;
 				await ctx.ui.custom<null>(
 					(tui, theme, keybindings, done) =>
-						new TerminalOutputView(tui, theme, keybindings, id, () => terminals.get(id), listeners, done),
+						new TerminalOutputView(
+							tui,
+							theme,
+							keybindings,
+							id,
+							() => terminals.get(id),
+							() => {
+								const terminal = terminals.get(id);
+								if (terminal) killTerminal(terminal, true);
+							},
+							listeners,
+							done,
+						),
 					{ overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" } },
 				);
 			},
@@ -594,6 +608,7 @@ class TerminalOutputView implements Component, Focusable {
 	private keybindings: KeybindingsManager;
 	private id: string;
 	private getTerminal: () => Terminal | undefined;
+	private killTerminal: () => void;
 	private done: (value: null) => void;
 
 	private scrollOffset = 0;
@@ -616,6 +631,7 @@ class TerminalOutputView implements Component, Focusable {
 		keybindings: KeybindingsManager,
 		id: string,
 		getTerminal: () => Terminal | undefined,
+		killTerminal: () => void,
 		listeners: Set<() => void>,
 		done: (value: null) => void,
 	) {
@@ -624,6 +640,7 @@ class TerminalOutputView implements Component, Focusable {
 		this.keybindings = keybindings;
 		this.id = id;
 		this.getTerminal = getTerminal;
+		this.killTerminal = killTerminal;
 		this.done = done;
 		const scheduleRender = () => this.scheduleRender();
 		listeners.add(scheduleRender);
@@ -687,6 +704,7 @@ class TerminalOutputView implements Component, Focusable {
 			this.tui.requestRender();
 			return;
 		}
+		if (data === "x" && this.getTerminal()?.status === "running") this.killTerminal();
 	}
 
 	render(width: number): string[] {
@@ -737,7 +755,7 @@ class TerminalOutputView implements Component, Focusable {
 		}
 
 		lines.push(border);
-		lines.push(truncateToWidth(theme.fg("dim", `  esc/ctrl-c back · ↑/↓ scroll · pgup/pgdn page`), width));
+		lines.push(truncateToWidth(theme.fg("dim", `  esc/ctrl-c back · x kill · ↑/↓ scroll · pgup/pgdn page`), width));
 		lines.push(border);
 		return lines;
 	}
