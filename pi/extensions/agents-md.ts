@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isReadToolResult, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 
 const LOCAL_FILENAME = "AGENTS.local.md";
 const SUBDIRECTORY_FILENAME = "AGENTS.md";
@@ -41,8 +42,13 @@ export function findSubdirectoryAgentsFiles(cwd: string, readPath: string): stri
 	return found.reverse();
 }
 
-export default function localAgentsMdExtension(pi: ExtensionAPI): void {
+export default function agentsMdExtension(pi: ExtensionAPI): void {
 	const loaded = new Set<string>();
+
+	pi.registerEntryRenderer("subdirectory-agents-md", (entry, _options, theme) => {
+		const { paths } = entry.data as { paths: string[] };
+		return new Text(theme.fg("dim", `Read instructions: ${paths.join(", ")}`), 0, 0);
+	});
 
 	pi.on("session_start", () => loaded.clear());
 
@@ -67,15 +73,18 @@ export default function localAgentsMdExtension(pi: ExtensionAPI): void {
 
 		const files = findSubdirectoryAgentsFiles(ctx.cwd, readPath).filter((path) => !loaded.has(path));
 		const blocks: string[] = [];
+		const paths: string[] = [];
 		for (const path of files) {
 			try {
 				const content = readFileSync(path, "utf8").trim();
 				loaded.add(path);
+				paths.push(path);
 				blocks.push(`<subdirectory_instructions path="${path}">\n${content}\n</subdirectory_instructions>`);
 			} catch {}
 		}
 		if (blocks.length === 0) return;
 
+		pi.appendEntry("subdirectory-agents-md", { paths: paths.map((path) => relative(ctx.cwd, path)) });
 		return {
 			content: [...event.content, { type: "text", text: `\n\n${blocks.join("\n\n")}` }],
 		};

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { ExtensionAPI, ExtensionContext, ToolResultEvent } from "@earendil-works/pi-coding-agent";
-import localAgentsMdExtension, { findLocalAgentsFiles, findSubdirectoryAgentsFiles } from "../agents-md.ts";
+import agentsMdExtension, { findLocalAgentsFiles, findSubdirectoryAgentsFiles } from "../agents-md.ts";
 
 test("does not discover project-local instructions in an untrusted project", () => {
 	const root = mkdtempSync(join(tmpdir(), "local-agents-"));
@@ -48,11 +48,16 @@ test("adds newly discovered instructions to a read result once", () => {
 		writeFileSync(join(sourceDir, "AGENTS.md"), "Use bun test.");
 
 		let handler: ((event: ToolResultEvent, ctx: ExtensionContext) => unknown) | undefined;
-		localAgentsMdExtension({
+		const entries: unknown[] = [];
+		agentsMdExtension({
 			on(event: string, callback: unknown) {
 				if (event === "tool_result") handler = callback as typeof handler;
 			},
-		} as ExtensionAPI);
+			registerEntryRenderer() {},
+			appendEntry(type: string, data: unknown) {
+				entries.push({ type, data });
+			},
+		} as unknown as ExtensionAPI);
 		const event = {
 			type: "tool_result",
 			toolCallId: "test",
@@ -67,6 +72,7 @@ test("adds newly discovered instructions to a read result once", () => {
 		assert.ok(handler);
 		const result = handler(event, ctx) as { content: Array<{ type: "text"; text: string }> };
 		assert.match(result.content.at(-1)?.text ?? "", /Use bun test/);
+		assert.deepEqual(entries, [{ type: "subdirectory-agents-md", data: { paths: [join("nested", "AGENTS.md")] } }]);
 		assert.equal(handler(event, ctx), undefined);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
