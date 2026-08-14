@@ -277,7 +277,7 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("tool_call", async (event, ctx) => {
 		if (
 			!isToolCallEventType("bash", event) &&
-			!isToolCallEventType<"terminal_run", { command: string }>("terminal_run", event)
+			!isToolCallEventType<"background_shell_run", { command: string }>("background_shell_run", event)
 		)
 			return;
 

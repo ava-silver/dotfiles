@@ -10,7 +10,7 @@ import {
 	settledTerminalIdsToPrune,
 	truncateTerminalText,
 	writeArtifactChunk,
-} from "./terminals.ts";
+} from "./shells.ts";
 
 test("artifact writes stop at their quota", () => {
 	const writes: Buffer[] = [];

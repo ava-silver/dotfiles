@@ -1,14 +1,14 @@
 /**
- * Terminals — run long-lived shell commands in the background, inspect output,
- * or cancel them.
+ * Background shells -- run long-lived shell commands, inspect output, or
+ * cancel them.
  *
  * Tools (for the parent LLM):
- * - terminal_run: fire-and-forget command spawn (command, title, working_dir).
- * - terminal_cancel: kill one or more running terminals.
- * - terminal_check: peek at status and recent output.
- * - terminal_list: list all terminals.
+ * - background_shell_run: fire-and-forget command spawn (command, title, working_dir).
+ * - background_shell_cancel: kill one or more background shells.
+ * - background_shell_check: peek at status and recent output.
+ * - background_shell_list: list all background shells.
  *
- * Unawaited terminals queue their output as a follow-up message when they
+ * Unawaited shells queue their output as a follow-up message when they
  * settle. `/background` opens the shared task picker.
  */
 
@@ -196,7 +196,7 @@ export function removeTerminalArtifactDirectory(artifactDir: string | undefined)
 
 // --- Extension -------------------------------------------------------------
 
-export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
+export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 	const terminals = new Map<string, Terminal>();
 	/** Terminals whose results should be delivered as follow-ups when idle. */
 	const pending = new Map<string, Terminal>();
@@ -230,7 +230,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		pi.sendMessage(
 			{
 				customType: "terminal-result",
-				content: truncateTerminalText(`Terminal ${t.id} "${t.title}" ${verb}${exitInfo}\n\n${body}`).text,
+				content: truncateTerminalText(`Background shell ${t.id} "${t.title}" ${verb}${exitInfo}\n\n${body}`).text,
 				display: true,
 				details: { id: t.id, title: t.title, status: t.status, exitCode: t.exitCode },
 			},
@@ -397,7 +397,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		sessionCtx = ctx;
 		unregisterProvider?.();
 		unregisterProvider = background.registerProvider("terminals", {
-			label: "Terminals",
+			label: "Background Shells",
 			list() {
 				return [...terminals.values()].map((t) => ({
 					id: t.id,
@@ -448,11 +448,11 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	// -- Tools ---------------------------------------------------------------
 
 	pi.registerTool({
-		name: "terminal_run",
-		label: "Run Terminal",
+		name: "background_shell_run",
+		label: "Run Background Shell",
 		description:
 			"Run a shell command expected to keep running, such as a dev server. Use the bash tool for commands that finish on their own. " +
-			"Returns immediately with a terminal ID. Use terminal_check to peek at live output.",
+			"Returns immediately with a background shell ID. Use background_shell_check to peek at live output.",
 		parameters: Type.Object({
 			command: Type.String({ description: "Shell command to execute" }),
 			title: Type.String({ description: "Short human-readable label for this terminal, shown in listings" }),
@@ -460,7 +460,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 		}),
 		renderCall(args, theme) {
 			const lines = [
-				theme.fg("toolTitle", "terminal_run") + (args.title ? " " + theme.fg("dim", args.title) : ""),
+				theme.fg("toolTitle", "background_shell_run") + (args.title ? " " + theme.fg("dim", args.title) : ""),
 				...(args.command ? [theme.fg("text", `$ ${args.command}`)] : []),
 				...(args.working_dir ? [theme.fg("muted", `cwd: ${args.working_dir}`)] : []),
 			];
@@ -479,7 +479,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 					{
 						type: "text",
 						text: truncateTerminalText(
-							`Started terminal ${t.id} "${t.title}" (pid ${t.pid ?? "?"}) in ${cwd}${artifactNotice(t) ? `\n${artifactNotice(t)}` : ""}`,
+							`Started background shell ${t.id} "${t.title}" (pid ${t.pid ?? "?"}) in ${cwd}${artifactNotice(t) ? `\n${artifactNotice(t)}` : ""}`,
 						).text,
 					},
 				],
@@ -489,9 +489,9 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	});
 
 	pi.registerTool({
-		name: "terminal_cancel",
-		label: "Cancel Terminals",
-		description: "Kill one or more running background terminals.",
+		name: "background_shell_cancel",
+		label: "Cancel Background Shells",
+		description: "Kill one or more running background shells.",
 		parameters: Type.Object({
 			ids: Type.Array(Type.String(), {
 				description: 'Terminal IDs to cancel, e.g. ["tr-1", "tr-2"]',
@@ -504,7 +504,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			const unknown = ids.filter((id) => !terminals.has(id));
 			if (unknown.length > 0) {
 				const known = [...terminals.keys()];
-				throw new Error(`Unknown terminal id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
+				throw new Error(`Unknown background shell id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
 			}
 			const lines: string[] = [];
 			for (const id of ids) {
@@ -526,9 +526,9 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	});
 
 	pi.registerTool({
-		name: "terminal_check",
-		label: "Check Terminal",
-		description: "Peek at a terminal's current status and recent output without blocking.",
+		name: "background_shell_check",
+		label: "Check Background Shell",
+		description: "Peek at a background shell's current status and recent output without blocking.",
 		parameters: Type.Object({
 			id: Type.String({ description: "Terminal ID to check" }),
 		}),
@@ -536,7 +536,7 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 			const t = terminals.get(params.id);
 			if (!t) {
 				const known = [...terminals.keys()];
-				throw new Error(`Unknown terminal id "${params.id}". Known: ${known.join(", ") || "none"}.`);
+				throw new Error(`Unknown background shell id "${params.id}". Known: ${known.join(", ") || "none"}.`);
 			}
 			let text = `${describe(t)}\nCommand: ${t.command}`;
 			if (t.exitCode !== undefined) text += `\nExit code: ${t.exitCode}`;
@@ -555,13 +555,13 @@ export function setupTerminals(pi: ExtensionAPI, background: BackgroundHub) {
 	});
 
 	pi.registerTool({
-		name: "terminal_list",
-		label: "List Terminals",
-		description: "List all background terminals and their current status.",
+		name: "background_shell_list",
+		label: "List Background Shells",
+		description: "List all background shells and their current status.",
 		parameters: Type.Object({}),
 		async execute() {
 			const all = [...terminals.values()];
-			const text = all.length === 0 ? "No terminals." : all.map(describe).join("\n");
+			const text = all.length === 0 ? "No background shells." : all.map(describe).join("\n");
 			return {
 				content: [{ type: "text", text: truncateTerminalText(text).text }],
 				details: {

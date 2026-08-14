@@ -2,12 +2,12 @@ import { CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent
 import { Editor, matchesKey, type EditorComponent } from "@earendil-works/pi-tui";
 import { BackgroundHub } from "./src/hub.ts";
 import { setupSubagents } from "./subagents.ts";
-import { setupTerminals } from "./terminals.ts";
+import { setupShells } from "./shells.ts";
 
 export default function (pi: ExtensionAPI) {
 	const background = new BackgroundHub();
 	setupSubagents(pi, background);
-	setupTerminals(pi, background);
+	setupShells(pi, background);
 
 	pi.registerCommand("background", {
 		description: "List and inspect background tasks",

@@ -53,7 +53,7 @@ test("blocks explicit or ambiguous gh pr merge targets", () => {
 	}
 });
 
-test("blocks merges submitted through terminal_run", async () => {
+test("blocks merges submitted through background_shell_run", async () => {
 	let handler: ((event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallEventResult | void>) | undefined;
 	mergeGuard({
 		on(event: string, callback: unknown) {
@@ -65,7 +65,7 @@ test("blocks merges submitted through terminal_run", async () => {
 		{
 			type: "tool_call",
 			toolCallId: "test",
-			toolName: "terminal_run",
+			toolName: "background_shell_run",
 			input: { command: "gh pr merge 123" },
 		} as ToolCallEvent,
 		{ cwd: process.cwd() } as ExtensionContext,
