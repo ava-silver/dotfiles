@@ -386,8 +386,8 @@ function renderTaglineLines(width: number, theme: Theme, colors: EffectiveHeader
 
 // ─── Cat ──────────────────────────────────────────────────────────────────────
 
-const CAT = ["  ／l、    ", "（ﾟ､ ｡７   ", "  l  ~ヽ   ", "  じしf_,)ノ"];
-const BUBBLE = ["╭─────────╮", "│ meow :3 │", "╰┬────────╯"];
+const CAT = [" ╙／l、    ", "（ﾟ､ ｡７   ", "  l  ~ヽ   ", "  じしf_,)ノ"];
+const BUBBLE = ["╭─────────╮", "│ meow :3 │", "╰╥────────╯"];
 
 // Bubble stacked above the cat.
 const CAT_PANEL = [...BUBBLE, ...CAT];
