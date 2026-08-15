@@ -84,7 +84,7 @@ finish() {
   rm -f "$lock"
 }
 trap finish EXIT HUP INT TERM
-if "$1" "$2" update --extensions >> "$log" 2>&1; then
+if "$1" "$2" update --all >> "$log" 2>&1; then
   status=success
 fi
 `;
@@ -103,7 +103,7 @@ fi
 			remove(lockPath);
 			if (ctx.mode === "tui") {
 				clearStatus(ctx);
-				ctx.ui.notify(`Pi package update could not start. See ${logPath}`, "warning");
+				ctx.ui.notify(`Pi update could not start. See ${logPath}`, "warning");
 			}
 		});
 		child.unref();
@@ -121,9 +121,9 @@ fi
 			resultTimer = undefined;
 			clearStatus(ctx);
 			if (result === "success") {
-				ctx.ui.notify("Pi package update finished -- changes apply next launch.", "info");
+				ctx.ui.notify("Pi update finished -- changes apply next launch.", "info");
 			} else {
-				ctx.ui.notify(`Pi package update failed. See ${logPath}`, "warning");
+				ctx.ui.notify(`Pi update failed. See ${logPath}`, "warning");
 			}
 		}, 1_000);
 		resultTimer.unref();
