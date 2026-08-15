@@ -81,7 +81,6 @@ plugins=(
   zoxide
   fzf
   zsh-autosuggestions
-  vscode
   zsh-syntax-highlighting
   autoswitch_virtualenv
 )
