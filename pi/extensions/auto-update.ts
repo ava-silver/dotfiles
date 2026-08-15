@@ -73,11 +73,14 @@ export default function autoUpdateExtension(pi: ExtensionAPI): void {
 			});
 		}
 
+		const extensionsDir = import.meta.dirname;
+
 		const script = `
 status=failure
 result=$3
 log=$4
 lock=$5
+extensions_dir=$6
 finish() {
   printf '%s\\n' "$status" > "$result.tmp.$$"
   mv "$result.tmp.$$" "$result"
@@ -86,6 +89,17 @@ finish() {
 trap finish EXIT HUP INT TERM
 if "$1" "$2" update --all >> "$log" 2>&1; then
   status=success
+  pi_pkg="$(dirname "$(dirname "$2")")/package.json"
+  new_version=$(jq -r .version "$pi_pkg" 2>>"$log")
+  if [ -n "$new_version" ] && [ -f "$extensions_dir/package.json" ]; then
+    tmp=$(mktemp)
+    jq --arg v "$new_version" '
+      .devDependencies["@earendil-works/pi-coding-agent"] = $v |
+      .devDependencies["@earendil-works/pi-ai"] = $v |
+      .devDependencies["@earendil-works/pi-tui"] = $v
+    ' "$extensions_dir/package.json" > "$tmp" && mv "$tmp" "$extensions_dir/package.json"
+    (cd "$extensions_dir" && bun install) >> "$log" 2>&1 || true
+  fi
 fi
 `;
 
@@ -96,7 +110,7 @@ fi
 		}
 		const child = spawn(
 			"/bin/sh",
-			["-c", script, "pi-auto-update", process.execPath, piEntrypoint, resultPath, logPath, lockPath],
+			["-c", script, "pi-auto-update", process.execPath, piEntrypoint, resultPath, logPath, lockPath, extensionsDir],
 			{ detached: true, stdio: "ignore" },
 		);
 		child.once("error", () => {

@@ -37,8 +37,18 @@ alias L='ls -lathF' # long, sort by oldest to newest
 alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\'' -e '\''s/^/   /'\'' -e '\''s/-/|/'\'' | less'
 
 #  -------------------------------MISC----------------------------------
-alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
-alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
+urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
+urlencode() {
+    local l=${#1}
+    for (( i = 0 ; i < l ; i++ )); do
+        local c=${1:i:1}
+        case "$c" in
+            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            ' ') printf + ;;
+            *) printf '%%%.2X' "'$c"
+        esac
+    done
+}
 alias xclip="pbcopy"
 
 alias brewi="brew update && brew install -y"
