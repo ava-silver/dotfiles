@@ -1,7 +1,5 @@
 {
-  "npmCommand": [
-    "bun"
-  ],
+  "npmCommand": ["bun"],
   "warnings": {
     "anthropicExtraUsage": false
   },
@@ -16,23 +14,12 @@
     "npm:@ff-labs/pi-fff",
     "../../repos/pi-spotify-provider"
   ],
-  "extensions": [
-    "~/dotfiles/pi/extensions",
-    "-extensions/trajectory/index.ts"
-  ],
-  "skills": [
-    "~/skills/skills",
-    "~/dd/claude-marketplace/serverless/skills",
-    "~/dd/experimental/users/ava.silver/ssi/skills/"
-  ],
-  "prompts": [
-    "~/dotfiles/pi/prompts"
-  ],
-  "themes": [
-    "~/dotfiles/pi/themes"
-  ],
+  "extensions": ["~/dotfiles/pi/extensions"],
+  "skills": ["~/skills/skills"],
+  "prompts": ["~/dotfiles/pi/prompts"],
+  "themes": ["~/dotfiles/pi/themes"],
   "defaultProvider": "spotify",
-  "defaultModel": "claude-opus-4-6@default",
+  "defaultModel": "claude-sonnet-4-6@default",
   "enabledModels": [
     "spotify/claude-sonnet-4-6@default",
     "spotify/claude-opus-4-6@default"
