@@ -387,10 +387,10 @@ function renderTaglineLines(width: number, theme: Theme, colors: EffectiveHeader
 // ─── Cat ──────────────────────────────────────────────────────────────────────
 
 const CAT = ["  ／l、    ", "（ﾟ､ ｡７   ", "  l  ~ヽ   ", "  じしf_,)ノ"];
-const BUBBLE = ["        ╭───", "╭───────┴─╮ ", "│ meow :3 │ ", "╰─────────╯ "];
+const BUBBLE = ["╭─────────╮", "│ meow :3 │", "╰┬────────╯"];
 
-// Speech bubble to the left, cat to the right — same pairing as before.
-const CAT_PANEL = CAT.map((cat, i) => (BUBBLE[i] ?? "") + cat);
+// Bubble stacked above the cat.
+const CAT_PANEL = [...BUBBLE, ...CAT];
 const CAT_PANEL_WIDTH = Math.max(...CAT_PANEL.map((l) => visibleWidth(l)));
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
