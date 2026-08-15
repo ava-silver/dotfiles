@@ -284,8 +284,8 @@ const LOGO_LINES = [
 
 const TAGLINE_LINE_1 = "There are many agent harnesses,";
 const TAGLINE_LINE_2_PREFIX = "but this one is ";
-const TAGLINE_LINE_2_HIGHLIGHT = "yours";
-const TAGLINE_LINE_2_SUFFIX = ".";
+const TAGLINE_LINE_2_HIGHLIGHT = "mine";
+const TAGLINE_LINE_2_SUFFIX = ". ♥︎ ";
 
 const LOGO_BLOCK_WIDTH = Math.max(...LOGO_LINES.map((l) => visibleWidth(l)));
 const FALLBACK_LOGO_GRADIENT_BASE_RGB: Rgb = [80, 160, 255];
