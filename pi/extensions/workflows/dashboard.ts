@@ -73,9 +73,9 @@ function normalizeTranscript(value: unknown): TranscriptEntry[] {
 		transcript.push({
 			role: entry.role,
 			text: entry.text,
-			name: typeof entry.name === "string" ? entry.name : undefined,
+			...(typeof entry.name === "string" ? { name: entry.name } : {}),
 			isError: entry.isError === true,
-			timestamp: typeof entry.timestamp === "number" ? entry.timestamp : undefined,
+			...(typeof entry.timestamp === "number" ? { timestamp: entry.timestamp } : {}),
 		});
 	}
 	return transcript;
@@ -97,16 +97,15 @@ function normalizeDetails(runId: string, raw: unknown): WorkflowDetails | undefi
 		agents.push({
 			index: typeof a.index === "number" ? a.index : agents.length + 1,
 			label: typeof a.label === "string" ? a.label : `agent-${agents.length + 1}`,
-			phase: typeof a.phase === "string" ? a.phase : undefined,
+			...(typeof a.phase === "string" ? { phase: a.phase } : {}),
 			state,
-			model: typeof a.model === "string" ? a.model : undefined,
-			contextWindow:
-				typeof a.contextWindow === "number" && Number.isFinite(a.contextWindow) && a.contextWindow > 0
-					? a.contextWindow
-					: undefined,
+			...(typeof a.model === "string" ? { model: a.model } : {}),
+			...(typeof a.contextWindow === "number" && Number.isFinite(a.contextWindow) && a.contextWindow > 0
+				? { contextWindow: a.contextWindow }
+				: {}),
 			startedAt: typeof a.startedAt === "number" ? a.startedAt : startedAt,
-			finishedAt: typeof a.finishedAt === "number" ? a.finishedAt : undefined,
-			error: typeof a.error === "string" && a.error !== "[undefined]" ? a.error : undefined,
+			...(typeof a.finishedAt === "number" ? { finishedAt: a.finishedAt } : {}),
+			...(typeof a.error === "string" && a.error !== "[undefined]" ? { error: a.error } : {}),
 			preview: typeof a.preview === "string" ? a.preview : "",
 			usage: {
 				input: 0,
@@ -140,25 +139,28 @@ function normalizeDetails(runId: string, raw: unknown): WorkflowDetails | undefi
 
 	return {
 		runId,
-		sessionId: typeof record.sessionId === "string" ? record.sessionId : undefined,
-		name: typeof record.name === "string" ? record.name : typeof meta.name === "string" ? meta.name : undefined,
-		description:
-			typeof record.description === "string"
-				? record.description
-				: typeof meta.description === "string"
-					? meta.description
-					: undefined,
+		...(typeof record.sessionId === "string" ? { sessionId: record.sessionId } : {}),
+		...(typeof record.name === "string"
+			? { name: record.name }
+			: typeof meta.name === "string"
+				? { name: meta.name }
+				: {}),
+		...(typeof record.description === "string"
+			? { description: record.description }
+			: typeof meta.description === "string"
+				? { description: meta.description }
+				: {}),
 		background: record.background === true,
 		status,
 		startedAt,
-		finishedAt: typeof record.finishedAt === "number" ? record.finishedAt : undefined,
+		...(typeof record.finishedAt === "number" ? { finishedAt: record.finishedAt } : {}),
 		phases,
-		currentPhase: typeof record.currentPhase === "string" ? record.currentPhase : undefined,
+		...(typeof record.currentPhase === "string" ? { currentPhase: record.currentPhase } : {}),
 		agents,
-		result: record.result,
-		resultArtifact: typeof record.resultArtifact === "string" ? record.resultArtifact : undefined,
-		transcriptArtifact: typeof record.transcriptArtifact === "string" ? record.transcriptArtifact : undefined,
-		error: typeof record.error === "string" ? record.error : undefined,
+		...(record.result === undefined ? {} : { result: record.result }),
+		...(typeof record.resultArtifact === "string" ? { resultArtifact: record.resultArtifact } : {}),
+		...(typeof record.transcriptArtifact === "string" ? { transcriptArtifact: record.transcriptArtifact } : {}),
+		...(typeof record.error === "string" ? { error: record.error } : {}),
 	};
 }
 
@@ -292,7 +294,7 @@ export class WorkflowDashboard {
 	private transcriptRowCount = 0;
 	private transcriptViewportSize = 1;
 	private current?: RunEntry;
-	private notice?: string;
+	private notice?: string | undefined;
 	private noticeAt = 0;
 	private disposed = false;
 	private timer: ReturnType<typeof setInterval>;

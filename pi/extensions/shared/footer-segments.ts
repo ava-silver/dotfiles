@@ -27,6 +27,7 @@ export type TransientSegment = {
 
 // Module-level singleton: one shared instance per process.
 const registry = new Map<string, TransientSegment>();
+const backgroundCosts = new Map<string, number>();
 let onChangeCallback: (() => void) | undefined;
 
 /**
@@ -46,6 +47,22 @@ export function registerTransientSegment(key: string, segment: TransientSegment 
 /** Read all active transient segments in insertion order. */
 export function getTransientSegments(): ReadonlyMap<string, TransientSegment> {
 	return registry;
+}
+
+/** Register or clear a background task cost for inclusion in the main session cost. */
+export function registerBackgroundCost(key: string, cost: number | null): void {
+	if (cost === null) {
+		if (!backgroundCosts.delete(key)) return;
+	} else {
+		backgroundCosts.set(key, cost);
+	}
+	onChangeCallback?.();
+}
+
+export function getBackgroundCost(): number {
+	let total = 0;
+	for (const cost of backgroundCosts.values()) total += cost;
+	return total;
 }
 
 /**

@@ -180,6 +180,7 @@ export default function askUser(pi: ExtensionAPI) {
 
 					function selectOption(index: number) {
 						const selected = allOptions[index];
+						if (!selected) return;
 						if (selected.isOther) {
 							optionIndex = index;
 							editMode = true;
@@ -248,6 +249,7 @@ export default function askUser(pi: ExtensionAPI) {
 
 						for (let i = 0; i < allOptions.length; i++) {
 							const opt = allOptions[i];
+							if (!opt) continue;
 							const selected = i === optionIndex;
 							const prefix = selected ? theme.fg("accent", " ❯ ") : "   ";
 							const marker = opt.isOther ? "✎" : `${i + 1}.`;

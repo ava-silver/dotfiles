@@ -22,7 +22,7 @@ export function truncateUtf8(value: string, maxBytes: number) {
 	if (byteLength(value) <= maxBytes) return value;
 	const buffer = Buffer.from(value, "utf8");
 	let end = Math.min(maxBytes, buffer.length);
-	while (end > 0 && (buffer[end] & 0xc0) === 0x80) end--;
+	while (end > 0 && ((buffer[end] ?? 0) & 0xc0) === 0x80) end--;
 	return buffer.subarray(0, end).toString("utf8");
 }
 
@@ -54,7 +54,7 @@ export function toSerializable(value: unknown, options: SerializationOptions = {
 		if (typeof current === "undefined") return "[undefined]";
 		if (typeof current === "symbol") return `[symbol: ${current.description ?? ""}]`;
 		if (typeof current === "function") return `[function: ${current.name || "anonymous"}]`;
-		if (typeof current !== "object") return String(current);
+		if (typeof current !== "object") return "[unsupported value]";
 
 		const prior = seen.get(current);
 		if (prior) return `[circular: ${prior}]`;

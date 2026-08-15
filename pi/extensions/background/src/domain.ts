@@ -6,7 +6,9 @@
  */
 
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import { Data, type Effect, type Stream } from "effect";
+import { Data } from "effect";
+import type { Effect } from "effect/Effect";
+import type { Stream } from "effect/Stream";
 
 /** Shared reasoning-effort scale (pi's thinking levels). Omitted = inherit the parent level. */
 export const REASONING_EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
@@ -117,6 +119,7 @@ export type SubagentEvent =
 	| {
 			readonly _tag: "AssistantMessage";
 			readonly parts: ReadonlyArray<TranscriptPart>;
+			readonly cost?: number;
 	  }
 	| {
 			readonly _tag: "ToolStart";
@@ -175,6 +178,8 @@ export interface SubagentSnapshot {
 	readonly errorText?: string;
 	readonly meta: SubagentMeta;
 	readonly usage: { readonly tokens?: number; readonly contextWindow?: number };
+	/** Cumulative cost of finalized assistant messages. */
+	readonly cost: number;
 	readonly transcript: ReadonlyArray<TranscriptItem>;
 	/** Streaming assistant buffers, cleared when the finalized message lands. */
 	readonly liveAssistant?: { readonly text: string; readonly thinking: string };

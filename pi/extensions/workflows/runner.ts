@@ -48,6 +48,11 @@ const TRANSCRIPT_MAX_ENTRIES = 200;
 export type WorkflowModel = NonNullable<ExtensionContext["model"]>;
 export type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
 type AgentMessage = AgentSession["messages"][number];
+function isAssistantMessage(
+	message: AgentMessage | undefined,
+): message is Extract<AgentMessage, { role: "assistant" }> {
+	return message?.role === "assistant";
+}
 type ToolTimingEvent = Extract<AgentSessionEvent, { type: "tool_execution_start" | "tool_execution_end" }>;
 
 export interface ToolExecutionTiming {
@@ -177,7 +182,7 @@ function makeStructuredOutputTool(schema: unknown, capture: (value: unknown) => 
 function finalOutput(messages: AgentMessage[]): string {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const msg = messages[i];
-		if (msg.role !== "assistant") continue;
+		if (!isAssistantMessage(msg)) continue;
 		const text = msg.content
 			.filter((part) => part.type === "text")
 			.map((part) => part.text)
@@ -285,8 +290,11 @@ export function transcriptFromMessages(
 			...toolMetadata(message.toolCallId, toolTimings),
 		});
 	}
+	const firstEntry = entries[0];
 	const selected =
-		entries.length <= TRANSCRIPT_MAX_ENTRIES ? entries : [entries[0], ...entries.slice(-(TRANSCRIPT_MAX_ENTRIES - 1))];
+		entries.length <= TRANSCRIPT_MAX_ENTRIES || !firstEntry
+			? entries
+			: [firstEntry, ...entries.slice(-(TRANSCRIPT_MAX_ENTRIES - 1))];
 	const bounded: TranscriptEntry[] = [];
 	let totalBytes = 0;
 	for (const entry of selected) {
@@ -327,6 +335,13 @@ function computeUsage(messages: AgentMessage[]): AgentUsage {
 
 function errorText(error: unknown): string {
 	return (error instanceof Error ? error.message : String(error)).slice(0, 16 * 1024);
+}
+
+function modelMetadata(model: string | undefined, contextWindow: number | undefined) {
+	return {
+		...(model === undefined ? {} : { model }),
+		...(contextWindow === undefined ? {} : { contextWindow }),
+	};
 }
 
 function formatTimeout(timeoutMs: number) {
@@ -396,7 +411,6 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 			cwd: options.cwd,
 			...(options.model ? { model: options.model } : {}),
 			...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
-			modelRegistry: options.modelRegistry,
 			resourceLoader: options.loader,
 			settingsManager: options.settingsManager,
 			sessionManager: SessionManager.inMemory(options.cwd),
@@ -414,8 +428,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 			error: `Failed to create agent session: ${errorText(error)}`,
 			aborted: false,
 			usage: emptyUsage(),
-			model: options.model?.id,
-			contextWindow: options.model?.contextWindow,
+			...modelMetadata(options.model?.id, options.model?.contextWindow),
 			transcript: [],
 		};
 	}
@@ -449,7 +462,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 
 		for (let i = messages.length - 1; i >= 0; i--) {
 			const msg = messages[i];
-			if (msg.role !== "assistant") continue;
+			if (!isAssistantMessage(msg)) continue;
 			// Some gateways report a concrete fallback model. Prefer its registry
 			// metadata when available so capacity tracks the model that served the
 			// latest response rather than a hardcoded/configured guess.
@@ -479,8 +492,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 		options.onProgress?.({
 			preview: finalOutput(childSession.messages),
 			usage,
-			model: modelId,
-			contextWindow,
+			...modelMetadata(modelId, contextWindow),
 			transcript: transcriptFromMessages(childSession.messages, toolTimings),
 		});
 	});
@@ -501,8 +513,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 	try {
 		if (!aborted) {
 			const watchdog = createFirstResponseWatchdog(() => childSession.abort(), {
-				timeoutMs: options.firstResponseTimeoutMs,
-				model: modelId,
+				...(options.firstResponseTimeoutMs === undefined ? {} : { timeoutMs: options.firstResponseTimeoutMs }),
+				...(modelId === undefined ? {} : { model: modelId }),
 			});
 			markFirstResponse = watchdog.markResponse;
 			await watchdog.waitFor(childSession.prompt(buildWorkflowAgentPrompt(options.prompt)));
@@ -525,12 +537,11 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 		return {
 			ok: false,
 			output,
-			structured,
+			...(structured === undefined ? {} : { structured }),
 			error: "Agent was aborted",
 			aborted: true,
 			usage,
-			model: modelId,
-			contextWindow,
+			...modelMetadata(modelId, contextWindow),
 			transcript,
 		};
 	}
@@ -540,12 +551,11 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 		return {
 			ok: false,
 			output,
-			structured,
+			...(structured === undefined ? {} : { structured }),
 			error: errorMessage ?? "Agent failed",
 			aborted: false,
 			usage,
-			model: modelId,
-			contextWindow,
+			...modelMetadata(modelId, contextWindow),
 			transcript,
 		};
 	}
@@ -557,8 +567,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 			error: "Agent finished without calling structured_output; no structured result matching the schema was produced.",
 			aborted: false,
 			usage,
-			model: modelId,
-			contextWindow,
+			...modelMetadata(modelId, contextWindow),
 			transcript,
 		};
 	}
@@ -566,11 +575,10 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentOutcome> 
 	return {
 		ok: true,
 		output,
-		structured,
+		...(structured === undefined ? {} : { structured }),
 		aborted: false,
 		usage,
-		model: modelId,
-		contextWindow,
+		...modelMetadata(modelId, contextWindow),
 		transcript,
 	};
 }

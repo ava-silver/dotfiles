@@ -165,7 +165,7 @@ function listRuns(
 			const { done, failed } = countStates(live);
 			summaries.push({
 				runId,
-				name: live.name,
+				...(live.name === undefined ? {} : { name: live.name }),
 				status: live.status,
 				done: done + failed,
 				total: live.agents.length,
@@ -184,7 +184,7 @@ function listRuns(
 			const agents = parsed.agents ?? [];
 			summaries.push({
 				runId,
-				name: parsed.name,
+				...(parsed.name === undefined ? {} : { name: parsed.name }),
 				status: parsed.status === "running" ? "aborted" : (parsed.status ?? "unknown"),
 				done: agents.filter((agent) => agent.state !== "running").length,
 				total: agents.length,
@@ -350,8 +350,8 @@ export default function workflows(pi: ExtensionAPI) {
 			const details: WorkflowDetails = {
 				runId,
 				sessionId: ctx.sessionManager.getSessionId(),
-				name: meta.name,
-				description: meta.description,
+				...(meta.name === undefined ? {} : { name: meta.name }),
+				...(meta.description === undefined ? {} : { description: meta.description }),
 				background,
 				status: "running",
 				startedAt: Date.now(),
@@ -419,7 +419,11 @@ export default function workflows(pi: ExtensionAPI) {
 				const record: AgentRecord = {
 					index,
 					label,
-					phase: typeof opts.phase === "string" ? opts.phase.slice(0, 160) : details.currentPhase,
+					...(typeof opts.phase === "string"
+						? { phase: opts.phase.slice(0, 160) }
+						: details.currentPhase === undefined
+							? {}
+							: { phase: details.currentPhase }),
 					state: "running",
 					model: ctx.model?.id,
 					contextWindow: ctx.model?.contextWindow,
@@ -440,10 +444,10 @@ export default function workflows(pi: ExtensionAPI) {
 					return { ok: false, output: "", error };
 				};
 
-				const prompt = buildWorkflowAgentPrompt(
-					typeof promptValue === "string" ? promptValue : String(promptValue ?? ""),
-				);
-				if (!prompt.trim()) return fail("agent() requires a non-empty prompt string");
+				if (typeof promptValue !== "string" || !promptValue.trim()) {
+					return fail("agent() requires a non-empty prompt string");
+				}
+				const prompt = buildWorkflowAgentPrompt(promptValue);
 				if (controller.signal.aborted) return fail("Workflow was aborted before this agent started");
 
 				return controller
@@ -477,7 +481,10 @@ export default function workflows(pi: ExtensionAPI) {
 						// Effort → thinking level; default inherits the parent session.
 						let thinkingLevel: ThinkingLevel = pi.getThinkingLevel();
 						if (opts.effort !== undefined) {
-							const effort = String(opts.effort);
+							if (typeof opts.effort !== "string") {
+								return fail(`agent "${label}": effort must be a string`);
+							}
+							const effort = opts.effort;
 							if (!(THINKING_LEVELS as readonly string[]).includes(effort)) {
 								return fail(`agent "${label}": invalid effort "${effort}" (use ${THINKING_LEVELS.join("|")})`);
 							}
@@ -488,7 +495,7 @@ export default function workflows(pi: ExtensionAPI) {
 						const outcome = await runAgent({
 							prompt,
 							schema: opts.schema,
-							model,
+							...(model === undefined ? {} : { model }),
 							thinkingLevel,
 							cwd: ctx.cwd,
 							loader: resources.loader,
@@ -617,7 +624,7 @@ export default function workflows(pi: ExtensionAPI) {
 							type: "text",
 							text: buildBackgroundWorkflowLaunchResult({
 								runId,
-								name: details.name,
+								...(details.name === undefined ? {} : { name: details.name }),
 								runDir,
 							}),
 						},

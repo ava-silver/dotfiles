@@ -8,9 +8,9 @@
 
 import type { ExtensionContext, KeybindingsManager, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, Focusable, TUI } from "@earendil-works/pi-tui";
-import { Input, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { Input, truncateToWidth } from "@earendil-works/pi-tui";
 import { formatElapsed, type SubagentSnapshot } from "../domain.ts";
-import { formatContextUtilization } from "../format.ts";
+import { formatContextUtilization } from "../../../shared/context-utilization.ts";
 import type { SubagentReadModel } from "../manager.ts";
 import { buildTranscriptLines } from "./transcript.ts";
 
@@ -29,33 +29,7 @@ function statusGlyph(snap: SubagentSnapshot, theme: Theme): string {
 	}
 }
 
-function statusWord(snap: SubagentSnapshot, theme: Theme): string {
-	switch (snap.status) {
-		case "running":
-			return theme.fg("warning", "running");
-		case "done":
-			return theme.fg("success", "done");
-		case "error":
-			return theme.fg("error", "failed");
-	}
-}
-
 // --- Entry point ---------------------------------------------------------------
-
-export function createPickerLauncher(open: () => Promise<void>, onError: (error: unknown) => void) {
-	let inFlight: Promise<void> | undefined;
-
-	return () => {
-		if (inFlight) return inFlight;
-		inFlight = Promise.resolve()
-			.then(open)
-			.catch(onError)
-			.finally(() => {
-				inFlight = undefined;
-			});
-		return inFlight;
-	};
-}
 
 /** Open the subagent-specific TakeoverView for the given subagent id. */
 export async function openTakeoverView(id: string, ctx: ExtensionContext, view: SubagentReadModel): Promise<void> {
@@ -81,7 +55,7 @@ class TakeoverView implements Component, Focusable {
 	/** Scroll offset in lines from the bottom of the transcript. 0 = pinned to bottom. */
 	private scrollOffset = 0;
 	private unsubscribe: () => void;
-	private renderTimer?: ReturnType<typeof setTimeout>;
+	private renderTimer: ReturnType<typeof setTimeout> | undefined;
 	private ticker: ReturnType<typeof setInterval>;
 	private closed = false;
 

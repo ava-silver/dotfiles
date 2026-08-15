@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
+import { killProcessTree } from "./shared/process-tree.ts";
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGKILL"] as const;
 const TIMEOUT_ESCALATION_DELAY_MS = 5_000;
@@ -31,7 +32,7 @@ interface RunningProcess {
 
 function resolveZshPath(): string | undefined {
 	const candidates = [
-		process.env.SHELL && /\/zsh$/.test(process.env.SHELL) ? process.env.SHELL : undefined,
+		process.env.SHELL?.endsWith("/zsh") ? process.env.SHELL : undefined,
 		"/bin/zsh",
 		"/usr/bin/zsh",
 		"/opt/homebrew/bin/zsh",
@@ -41,15 +42,11 @@ function resolveZshPath(): string | undefined {
 }
 
 function signalProcessTree(pid: number, signal: NodeJS.Signals): void {
-	if (process.platform === "win32") {
-		if (signal === "SIGKILL") {
-			spawn("taskkill", ["/F", "/T", "/PID", String(pid)], {
-				stdio: "ignore",
-				windowsHide: true,
-			});
-		}
+	if (signal === "SIGKILL") {
+		killProcessTree(pid);
 		return;
 	}
+	if (process.platform === "win32") return;
 
 	try {
 		process.kill(-pid, signal);
@@ -61,7 +58,6 @@ function signalProcessTree(pid: number, signal: NodeJS.Signals): void {
 		}
 	}
 }
-
 function waitForChild(child: ChildProcess): Promise<number | null> {
 	return new Promise((resolve, reject) => {
 		let settled = false;
@@ -150,7 +146,9 @@ function createEscalatingOperations(
 			const sendNextSignal = () => {
 				if (!tracked?.child.pid) return;
 				const index = Math.min(tracked.nextSignal, SIGNALS.length - 1);
-				signalProcessTree(tracked.child.pid, SIGNALS[index]);
+				const nextSignal = SIGNALS[index];
+				if (!nextSignal) return;
+				signalProcessTree(tracked.child.pid, nextSignal);
 				tracked.nextSignal = Math.min(index + 1, SIGNALS.length);
 			};
 			const onAbort = () => sendNextSignal();
@@ -216,7 +214,9 @@ export default function (pi: ExtensionAPI): void {
 		for (const process of running) {
 			if (!process.child.pid) continue;
 			const index = Math.min(process.nextSignal, SIGNALS.length - 1);
-			signalProcessTree(process.child.pid, SIGNALS[index]);
+			const nextSignal = SIGNALS[index];
+			if (!nextSignal) continue;
+			signalProcessTree(process.child.pid, nextSignal);
 			process.nextSignal = Math.min(index + 1, SIGNALS.length);
 		}
 	});

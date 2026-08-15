@@ -11,32 +11,26 @@
  * - subagent_list: list all subagents.
  *
  * Unawaited subagents queue their result as a follow-up message when they
- * settle. `/subagents` opens a picker + full interactive takeover view.
+ * settle. `/background` opens the shared task picker and takeover view.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import {
-	CustomEditor,
-	type ExtensionAPI,
-	type ExtensionContext,
-	type ExtensionUIContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	formatSize,
-	getAgentDir,
 	getMarkdownTheme,
-	ProjectTrustStore,
 	truncateHead,
 } from "@earendil-works/pi-coding-agent";
-import { Editor, Markdown, matchesKey, Text, type EditorComponent } from "@earendil-works/pi-tui";
+import { Markdown, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { formatElapsed, latestText, REASONING_EFFORTS, type SubagentSnapshot } from "./src/domain.ts";
-import { formatContextUtilization } from "./src/format.ts";
-import { registerTransientSegment } from "../shared/footer-segments.ts";
+import { formatContextUtilization } from "../shared/context-utilization.ts";
+import { registerBackgroundCost, registerTransientSegment } from "../shared/footer-segments.ts";
+import { resolveStandaloneChildProjectTrust } from "../shared/child-session.ts";
 import { SubagentManager, type SubagentManagerShape } from "./src/manager.ts";
 import {
 	buildSubagentResultMessage,
@@ -55,8 +49,8 @@ import {
 } from "./src/prompt.ts";
 import { createDeferredResultDelivery } from "./src/result-delivery.ts";
 import { createSubagentRuntime, runTool, type SubagentRuntime } from "./src/runtime.ts";
-import { createPickerLauncher, openTakeoverView } from "./src/ui/takeover.ts";
-import { hasAnyItems, openBackgroundPicker, registerBackgroundProvider } from "../shared/background-hub.ts";
+import { openTakeoverView } from "./src/ui/takeover.ts";
+import type { BackgroundHub } from "./src/hub.ts";
 
 const SUBAGENT_OUTPUT_MAX_BYTES = 24 * 1024;
 const WAIT_OUTPUT_MAX_BYTES = 48 * 1024;
@@ -85,30 +79,14 @@ function truncatedOutput(snap: SubagentSnapshot, maxBytes = SUBAGENT_OUTPUT_MAX_
 	return text;
 }
 
-/**
- * Same-directory children inherit the live parent decision. An alternate cwd
- * is trusted only when pi's persisted trust store explicitly trusts it (or a
- * containing directory); unreadable/invalid trust data fails closed.
- */
-function resolveChildProjectTrust(options: { parentCwd: string; childCwd: string; parentTrusted: boolean }) {
-	if (path.resolve(options.childCwd) === path.resolve(options.parentCwd)) {
-		return options.parentTrusted;
-	}
-	try {
-		const trustStore = new ProjectTrustStore(getAgentDir());
-		return trustStore.get(options.childCwd) === true;
-	} catch {
-		return false;
-	}
-}
-
-export function setupSubagents(pi: ExtensionAPI) {
+export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
 	let runtime: SubagentRuntime | undefined;
 	let managerPromise: Promise<SubagentManagerShape> | undefined;
 	let managerView: SubagentManagerShape["view"] | undefined;
 	let sessionContext: ExtensionContext | undefined;
 	let ui: ExtensionUIContext | undefined;
 	let unsubStatus: (() => void) | undefined;
+	let costKey: string | undefined;
 	const resultDelivery = createDeferredResultDelivery<SubagentSnapshot>();
 
 	const getRuntime = () => (runtime ??= createSubagentRuntime());
@@ -129,8 +107,13 @@ export function setupSubagents(pi: ExtensionAPI) {
 	};
 
 	const updateStatus = (manager: SubagentManagerShape) => {
-		if (!ui) return;
 		const subs = manager.view.list();
+		if (costKey)
+			registerBackgroundCost(
+				costKey,
+				subs.reduce((total, snap) => total + snap.cost, 0),
+			);
+		if (!ui) return;
 		if (subs.length === 0) {
 			registerTransientSegment("subagents", null);
 			return;
@@ -154,7 +137,7 @@ export function setupSubagents(pi: ExtensionAPI) {
 					id: snap.id,
 					title: snap.title,
 					status: snap.status,
-					errorText: snap.errorText,
+					...(snap.errorText === undefined ? {} : { errorText: snap.errorText }),
 					output: truncatedOutput(snap),
 				}),
 				display: true,
@@ -185,9 +168,10 @@ export function setupSubagents(pi: ExtensionAPI) {
 
 	pi.on("session_start", (_event, ctx) => {
 		sessionContext = ctx;
+		costKey = `subagents:${ctx.sessionManager.getSessionId()}`;
 		if (ctx.hasUI) ui = ctx.ui;
 		unregisterProvider?.();
-		unregisterProvider = registerBackgroundProvider("subagents", {
+		unregisterProvider = background.registerProvider("subagents", {
 			label: "Subagents",
 			list() {
 				return (managerView?.list() ?? []).map((snap) => ({
@@ -211,7 +195,7 @@ export function setupSubagents(pi: ExtensionAPI) {
 				const manager = await getManager();
 				await openTakeoverView(id, ctx, manager.view);
 			},
-			abort(id) {
+			kill(id) {
 				managerView?.requestAbort(id);
 			},
 		});
@@ -225,6 +209,8 @@ export function setupSubagents(pi: ExtensionAPI) {
 		unsubStatus?.();
 		unsubStatus = undefined;
 		registerTransientSegment("subagents", null);
+		if (costKey) registerBackgroundCost(costKey, null);
+		costKey = undefined;
 		const closing = runtime;
 		runtime = undefined;
 		managerPromise = undefined;
@@ -268,11 +254,14 @@ export function setupSubagents(pi: ExtensionAPI) {
 			),
 		}),
 		renderCall(args, theme) {
-			return new Text(
-				theme.fg("toolTitle", "subagent_spawn") + (args.name ? " " + theme.fg("dim", String(args.name)) : ""),
-				0,
-				0,
-			);
+			const lines = [
+				theme.fg("toolTitle", "subagent_spawn") + (args.name ? " " + theme.fg("dim", args.name) : ""),
+				...(args.prompt ? [theme.fg("text", args.prompt)] : []),
+				...(args.working_dir ? [theme.fg("muted", `cwd: ${args.working_dir}`)] : []),
+				...(args.model ? [theme.fg("muted", `model: ${args.model}`)] : []),
+				...(args.reasoning_effort ? [theme.fg("muted", `effort: ${args.reasoning_effort}`)] : []),
+			];
+			return new Text(lines.join("\n"), 0, 0);
 		},
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const manager = await getManager();
@@ -288,16 +277,16 @@ export function setupSubagents(pi: ExtensionAPI) {
 					prompt: params.prompt,
 					title,
 					cwd,
-					model: params.model,
-					reasoningEffort: params.reasoning_effort,
+					...(params.model === undefined ? {} : { model: params.model }),
+					...(params.reasoning_effort === undefined ? {} : { reasoningEffort: params.reasoning_effort }),
 					parent: {
 						parentCwd: ctx.cwd,
-						projectTrusted: resolveChildProjectTrust({
+						projectTrusted: resolveStandaloneChildProjectTrust({
 							parentCwd: ctx.cwd,
 							childCwd: cwd,
 							parentTrusted: ctx.isProjectTrusted(),
 						}),
-						inheritedModel: ctx.model ? { provider: ctx.model.provider, id: ctx.model.id } : undefined,
+						...(ctx.model ? { inheritedModel: { provider: ctx.model.provider, id: ctx.model.id } } : {}),
 						inheritedThinkingLevel: pi.getThinkingLevel(),
 						modelRegistry: ctx.modelRegistry,
 					},
@@ -358,7 +347,7 @@ export function setupSubagents(pi: ExtensionAPI) {
 						details: { pending },
 					});
 				}),
-				{ signal, interruptMessage: "Wait aborted. Subagents keep running." },
+				{ ...(signal === undefined ? {} : { signal }), interruptMessage: "Wait aborted. Subagents keep running." },
 			);
 
 			// Settlement may have happened before this wait began. Remove any
@@ -549,66 +538,5 @@ export function setupSubagents(pi: ExtensionAPI) {
 				md.invalidate();
 			},
 		};
-	});
-
-	// --- Command ------------------------------------------------------------
-
-	pi.registerCommand("subagents", {
-		description: "List, inspect, and take over subagents",
-		handler: async (_args, ctx) => {
-			if (ctx.mode !== "tui") {
-				if (ctx.hasUI) ctx.ui.notify("Subagent takeover is only available in the TUI", "error");
-				return;
-			}
-			await openBackgroundPicker(ctx);
-		},
-	});
-
-	// --- Down-arrow opens /subagents ---------------------------------------
-	// Pressing ↓ at the bottom of prompt history (no more history to browse)
-	// opens the subagent picker, like Claude Code's ↓ at the transcript bottom.
-	// Only when subagents exist; otherwise ↓ stays a no-op.
-
-	const openSubagentsFromEditor = async (ctx: ExtensionContext) => {
-		if (ctx.mode !== "tui") return;
-		await openBackgroundPicker(ctx);
-	};
-
-	pi.on("session_start", (_event, ctx) => {
-		if (!ctx.hasUI) return;
-		const launchPicker = createPickerLauncher(
-			() => openSubagentsFromEditor(ctx),
-			(error) => ctx.ui.notify(`Could not open subagents: ${String(error)}`, "error"),
-		);
-
-		// Capture the previous factory BEFORE setting ours: getEditorComponent()
-		// inside the factory would return the factory currently being set (itself)
-		// and recurse forever.
-		const previous = ctx.ui.getEditorComponent();
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-			const base = previous?.(tui, theme, keybindings);
-			const editor = base ?? new CustomEditor(tui, theme, keybindings);
-
-			// Narrow to the concrete Editor so we can inspect cursor/history state.
-			if (editor instanceof Editor) {
-				const originalHandleInput = editor.handleInput.bind(editor);
-				editor.handleInput = (data: string) => {
-					if (matchesKey(data, "down") && !editor.isShowingAutocomplete()) {
-						const lines = editor.getLines();
-						const cursor = editor.getCursor();
-						// Only when the input is empty (nothing typed) and the cursor is
-						// at the end: history browsing starts from an empty editor, so this
-						// is the "no more history to browse" state.
-						const atBottom = lines.length === 1 && lines[0] === "" && cursor.line === 0 && cursor.col === 0;
-						if (atBottom) {
-							void launchPicker();
-							return;
-						}
-					}
-					originalHandleInput(data);
-				};
-			}
-			return editor as EditorComponent;
-		});
 	});
 }

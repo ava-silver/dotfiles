@@ -18,6 +18,7 @@ import {
 	CHILD_EXCLUDED_TOOL_NAMES,
 	childToolPolicy,
 	createChildResources,
+	resolveChildModel,
 	resolveStandaloneChildProjectTrust,
 	shutdownAndDisposeChildSession,
 	type DisposableChildSession,
@@ -195,6 +196,24 @@ test("alternate standalone cwd only uses explicit saved trust", async () => {
 			true,
 		);
 	});
+});
+
+test("child model resolution preserves inherited-provider and ambiguity rules", () => {
+	const models = [
+		{ provider: "first", id: "inherited" },
+		{ provider: "first", id: "shared" },
+		{ provider: "second", id: "shared" },
+	] as any[];
+	const registry = {
+		find: (provider: string, id: string) => models.find((model) => model.provider === provider && model.id === id),
+		getAll: () => models,
+	} as any;
+
+	assert.equal(resolveChildModel(registry, undefined, { provider: "first", id: "inherited" }), models[0]);
+	assert.equal(resolveChildModel(registry, "inherited", { provider: "first", id: "other" }), models[0]);
+	assert.equal(resolveChildModel(registry, "second/shared", undefined), models[2]);
+	assert.throws(() => resolveChildModel(registry, "shared", undefined), /exists in multiple providers/);
+	assert.throws(() => resolveChildModel(registry, "missing", undefined), /Unknown model/);
 });
 
 test("shutdown helper balances hooks and disposal despite errors", async () => {

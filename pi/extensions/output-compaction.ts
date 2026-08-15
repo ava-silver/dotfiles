@@ -1,3 +1,4 @@
+/* oxlint-disable typescript/no-base-to-string, typescript/unbound-method */
 import { readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -188,7 +189,7 @@ function sameMembers(left: ToolRow[], right: ToolRow[]): boolean {
 	return left.length === right.length && left.every((member, index) => member === right[index]);
 }
 
-function renderCompactBlock(rows: ToolRow[], width: number, state: ToolPatchState): string[] {
+function renderCompactBlock(rows: [ToolRow, ...ToolRow[]], width: number, state: ToolPatchState): string[] {
 	const theme = state.theme;
 	if (!theme) return state.originalRender.call(rows[0], width);
 
@@ -254,7 +255,7 @@ function renderContainer(container: ContainerLike, width: number, state: Contain
 			continue;
 		}
 
-		const group: ToolRow[] = [child];
+		const group: [ToolRow, ...ToolRow[]] = [child];
 		let lastMember = index;
 		for (let candidateIndex = index + 1; candidateIndex < children.length; candidateIndex++) {
 			const candidate = children[candidateIndex];

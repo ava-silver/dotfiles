@@ -13,6 +13,7 @@
 - When updating a PR description, always read the current description first (e.g., `gh pr view --json body`) before editing it.
 - Don't make changes (or commit/push) when I'm just asking a question (i.e. I'm not explicitly asking you to make some change). If you're unsure if you should make changes, feel free to ask if you should make the change you're thinking of.
 - Use two dashes (`--`) over em-dashes
+- Put long-living plans in `.plans/` in the root of the repository, which will be gitignored.
 
 ## Tools
 

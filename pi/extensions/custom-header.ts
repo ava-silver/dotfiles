@@ -8,6 +8,7 @@
 
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { VERSION } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 
 // Big "Hi Ava"
 const HI_AVA = ["▌  ▗           ▐", "▛▀▖▄  ▝▀▖▌ ▌▝▀▖▐", "▌ ▌▐  ▞▀▌▐▐ ▞▀▌▝", "▘ ▘▀▘ ▝▀▘ ▘ ▝▀▘▝"];
@@ -21,6 +22,10 @@ const BUBBLE = ["        ╭───", "╭───────┴─╮ ", "�
 
 // The lil claude mascot.
 const CLAUDE = ["         ", " ▐▛███▜▌ ", "▝▜█████▛▘", "  ▘▘ ▝▝  "];
+
+export function fitHeader(lines: readonly string[], width: number): string[] {
+	return lines.map((line) => truncateToWidth(line, Math.max(0, width), ""));
+}
 
 function buildHeader(theme: Theme): string[] {
 	const muted = (t: string) => theme.fg("muted", t);
@@ -39,15 +44,15 @@ function buildHeader(theme: Theme): string[] {
 	for (let i = 0; i < rows; i++) {
 		const c = i - claudePad;
 		const a = i - avaPad;
-		const left = c >= 0 && c < CLAUDE.length ? orange(CLAUDE[c]) : " ".repeat(claudeWidth);
-		const right = a >= 0 && a < HI_AVA.length ? purple(HI_AVA[a]) : "";
+		const left = c >= 0 ? orange(CLAUDE[c] ?? "") : " ".repeat(claudeWidth);
+		const right = a >= 0 ? purple(HI_AVA[a] ?? "") : "";
 		lines.push("  " + left + "   " + right);
 	}
 	lines.push("");
 
 	// Speech bubble on the left, cat on the right, tail elbowing toward it.
 	for (let i = 0; i < CAT.length; i++) {
-		lines.push("    " + muted(BUBBLE[i] + CAT[i]));
+		lines.push("    " + muted((BUBBLE[i] ?? "") + (CAT[i] ?? "")));
 	}
 
 	lines.push("");
@@ -60,7 +65,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		ctx.ui.setHeader((_tui, theme) => ({
-			render: (_width: number): string[] => buildHeader(theme),
+			render: (width: number): string[] => fitHeader(buildHeader(theme), width),
 			invalidate() {},
 		}));
 	});

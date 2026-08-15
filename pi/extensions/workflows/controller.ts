@@ -79,8 +79,8 @@ export class RunController {
 	private readonly tasks = new Set<Promise<unknown>>();
 	private callCount = 0;
 	private sealed = false;
-	private parentAbort?: () => void;
-	private parentSignal?: AbortSignal;
+	private parentAbort: (() => void) | undefined;
+	private parentSignal: AbortSignal | undefined;
 
 	constructor(parentSignal?: AbortSignal, concurrency = DEFAULT_CONCURRENCY) {
 		this.semaphore = new Semaphore(Math.max(1, Math.min(DEFAULT_CONCURRENCY, Math.floor(concurrency))));

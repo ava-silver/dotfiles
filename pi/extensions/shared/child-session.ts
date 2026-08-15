@@ -1,10 +1,12 @@
 import * as path from "node:path";
+import type { Model } from "@earendil-works/pi-ai";
 import {
 	DefaultResourceLoader,
 	getAgentDir,
 	ProjectTrustStore,
 	SettingsManager,
 	type AgentSession,
+	type ModelRegistry,
 	type SessionShutdownEvent,
 } from "@earendil-works/pi-coding-agent";
 
@@ -76,6 +78,38 @@ export async function bindChildSessionExtensions(session: Pick<AgentSession, "bi
 	await session.bindExtensions({ mode: "print" });
 }
 
+/** Resolve a child model hint against the parent's registry. */
+export function resolveChildModel(
+	registry: ModelRegistry,
+	hint: string | undefined,
+	inherited: { provider: string; id: string } | undefined,
+): Model<any> | undefined {
+	if (!hint) {
+		if (!inherited) return undefined;
+		return registry.find(inherited.provider, inherited.id) ?? undefined;
+	}
+	const slash = hint.indexOf("/");
+	if (slash > 0) {
+		const provider = hint.slice(0, slash);
+		const id = hint.slice(slash + 1);
+		const found = registry.find(provider, id);
+		if (found) return found;
+		throw new Error(`Unknown model "${hint}".`);
+	}
+	if (inherited) {
+		const found = registry.find(inherited.provider, hint);
+		if (found) return found;
+	}
+	const matches = registry.getAll().filter((model) => model.id === hint);
+	if (matches.length === 1) return matches[0];
+	if (matches.length > 1) {
+		throw new Error(
+			`Model "${hint}" exists in multiple providers (${matches.map((model) => model.provider).join(", ")}). Use "provider/${hint}".`,
+		);
+	}
+	throw new Error(`Unknown model "${hint}".`);
+}
+
 interface ChildExtensionRunner {
 	hasHandlers(eventType: string): boolean;
 	emit(event: SessionShutdownEvent): Promise<unknown>;
@@ -88,7 +122,7 @@ export interface DisposableChildSession {
 
 const childShutdowns = new WeakMap<object, Promise<void>>();
 
-function waitBounded(operation: Promise<unknown>, timeoutMs: number) {
+export function waitForChildSessionOperation(operation: Promise<unknown>, timeoutMs: number) {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<void>((resolve) => {
 		timer = setTimeout(resolve, timeoutMs);
@@ -117,7 +151,7 @@ export function shutdownAndDisposeChildSession(session: DisposableChildSession, 
 	const shutdown = (async () => {
 		try {
 			if (session.extensionRunner.hasHandlers("session_shutdown")) {
-				await waitBounded(
+				await waitForChildSessionOperation(
 					session.extensionRunner.emit({
 						type: "session_shutdown",
 						reason: "quit",

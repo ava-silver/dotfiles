@@ -8,3 +8,4 @@ cache
 .DS_Store
 p10k-instant-prompt-*.zsh
 **/node_modules
+**/__pycache__/

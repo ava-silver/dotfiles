@@ -36,10 +36,9 @@ export function boundedArtifactTranscript(
 	}
 
 	const initialIndex = transcript.findIndex((entry) => entry.role === "user");
-	const initial = boundEntry(
-		transcript[initialIndex >= 0 ? initialIndex : 0],
-		Math.min(entryMaxBytes, maxBytes - textBytes(TRANSCRIPT_TRUNCATION_MARKER)),
-	);
+	const initialEntry = transcript[initialIndex >= 0 ? initialIndex : 0];
+	if (!initialEntry) return [];
+	const initial = boundEntry(initialEntry, Math.min(entryMaxBytes, maxBytes - textBytes(TRANSCRIPT_TRUNCATION_MARKER)));
 	const marker: TranscriptEntry = {
 		role: "toolResult",
 		name: "transcript",
@@ -50,7 +49,9 @@ export function boundedArtifactTranscript(
 
 	for (let index = transcript.length - 1; index >= 0 && remaining > 0; index--) {
 		if (index === initialIndex || (initialIndex < 0 && index === 0)) continue;
-		const entry = boundEntry(transcript[index], Math.min(entryMaxBytes, remaining));
+		const sourceEntry = transcript[index];
+		if (!sourceEntry) continue;
+		const entry = boundEntry(sourceEntry, Math.min(entryMaxBytes, remaining));
 		tail.push(entry);
 		remaining -= textBytes(entry.text);
 	}

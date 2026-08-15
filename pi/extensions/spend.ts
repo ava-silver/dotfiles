@@ -1,17 +1,25 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 const CACHE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "pi");
-const LEDGER_FILE = join(CACHE_DIR, "spend-v1.jsonl");
+const LEGACY_LEDGER_FILES = [join(CACHE_DIR, "spend-v1.jsonl"), join(CACHE_DIR, "spend-v2.jsonl")];
+const LEDGER_FILE = join(CACHE_DIR, "spend-v3.jsonl");
 const GRAPH_FILE = join(CACHE_DIR, "spend.html");
 const SESSIONS_DIR = join(homedir(), ".pi", "agent", "sessions");
+const MIN_TIMESTAMP = Date.UTC(2000, 0, 1);
+const MAX_TIMESTAMP = Date.UTC(2100, 0, 1);
+const MIN_MODEL_COST = 1;
 
-type SpendRecord = {
-	v: 1;
+type SpendKind = "assistant" | "tool" | "compaction" | "branch_summary";
+
+export type SpendRecord = {
+	v: 3;
 	key: string;
+	kind: SpendKind;
+	entryId: string;
 	sessionId: string;
 	cwd?: string;
 	timestamp: number;
@@ -24,28 +32,60 @@ type SpendRecord = {
 	cacheWrite: number;
 };
 
-type SessionFile = { path: string; id: string; cwd?: string };
+type SessionFile = { id: string; cwd?: string };
+export function recordKey(kind: SpendKind, entryId: string, timestamp: number): string {
+	return `${kind}:${entryId}:${timestamp}`;
+}
 
-function asRecord(entry: any, session: SessionFile): SpendRecord | undefined {
-	const message = entry?.message as AssistantMessage | undefined;
-	if (entry?.type !== "message" || message?.role !== "assistant" || !message.usage) return;
+export function isValidTimestamp(value: unknown): value is number {
+	return typeof value === "number" && Number.isFinite(value) && value >= MIN_TIMESTAMP && value <= MAX_TIMESTAMP;
+}
 
-	const cost = message.usage.cost?.total;
-	if (!Number.isFinite(cost)) return;
+export function asRecord(entry: any, session: SessionFile): SpendRecord | undefined {
+	if (typeof entry?.id !== "string" || !entry.id) return;
+
+	let kind: SpendKind;
+	let usage;
+	let timestamp: number;
+	let provider = "Tools";
+	let model = "summaries";
+	if (entry.type === "message" && entry.message?.role === "assistant") {
+		const message = entry.message as AssistantMessage;
+		kind = "assistant";
+		usage = message.usage;
+		timestamp = message.timestamp;
+		provider = message.provider || "unknown";
+		model = message.responseModel || message.model || "unknown";
+	} else if (entry.type === "message" && entry.message?.role === "toolResult" && entry.message.usage) {
+		kind = "tool";
+		usage = entry.message.usage;
+		timestamp = entry.message.timestamp;
+	} else if ((entry.type === "compaction" || entry.type === "branch_summary") && entry.usage) {
+		kind = entry.type;
+		usage = entry.usage;
+		timestamp = Date.parse(entry.timestamp);
+	} else {
+		return;
+	}
+
+	const cost = usage?.cost?.total;
+	if (!isValidTimestamp(timestamp) || !Number.isFinite(cost)) return;
 
 	return {
-		v: 1,
-		key: entry.id,
+		v: 3,
+		key: recordKey(kind, entry.id, timestamp),
+		kind,
+		entryId: entry.id,
 		sessionId: session.id,
-		cwd: session.cwd,
-		timestamp: message.timestamp,
-		provider: message.provider || "unknown",
-		model: message.model || "unknown",
+		...(session.cwd === undefined ? {} : { cwd: session.cwd }),
+		timestamp,
+		provider,
+		model,
 		cost,
-		input: message.usage.input || 0,
-		output: message.usage.output || 0,
-		cacheRead: message.usage.cacheRead || 0,
-		cacheWrite: message.usage.cacheWrite || 0,
+		input: usage.input || 0,
+		output: usage.output || 0,
+		cacheRead: usage.cacheRead || 0,
+		cacheWrite: usage.cacheWrite || 0,
 	};
 }
 
@@ -57,7 +97,7 @@ async function sessionFiles(dir: string): Promise<string[]> {
 		return [];
 	}
 	const children = await Promise.all(
-		entries.map((entry) => {
+		entries.map(async (entry) => {
 			const path = join(dir, entry.name);
 			return entry.isDirectory() ? sessionFiles(path) : entry.isFile() && path.endsWith(".jsonl") ? [path] : [];
 		}),
@@ -78,8 +118,8 @@ async function parseSession(path: string): Promise<{ session: SessionFile; recor
 	for (const line of lines) {
 		try {
 			const entry = JSON.parse(line);
-			if (entry.type === "session") {
-				session = { path, id: entry.id, cwd: entry.cwd };
+			if (entry.type === "session" && typeof entry.id === "string" && entry.id) {
+				session = { id: entry.id, cwd: typeof entry.cwd === "string" ? entry.cwd : undefined };
 			} else if (session) {
 				const record = asRecord(entry, session);
 				if (record) records.push(record);
@@ -89,6 +129,74 @@ async function parseSession(path: string): Promise<{ session: SessionFile; recor
 		}
 	}
 	return session ? { session, records } : undefined;
+}
+
+export function parseLedgerRecord(value: unknown): SpendRecord | undefined {
+	if (typeof value !== "object" || value === null) return;
+	const candidate = value as { [key: string]: unknown };
+	const { sessionId, key, timestamp, provider, model, cost, input, output, cacheRead, cacheWrite } = candidate;
+	if (
+		(Object.hasOwn(candidate, "cwd") && typeof candidate.cwd !== "string") ||
+		typeof sessionId !== "string" ||
+		!sessionId ||
+		typeof key !== "string" ||
+		!key ||
+		!isValidTimestamp(timestamp) ||
+		typeof provider !== "string" ||
+		typeof model !== "string" ||
+		typeof cost !== "number" ||
+		!Number.isFinite(cost) ||
+		typeof input !== "number" ||
+		!Number.isFinite(input) ||
+		typeof output !== "number" ||
+		!Number.isFinite(output) ||
+		typeof cacheRead !== "number" ||
+		!Number.isFinite(cacheRead) ||
+		typeof cacheWrite !== "number" ||
+		!Number.isFinite(cacheWrite)
+	)
+		return;
+
+	let kind: SpendKind = "assistant";
+	let entryId: string;
+	if (candidate.v === 3) {
+		if (
+			(candidate.kind !== "assistant" &&
+				candidate.kind !== "tool" &&
+				candidate.kind !== "compaction" &&
+				candidate.kind !== "branch_summary") ||
+			typeof candidate.entryId !== "string" ||
+			!candidate.entryId
+		)
+			return;
+		kind = candidate.kind;
+		entryId = candidate.entryId;
+		if (key !== recordKey(kind, entryId, timestamp)) return;
+	} else if (candidate.v === 2 && key.startsWith(`${sessionId}:`)) {
+		entryId = key.slice(sessionId.length + 1);
+		if (!entryId) return;
+	} else if (candidate.v === 1) {
+		entryId = key;
+	} else {
+		return;
+	}
+
+	return {
+		v: 3,
+		key: recordKey(kind, entryId, timestamp),
+		kind,
+		entryId,
+		sessionId,
+		...(typeof candidate.cwd === "string" ? { cwd: candidate.cwd } : {}),
+		timestamp,
+		provider,
+		model,
+		cost,
+		input,
+		output,
+		cacheRead,
+		cacheWrite,
+	};
 }
 
 function formatCost(cost: number): string {
@@ -116,7 +224,7 @@ function summary(records: Iterable<SpendRecord>): string {
 	return [
 		`Pi spend: ${formatCost(total)} across ${bySession.size} sessions (${all.length} responses)`,
 		"By model:",
-		...top(byModel),
+		...top(new Map([...byModel].filter(([, cost]) => cost >= MIN_MODEL_COST))),
 		"By session:",
 		...top(bySession),
 	].join("\n");
@@ -125,13 +233,22 @@ function summary(records: Iterable<SpendRecord>): string {
 export function graphHtml(records: Iterable<SpendRecord>): string {
 	const unique = new Map<string, SpendRecord>();
 	for (const record of records) unique.set(record.key, record);
-	const all = [...unique.values()].sort((a, b) => a.timestamp - b.timestamp);
-	const modelNames = [...new Set(all.map((record) => `${record.provider}/${record.model}`))];
+	const all = [...unique.values()]
+		.filter((record) => isValidTimestamp(record.timestamp))
+		.sort((a, b) => a.timestamp - b.timestamp);
+	const modelTotals = new Map<string, number>();
+	for (const record of all) {
+		const name = `${record.provider}/${record.model}`;
+		modelTotals.set(name, (modelTotals.get(name) || 0) + record.cost);
+	}
+	const modelNames = [...modelTotals].filter(([, cost]) => cost >= MIN_MODEL_COST).map(([name]) => name);
 	const observedDates = [...new Set(all.map((record) => new Date(record.timestamp).toISOString().slice(0, 10)))].sort();
 	const dates: string[] = [];
-	if (observedDates.length) {
-		const cursor = new Date(`${observedDates[0]}T00:00:00Z`);
-		const end = new Date(`${observedDates.at(-1)}T00:00:00Z`);
+	const firstObservedDate = observedDates[0];
+	const lastObservedDate = observedDates.at(-1);
+	if (firstObservedDate && lastObservedDate) {
+		const cursor = new Date(`${firstObservedDate}T00:00:00Z`);
+		const end = new Date(`${lastObservedDate}T00:00:00Z`);
 		while (cursor <= end) {
 			const day = cursor.getUTCDay();
 			if (day !== 0 && day !== 6) dates.push(cursor.toISOString().slice(0, 10));
@@ -146,7 +263,7 @@ export function graphHtml(records: Iterable<SpendRecord>): string {
 			if (`${record.provider}/${record.model}` !== name) continue;
 			const date = new Date(record.timestamp).toISOString().slice(0, 10);
 			const index = dateIndexes.get(date);
-			if (index !== undefined) daily[index] += record.cost;
+			if (index !== undefined) daily[index] = (daily[index] ?? 0) + record.cost;
 		}
 		let running = 0;
 		const cumulative = daily.map((cost) => (running += cost));
@@ -200,12 +317,25 @@ canvas { display: block; width: 100%; height: 340px; }
 <script>
 const data = ${json};
 const money = value => '$' + value.toFixed(value >= 1 ? 2 : value >= .01 ? 3 : 4);
-document.getElementById('summary').innerHTML = [
-  [money(data.total), 'total'], [data.sessions, 'sessions'], [data.responses, 'responses']
-].map(([value, label]) => '<div class="card"><strong>' + value + '</strong><span>' + label + '</span></div>').join('');
-document.getElementById('legend').innerHTML = data.models.map(model =>
-  '<span><i style="background:' + model.color + '"></i>' + model.name + '</span>'
-).join('');
+const summary = document.getElementById('summary');
+for (const [value, label] of [[money(data.total), 'total'], [data.sessions, 'sessions'], [data.responses, 'responses']]) {
+  const card = document.createElement('div');
+  const strong = document.createElement('strong');
+  const span = document.createElement('span');
+  card.className = 'card';
+  strong.textContent = String(value);
+  span.textContent = label;
+  card.append(strong, span);
+  summary.append(card);
+}
+const legend = document.getElementById('legend');
+for (const model of data.models) {
+  const item = document.createElement('span');
+  const swatch = document.createElement('i');
+  swatch.style.background = model.color;
+  item.append(swatch, document.createTextNode(model.name));
+  legend.append(item);
+}
 
 function draw(canvas, mode) {
   const rect = canvas.getBoundingClientRect();
@@ -290,6 +420,20 @@ window.addEventListener('resize', redraw);
 </html>`;
 }
 
+export function parseLedger(text: string): SpendRecord[] {
+	const records: SpendRecord[] = [];
+	for (const line of text.split("\n")) {
+		if (!line) continue;
+		try {
+			const record = parseLedgerRecord(JSON.parse(line));
+			if (record) records.push(record);
+		} catch {
+			// Ignore malformed lines while retaining subsequent records.
+		}
+	}
+	return records;
+}
+
 export default function spendExtension(pi: ExtensionAPI): void {
 	const records = new Map<string, SpendRecord>();
 	let initialized = false;
@@ -297,27 +441,24 @@ export default function spendExtension(pi: ExtensionAPI): void {
 	async function loadLedger(): Promise<void> {
 		if (initialized) return;
 		initialized = true;
-		try {
-			for (const line of (await readFile(LEDGER_FILE, "utf8")).split("\n")) {
-				if (!line) continue;
-				try {
-					const record = JSON.parse(line) as SpendRecord;
-					if (record.v === 1 && typeof record.key === "string") records.set(record.key, record);
-				} catch {
-					/* ignore malformed cache entries */
-				}
+		for (const file of [...LEGACY_LEDGER_FILES, LEDGER_FILE]) {
+			try {
+				for (const record of parseLedger(await readFile(file, "utf8"))) records.set(record.key, record);
+			} catch {
+				/* ignore missing or malformed cache entries */
 			}
-		} catch {
-			/* the ledger is created on first write */
 		}
 	}
 
 	async function save(newRecords: SpendRecord[]): Promise<void> {
-		const fresh = newRecords.filter((record) => !records.has(record.key));
-		if (!fresh.length) return;
+		const fresh = new Map<string, SpendRecord>();
+		for (const record of newRecords) {
+			if (!records.has(record.key)) fresh.set(record.key, record);
+		}
+		if (!fresh.size) return;
 		await mkdir(CACHE_DIR, { recursive: true });
-		await appendFile(LEDGER_FILE, fresh.map((record) => JSON.stringify(record)).join("\n") + "\n");
-		for (const record of fresh) records.set(record.key, record);
+		await appendFile(LEDGER_FILE, [...fresh.values()].map((record) => JSON.stringify(record)).join("\n") + "\n");
+		for (const [key, record] of fresh) records.set(key, record);
 	}
 
 	async function importSessions(): Promise<void> {
@@ -326,45 +467,45 @@ export default function spendExtension(pi: ExtensionAPI): void {
 		await save(parsed.flatMap((result) => result?.records || []));
 	}
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", async () => {
 		await loadLedger();
-		const file = ctx.sessionManager.getSessionFile();
-		if (file) {
-			const parsed = await parseSession(file);
-			if (parsed) await save(parsed.records);
-		}
+		await importSessions();
 	});
 
 	pi.on("message_end", async (event, ctx) => {
-		if (event.message.role !== "assistant") return;
+		if (event.message.role !== "assistant" && event.message.role !== "toolResult") return;
 		await loadLedger();
-		const entries = ctx.sessionManager.getEntries();
-		const entry = [...entries]
+		const entry = [...ctx.sessionManager.getEntries()]
 			.reverse()
 			.find(
 				(candidate: any) =>
 					candidate.type === "message" &&
-					candidate.message.role === "assistant" &&
+					candidate.message.role === event.message.role &&
 					candidate.message.timestamp === event.message.timestamp,
 			);
 		const header = ctx.sessionManager.getHeader();
 		if (entry && header) {
-			const record = asRecord(entry, {
-				path: ctx.sessionManager.getSessionFile() || "",
-				id: header.id,
-				cwd: header.cwd,
-			});
+			const record = asRecord(entry, { id: header.id, cwd: header.cwd });
 			if (record) await save([record]);
 		}
 	});
+
+	const saveCurrentSession = async (_event: unknown, ctx: ExtensionContext) => {
+		await loadLedger();
+		const file = ctx.sessionManager.getSessionFile();
+		if (!file) return;
+		const parsed = await parseSession(file);
+		if (parsed) await save(parsed.records);
+	};
+	pi.on("session_compact", saveCurrentSession);
+	pi.on("session_tree", saveCurrentSession);
 
 	pi.registerCommand("spend", {
 		description: "Open Pi spend graphs in the browser (use /spend text for the report)",
 		handler: async (args, ctx) => {
 			await loadLedger();
-			const action = args.trim();
-			if (action === "import") await importSessions();
-			if (action === "text") {
+			await importSessions();
+			if (args.trim() === "text") {
 				const report = summary(records.values());
 				if (ctx.hasUI) await ctx.ui.editor("Pi spend", report);
 				else console.log(report);

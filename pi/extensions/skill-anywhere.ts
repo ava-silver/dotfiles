@@ -16,45 +16,14 @@ import {
 	SettingsManager,
 	type Skill,
 } from "@earendil-works/pi-coding-agent";
-import {
-	type AutocompleteItem,
-	type AutocompleteProvider,
-	type AutocompleteSuggestions,
-	Editor,
-	fuzzyFilter,
-} from "@earendil-works/pi-tui";
+import type { AutocompleteItem, AutocompleteProvider, AutocompleteSuggestions } from "@earendil-works/pi-tui";
+import { fuzzyFilter } from "@earendil-works/pi-tui";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { installMidLineSlashTrigger } from "./shared/skill-anywhere-compat.ts";
 
 const MAX_SUGGESTIONS = 20;
-
-// The editor only auto-shows the slash menu when `/` is the first non-whitespace
-// character on the line; mid-line `/` requires pressing Tab because the editor
-// deliberately drops `/` from its auto-trigger characters. Patch the exported
-// Editor prototype so `/` also auto-triggers mid-line (after whitespace), matching
-// the start-of-line experience. Idempotent and applied once per process.
-function patchEditorTriggerSlash(): void {
-	const proto = Editor.prototype as unknown as {
-		__skillAnywherePatched?: boolean;
-		setAutocompleteTriggerCharacters(chars: string[]): void;
-		autocompleteTriggerCharacters: string[];
-		autocompleteTriggerPattern: RegExp;
-	};
-	if (proto.__skillAnywherePatched) return;
-	proto.__skillAnywherePatched = true;
-
-	const original = proto.setAutocompleteTriggerCharacters;
-	const escapeCharClass = (value: string) => value.replace(/[\\^$.*+?()[\]{}|-]/g, "\\$&");
-	proto.setAutocompleteTriggerCharacters = function (chars: string[]): void {
-		original.call(this, chars);
-		if (!this.autocompleteTriggerCharacters.includes("/")) {
-			this.autocompleteTriggerCharacters.push("/");
-		}
-		const cls = this.autocompleteTriggerCharacters.map(escapeCharClass).join("");
-		this.autocompleteTriggerPattern = new RegExp(`(?:^|[\\s])[${cls}][^\\s]*$`);
-	};
-}
 
 // Matches a space-then-`/<query>` token immediately before the cursor (query may be empty).
 // The leading whitespace requirement means start-of-line `/` is left to pi's built-in
@@ -73,8 +42,13 @@ function expandSkillTokens(text: string, map: Map<string, Skill>): string {
 	});
 }
 
-function collectSkillDirs(cwd: string): string[] {
-	const dirs: string[] = [join(homedir(), ".agents", "skills")];
+export function collectSkillDirs(
+	cwd: string,
+	projectTrusted: boolean,
+	globalSkillDir = join(homedir(), ".agents", "skills"),
+): string[] {
+	const dirs: string[] = [globalSkillDir];
+	if (!projectTrusted) return dirs.filter((d) => existsSync(d));
 
 	// Walk from cwd up to the git repo root (or filesystem root) collecting
 	// project-local skill dirs, matching pi's discovery rules.
@@ -97,8 +71,12 @@ function loadSkillMap(cwd: string, projectTrusted: boolean): Map<string, Skill> 
 	const { skills } = loadSkills({
 		cwd,
 		agentDir,
-		skillPaths: [...collectSkillDirs(cwd), ...configuredSkillPaths],
-		includeDefaults: true,
+		skillPaths: [
+			...collectSkillDirs(cwd, projectTrusted),
+			...configuredSkillPaths,
+			...(!projectTrusted ? [join(agentDir, "skills")] : []),
+		],
+		includeDefaults: projectTrusted,
 	});
 	const map = new Map<string, Skill>();
 	for (const skill of skills) {
@@ -122,7 +100,7 @@ function createSkillAutocompleteProvider(
 				return current.getSuggestions(lines, cursorLine, cursorCol, options);
 			}
 
-			const prefix = match[1]; // "/<query>" or "/skill:<query>"
+			const prefix = match[1] ?? ""; // "/<query>" or "/skill:<query>"
 			const query = match[2] ?? "";
 			const skills = [...getSkills().values()];
 			const filtered = (query.trim() ? fuzzyFilter(skills, query, (s) => s.name) : skills).slice(0, MAX_SUGGESTIONS);
@@ -169,7 +147,7 @@ export default function (pi: ExtensionAPI): void {
 		}
 	};
 
-	patchEditorTriggerSlash();
+	installMidLineSlashTrigger();
 
 	pi.on("session_start", async (_event, ctx) => {
 		refresh(ctx.cwd, ctx.isProjectTrusted());
@@ -182,7 +160,8 @@ export default function (pi: ExtensionAPI): void {
 
 	// Sync skillMap from pi's authoritative loaded-skills list right before each agent run.
 	// This fires after `input`, priming the map for subsequent messages.
-	pi.on("before_agent_start", (event, _ctx) => {
+	pi.on("before_agent_start", (event, ctx) => {
+		if (!ctx.isProjectTrusted()) return;
 		const skills = (event as any).systemPromptOptions?.skills as Skill[] | undefined;
 		if (skills?.length) {
 			skillMap = new Map(skills.map((s) => [s.name, s]));

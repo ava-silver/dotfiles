@@ -20,7 +20,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
-import { getTransientSegments, setTransientOnChange } from "./shared/footer-segments.ts";
+import { getBackgroundCost, getTransientSegments, setTransientOnChange } from "./shared/footer-segments.ts";
 
 // ── Powerline characters ────────────────────────────────────────────────────
 const ARROW_RIGHT = "\uE0B4"; //  right half-circle
@@ -93,10 +93,12 @@ type Seg = {
  * The final arrow fades back to the terminal default background.
  */
 function renderLeft(segs: Seg[]): string {
-	if (!segs.length) return "";
-	let out = RESET_BG + fgHex(segs[0].bg) + ARROW_LEFT;
+	const first = segs[0];
+	if (!first) return "";
+	let out = RESET_BG + fgHex(first.bg) + ARROW_LEFT;
 	for (let i = 0; i < segs.length; i++) {
 		const s = segs[i];
+		if (!s) continue;
 		const nextBg = segs[i + 1]?.bg;
 
 		// Segment content
@@ -117,10 +119,11 @@ function renderLeft(segs: Seg[]): string {
  * The first arrow comes from the terminal default background.
  */
 function renderRight(segs: Seg[]): string {
-	if (!segs.length) return "";
+	if (!segs[0]) return "";
 	let out = "";
 	for (let i = 0; i < segs.length; i++) {
 		const s = segs[i];
+		if (!s) continue;
 		const prevBg = segs[i - 1]?.bg;
 
 		// Separator arrow: fg = this segment's bg, bg = previous segment's bg (or reset)
@@ -133,8 +136,8 @@ function renderRight(segs: Seg[]): string {
 		// Segment content
 		out += bgHex(s.bg) + fgHex(s.fg) + ` ${s.text} `;
 	}
-	const last = segs[segs.length - 1];
-	out += RESET_BG + fgHex(last.bg) + ARROW_RIGHT + RESET;
+	const last = segs.at(-1);
+	if (last) out += RESET_BG + fgHex(last.bg) + ARROW_RIGHT + RESET;
 	return out;
 }
 
@@ -219,6 +222,20 @@ function formatTokens(tokens: number): string {
 	return `${Math.round(tokens / 1_000_000)}M`;
 }
 
+type CostEntry = { id?: string; type?: string; message?: { role?: string; usage?: { cost?: { total?: number } } } };
+
+export function activeBranchCost(entries: readonly CostEntry[]): { cost: number; entryIds: Set<string> } {
+	let cost = 0;
+	const entryIds = new Set<string>();
+	for (const entry of entries) {
+		const amount = entry.message?.role === "assistant" ? entry.message.usage?.cost?.total : undefined;
+		if (typeof amount !== "number" || !Number.isFinite(amount)) continue;
+		cost += amount;
+		if (typeof entry.id === "string") entryIds.add(entry.id);
+	}
+	return { cost, entryIds };
+}
+
 // ── Extension ────────────────────────────────────────────────────────────────
 const MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 
@@ -230,6 +247,7 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 	let agentStartedAt: number | null = null;
 	let agentFinishedAt: number | null = null;
 	let sessionCost = 0;
+	let countedEntryIds = new Set<string>();
 	let currentModel = "";
 	let currentThinkingLevel: ThinkingLevel = "off";
 	let refreshId = 0;
@@ -255,7 +273,9 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 		savedCtx = ctx;
 		currentModel = formatModelName(ctx.model?.id ?? "?");
 		currentThinkingLevel = pi.getThinkingLevel();
-		sessionCost = 0;
+		({ cost: sessionCost, entryIds: countedEntryIds } = activeBranchCost(
+			ctx.sessionManager.getBranch() as CostEntry[],
+		));
 		branch = null;
 		diff = null;
 		agentStartedAt = null;
@@ -312,9 +332,9 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 						right.push({ text: `󰥔 ${elapsed} ago`, bg: C.panel, fg: C.dim });
 					}
 
-					// Session cost (always shown)
+					// Session cost, including background subagents (always shown)
 					right.push({
-						text: formatCost(sessionCost),
+						text: formatCost(sessionCost + getBackgroundCost()),
 						bg: C.panelAlt,
 						fg: C.dim,
 					});
@@ -361,6 +381,13 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 		void refreshGitState(ctx);
 	});
 
+	pi.on("session_tree", (_event, ctx) => {
+		({ cost: sessionCost, entryIds: countedEntryIds } = activeBranchCost(
+			ctx.sessionManager.getBranch() as CostEntry[],
+		));
+		tui?.requestRender();
+	});
+
 	pi.on("tool_execution_end", async (event, ctx) => {
 		if (ctx.mode !== "tui" || !MUTATING_TOOLS.has(event.toolName)) return;
 		await refreshGitState(ctx);
@@ -391,14 +418,19 @@ export default function powerlineExtension(pi: ExtensionAPI): void {
 		tui?.requestRender();
 	});
 
-	pi.on("message_end", (event, _ctx) => {
+	pi.on("message_end", (event, ctx) => {
 		const msg = event.message;
 		if (msg.role !== "assistant") return;
 
-		// Track session cost.
+		const entry = [...ctx.sessionManager.getEntries()]
+			.reverse()
+			.find((candidate: any) => candidate.type === "message" && candidate.message === msg);
+		if (entry?.id && countedEntryIds.has(entry.id)) return;
 		const cost = msg.usage?.cost?.total;
-		if (typeof cost === "number" && Number.isFinite(cost)) sessionCost += cost;
-
+		if (typeof cost === "number" && Number.isFinite(cost)) {
+			sessionCost += cost;
+			if (typeof entry?.id === "string") countedEntryIds.add(entry.id);
+		}
 		tui?.requestRender();
 	});
 

@@ -77,8 +77,10 @@ if ! brew bundle check --file="$REPO_DIR/Brewfile" >/dev/null 2>&1; then
     brew bundle --file="$REPO_DIR/Brewfile"
 fi
 
-# pi -- plugins are declared in pi/settings.json.
-bun install -g --ignore-scripts @earendil-works/pi-coding-agent
+# Pi -- plugins are declared in pi/settings.json. Keep the runtime aligned with
+# the extension SDK pinned in pi/extensions/package.json.
+PI_VERSION="$(jq -r '.devDependencies["@earendil-works/pi-coding-agent"]' "$REPO_DIR/pi/extensions/package.json")"
+bun install -g --ignore-scripts "@earendil-works/pi-coding-agent@$PI_VERSION"
 
 # dock/appswitcher config
 defaults write com.apple.dock appswitcher-all-displays -bool true

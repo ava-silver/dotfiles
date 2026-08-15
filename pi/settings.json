@@ -5,7 +5,7 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
-  "lastChangelogVersion": "0.84.1",
+  "lastChangelogVersion": "0.84.2",
   "theme": "catppuccin-frappe",
   "defaultThinkingLevel": "medium",
   "quietStartup": true,
@@ -17,11 +17,13 @@
     "../../repos/pi-spotify-provider"
   ],
   "extensions": [
-    "~/dotfiles/pi/extensions"
+    "~/dotfiles/pi/extensions",
+    "-extensions/trajectory/index.ts"
   ],
   "skills": [
     "~/skills/skills",
-    "~/dd/claude-marketplace/serverless/skills"
+    "~/dd/claude-marketplace/serverless/skills",
+    "~/dd/experimental/users/ava.silver/ssi/skills/"
   ],
   "prompts": [
     "~/dotfiles/pi/prompts"
