@@ -39,8 +39,18 @@ alias lr='ls -R | grep ":$" | sed -e '\''s/:$//'\'' -e '\''s/[^-][^\/]*\//--/g'\
 alias celeste="cd '/Users/ava.silver/Library/Application Support/Celeste'"
 
 #  -------------------------------MISC----------------------------------
-alias urldecode='sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"'
-alias urlencode="python -c 'import sys, urllib; print(urllib.parse.quote(sys.argv[1].strip(), safe=\"\"))'"
+urldecode() { : "${*//+/ }"; echo -e "${_//%/\\x}"; }
+urlencode() {
+    local l=${#1}
+    for (( i = 0 ; i < l ; i++ )); do
+        local c=${1:i:1}
+        case "$c" in
+            [a-zA-Z0-9.~_-]) printf "$c" ;;
+            ' ') printf + ;;
+            *) printf '%%%.2X' "'$c"
+        esac
+    done
+}
 alias xclip="pbcopy"
 
 alias brewi="brew update && brew install -y"
@@ -168,4 +178,3 @@ piredact() {
     pi --no-session --model dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731 \
         "Read the Seeker alert at $1. Print a short progress update before reading the alert, before redacting, and after verification. Collect every reported local file path that exists, then run exactly one command to redact and verify them: redact-secrets -- <absolute-path>... Do not read or print secret values yourself."
 }
-
