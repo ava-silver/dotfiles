@@ -105,14 +105,9 @@ link "$REPO_DIR/pi/pi-auto-rename.json" "$HOME/.pi/agent/extensions/pi-auto-rena
 # Install dependencies for local Pi extensions.
 if command -v bun >/dev/null 2>&1; then
     (cd "$REPO_DIR/pi/extensions" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/pi/extensions/subagents" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/pi/extensions/ask-user" && bun install --frozen-lockfile)
-    (cd "$REPO_DIR/pi/extensions/workflows" && bun install --frozen-lockfile)
 else
     echo "Warning: bun not found; Pi extension dependencies were not installed"
 fi
-# MCP server config consumed by pi-mcp-adapter.
-link "$REPO_DIR/pi/mcp.json" "$HOME/.config/mcp/mcp.json"
 
 config_link_all zed .config/zed
 link "$REPO_DIR/ghostty/config.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
