@@ -2,12 +2,8 @@
   "providers": {
     "openai-codex": {
       "modelOverrides": {
-        "gpt-5.6-sol": {
-          "contextWindow": 1050000
-        },
-        "gpt-5.6-terra": {
-          "contextWindow": 1050000
-        }
+        "gpt-5.6-sol": {},
+        "gpt-5.6-terra": {}
       }
     },
     "dd-ai-gateway": {
@@ -43,6 +39,38 @@
             "output": 0.26,
             "cacheRead": 0.028,
             "cacheWrite": 0
+          }
+        },
+        {
+          "id": "baseten/zai-org/GLM-5.2",
+          "name": "GLM 5.2 (Datadog AI Gateway)",
+          "api": "openai-completions",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": null,
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "input": ["text"],
+          "contextWindow": 1048576,
+          "maxTokens": 262144,
+          "cost": {
+            "input": 1.4,
+            "output": 4.4,
+            "cacheRead": 0.3,
+            "cacheWrite": 0
+          },
+          "compat": {
+            "thinkingFormat": "baseten",
+            "chatTemplateArgs": {
+              "enable_thinking": {
+                "$var": "thinking.enabled"
+              }
+            }
           }
         }
       ]
