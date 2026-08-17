@@ -104,8 +104,11 @@ async function waitForAuthorization(expectedState: string, signal?: AbortSignal)
 				return;
 			}
 
-			response.writeHead(200, { "content-type": "text/html" });
-			response.end("<h2>Slack authenticated</h2><p>You can close this tab and return to Pi.</p>");
+			response.writeHead(200, {
+				"cache-control": "no-store",
+				"content-type": "text/html; charset=utf-8",
+			});
+			response.end(authenticationCompletePage);
 			finish(undefined, code);
 		});
 
@@ -214,3 +217,105 @@ export async function refreshCredentials(refreshToken: string, signal?: AbortSig
 	await saveCredentials(credentials, signal);
 	return credentials;
 }
+
+const authenticationCompletePage = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Slack connected</title>
+  <style>
+    :root {
+      color: #f8f8f8;
+      background: #1d1c1d;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 12% 12%, #4a154b 0, transparent 34%),
+        radial-gradient(circle at 88% 88%, #1264a3 0, transparent 30%),
+        #1d1c1d;
+    }
+
+    main {
+      width: min(100% - 40px, 540px);
+      padding: 48px;
+      text-align: center;
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 28px;
+      background: rgb(36 35 36 / 82%);
+      box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+      backdrop-filter: blur(18px);
+    }
+
+    .mark {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 24px;
+      background: white;
+      box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+    }
+
+    .mark img { width: 52px; height: 52px; }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 8vw, 44px);
+      line-height: 1.08;
+      letter-spacing: -.04em;
+    }
+
+    p {
+      max-width: 360px;
+      margin: 18px auto 0;
+      color: #d1d2d3;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .return {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgb(255 255 255 / 12%);
+      color: #9f9fa0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 520px) {
+      main { padding: 36px 26px; }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .mark { animation: settle .5s cubic-bezier(.2, .9, .2, 1.2) both; }
+      @keyframes settle { from { opacity: 0; transform: scale(.65) rotate(-12deg); } }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">
+      <svg width="127" height="127" xmlns="http://www.w3.org/2000/svg">
+        <path d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2C6.7 93.2.8 87.3.8 80c0-7.3 5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V80z" fill="#E01E5A"/>
+        <path d="M47 27c-7.3 0-13.2-5.9-13.2-13.2C33.8 6.5 39.7.6 47 .6c7.3 0 13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9c0-7.3 5.9-13.2 13.2-13.2H47z" fill="#36C5F0"/>
+        <path d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V13.8C66.9 6.5 72.8.6 80.1.6c7.3 0 13.2 5.9 13.2 13.2v33.1z" fill="#2EB67D"/>
+        <path d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2 0-7.3 5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H80.1z" fill="#ECB22E"/>
+      </svg>
+    </div>
+    <h1>You’re connected</h1>
+    <p>Slack is ready to use in Pi. Return to your terminal to continue.</p>
+    <div class="return">You can safely close this tab.</div>
+  </main>
+</body>
+</html>`;
