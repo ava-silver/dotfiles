@@ -1,7 +1,7 @@
 # Match the iTerm2 Default profile.
 
 # Typography
-font-family = "MonoLisa Nerd Font"
+font-family = MonoLisa Nerd Font
 font-size = 18
 font-feature = -calt, -liga, -dlig
 adjust-cell-width = -10%
