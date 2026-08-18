@@ -6,9 +6,7 @@ set -euo pipefail
 # you can also set this as a git alias with:
 # git config --global alias.cr '!/path/to/create.sh'
 # which will allow you to use it like `git cr ticket-1234 summary of change`
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-
-if ! $SCRIPT_DIR/is-graphite.sh; then
+if ! is-graphite >/dev/null; then
     slug=$(printf '%s' "$*" \
         | LC_ALL=C tr '[:upper:]' '[:lower:]' \
         | LC_ALL=C sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')

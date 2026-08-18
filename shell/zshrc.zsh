@@ -151,6 +151,7 @@ fi
 [[ ! -f $HOME/.config/dogweb.shellrc ]] || source "$HOME/.config/dogweb.shellrc"
 
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
+export BATS_LIB_PATH=$HOME/.local/lib/bats
 export PYENCHANT_LIBRARY_PATH=/opt/homebrew/lib/libenchant-2.2.dylib
 export GPG_TTY=$(tty)
 

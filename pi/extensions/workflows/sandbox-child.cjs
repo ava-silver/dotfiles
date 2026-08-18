@@ -1,8 +1,8 @@
 "use strict";
 
-// This file is launched by sandbox.ts in Node permission mode. It deliberately
-// has no filesystem/network/child-process permissions and receives workflow
-// source only over a validated IPC channel.
+// This file runs workflow source inside a restricted VM and receives it only
+// over a validated IPC channel. The child process provides fault isolation,
+// not a security boundary.
 const vm = require("node:vm");
 const sendIpc = typeof process.send === "function" ? process.send.bind(process) : undefined;
 // If a future V8 escape exposes `process`, remove the convenient bridges to
@@ -16,7 +16,7 @@ for (const capability of ["getBuiltinModule", "binding", "_linkedBinding", "dlop
 			configurable: false,
 		});
 	} catch {
-		// The VM boundary and permission mode remain mandatory controls.
+		// Workflow code still has no direct reference to process.
 	}
 }
 
