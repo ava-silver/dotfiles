@@ -1,20 +1,16 @@
-import { readFileSync } from "node:fs";
-import type { BuildSystemPromptOptions, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const STATE_TYPE = "google-style-mode";
 const STATUS_ID = "google-style";
+const STATE_FILE = "google-style.json";
 
 interface StyleState {
 	enabled: boolean;
 }
 
-const FALLBACK_STYLE = `- Address the reader as "you."
-- Use active voice, present tense, and standard American English.
-- Be conversational, friendly, respectful, direct, and concise.
-- Write for a global audience. Avoid slang, idioms, hype, jargon, and culturally specific references.
-- Put conditions before instructions.
-- Use sentence case, descriptive links, and the serial comma.
-- Format code in code font and literal UI elements in bold.`;
+const GOOGLE_STYLE_PROMPT = `Apply Google developer documentation style to every user-facing response. Address the reader as "you." Use active voice, present tense, standard American English, and concise, direct language. Write for a global audience. Avoid jargon, slang, idioms, hype, and unnecessary detail. Use sentence case, serial commas, descriptive links, code font for code, and bold for literal UI elements.`;
 
 export function parseGoogleStyleMode(args: string): boolean | undefined {
 	switch (args.trim().toLowerCase()) {
@@ -30,36 +26,30 @@ export function parseGoogleStyleMode(args: string): boolean | undefined {
 	}
 }
 
-export function restoreGoogleStyleMode(ctx: ExtensionContext): boolean {
-	let enabled = false;
-	for (const entry of ctx.sessionManager.getBranch()) {
-		if (entry.type !== "custom" || entry.customType !== STATE_TYPE) continue;
-		const state = entry.data as StyleState | undefined;
-		if (typeof state?.enabled === "boolean") enabled = state.enabled;
-	}
-	return enabled;
+export function getGoogleStyleStatePath(
+	configDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent"),
+): string {
+	return join(configDir, STATE_FILE);
 }
 
-function stripFrontmatter(markdown: string): string {
-	if (!markdown.startsWith("---\n")) return markdown.trim();
-	const end = markdown.indexOf("\n---\n", 4);
-	return end === -1 ? markdown.trim() : markdown.slice(end + 5).trim();
+export function readGoogleStyleMode(statePath = getGoogleStyleStatePath()): boolean {
+	try {
+		const state = JSON.parse(readFileSync(statePath, "utf8")) as StyleState;
+		return state.enabled === true;
+	} catch {
+		return false;
+	}
 }
 
-export function buildGoogleStylePrompt(skills: BuildSystemPromptOptions["skills"]): string {
-	const skill = skills?.find(({ name }) => name === "google-developer-style");
-	let guidance = FALLBACK_STYLE;
-	if (skill) {
-		try {
-			guidance = stripFrontmatter(readFileSync(skill.filePath, "utf8"));
-		} catch {}
-	}
+export function writeGoogleStyleMode(enabled: boolean, statePath = getGoogleStyleStatePath()): void {
+	mkdirSync(dirname(statePath), { recursive: true });
+	writeFileSync(statePath, `${JSON.stringify({ enabled })}\n`, { mode: 0o600 });
+}
 
+export function buildGoogleStylePrompt(): string {
 	return `## Active writing style: Google developer documentation
 
-Apply this style to every user-facing response, including ordinary conversation, status updates, explanations, and written artifacts. It governs prose, tone, organization, and formatting; it does not change technical decisions or tool behavior. Explicit user and project requirements still take precedence. Do not announce or discuss the active style unless asked.
-
-${guidance}`;
+${GOOGLE_STYLE_PROMPT}`;
 }
 
 function updateStatus(ctx: ExtensionContext, enabled: boolean): void {
@@ -71,15 +61,17 @@ export default function googleStyleExtension(pi: ExtensionAPI): void {
 	let enabled = false;
 
 	const restore = (ctx: ExtensionContext): void => {
-		enabled = restoreGoogleStyleMode(ctx);
+		enabled = readGoogleStyleMode();
 		updateStatus(ctx, enabled);
 	};
 
 	pi.registerCommand("google-style", {
-		description: "Switch Google writing style on or off for this session",
+		description: "Switch Google writing style on or off globally",
 		handler: async (args, ctx) => {
 			const normalized = args.trim().toLowerCase();
 			if (normalized === "" || normalized === "status") {
+				enabled = readGoogleStyleMode();
+				updateStatus(ctx, enabled);
 				ctx.ui.notify(`Google style is ${enabled ? "on" : "off"}`, "info");
 				return;
 			}
@@ -91,19 +83,19 @@ export default function googleStyleExtension(pi: ExtensionAPI): void {
 			}
 
 			enabled = next;
-			pi.appendEntry<StyleState>(STATE_TYPE, { enabled });
+			writeGoogleStyleMode(enabled);
 			updateStatus(ctx, enabled);
 			ctx.ui.notify(`Google style ${enabled ? "enabled" : "disabled"}`, "info");
 		},
 	});
 
 	pi.on("session_start", async (_event, ctx) => restore(ctx));
-	pi.on("session_tree", async (_event, ctx) => restore(ctx));
 
 	pi.on("before_agent_start", async (event) => {
+		enabled = readGoogleStyleMode();
 		if (!enabled) return;
 		return {
-			systemPrompt: `${event.systemPrompt}\n\n${buildGoogleStylePrompt(event.systemPromptOptions.skills)}`,
+			systemPrompt: `${event.systemPrompt}\n\n${buildGoogleStylePrompt()}`,
 		};
 	});
 }

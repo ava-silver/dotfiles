@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import type { BuildSystemPromptOptions, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildGoogleStylePrompt, parseGoogleStyleMode, restoreGoogleStyleMode } from "../google-style.ts";
+import {
+	buildGoogleStylePrompt,
+	parseGoogleStyleMode,
+	readGoogleStyleMode,
+	writeGoogleStyleMode,
+} from "../google-style.ts";
 
 test("parses Google style modes", () => {
 	assert.equal(parseGoogleStyleMode("on"), true);
@@ -14,41 +18,21 @@ test("parses Google style modes", () => {
 	assert.equal(parseGoogleStyleMode("status"), undefined);
 });
 
-test("restores the latest Google style mode from the current branch", () => {
-	const ctx = {
-		sessionManager: {
-			getBranch: () => [
-				{ type: "custom", customType: "google-style-mode", data: { enabled: true } },
-				{ type: "custom", customType: "other", data: { enabled: true } },
-				{ type: "custom", customType: "google-style-mode", data: { enabled: false } },
-			],
-		},
-	} as unknown as ExtensionContext;
-
-	assert.equal(restoreGoogleStyleMode(ctx), false);
-});
-
-test("builds a session-wide prompt from the Google style skill", () => {
+test("persists the Google style mode outside the session", () => {
 	const root = mkdtempSync(join(tmpdir(), "google-style-"));
+	const statePath = join(root, "state", "google-style.json");
 	try {
-		const skillPath = join(root, "SKILL.md");
-		writeFileSync(skillPath, "---\nname: google-developer-style\n---\n\nUse active voice.\n");
-		const skills = [
-			{
-				name: "google-developer-style",
-				description: "test",
-				filePath: skillPath,
-				baseDir: root,
-				sourceInfo: { path: skillPath, source: "test", scope: "user", origin: "top-level" },
-				disableModelInvocation: false,
-			},
-		] satisfies NonNullable<BuildSystemPromptOptions["skills"]>;
-
-		const prompt = buildGoogleStylePrompt(skills);
-		assert.match(prompt, /every user-facing response/);
-		assert.match(prompt, /Use active voice\./);
-		assert.doesNotMatch(prompt, /name: google-developer-style/);
+		assert.equal(readGoogleStyleMode(statePath), false);
+		writeGoogleStyleMode(true, statePath);
+		assert.equal(readGoogleStyleMode(statePath), true);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
+});
+
+test("builds a concise Google style prompt", () => {
+	const prompt = buildGoogleStylePrompt();
+	assert.match(prompt, /every user-facing response/);
+	assert.match(prompt, /Use active voice/);
+	assert.ok(prompt.length < 500);
 });
