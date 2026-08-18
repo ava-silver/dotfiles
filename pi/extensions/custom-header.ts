@@ -20,6 +20,7 @@ type HeaderColorSource = { kind: "theme"; token: ThemeColor } | { kind: "rgb"; v
 
 const ANSI_RESET = "\x1b[0m";
 const HEX_RGB_PATTERN = /^#[0-9a-fA-F]{6}$/;
+const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const ANSI_16_RGB_TABLE: Rgb[] = [
 	[0, 0, 0],
@@ -141,7 +142,11 @@ function paintRgb(rgb: Rgb, text: string): string {
 }
 
 class HeaderColor {
-	private constructor(private readonly source: HeaderColorSource) {}
+	private readonly source: HeaderColorSource;
+
+	private constructor(source: HeaderColorSource) {
+		this.source = source;
+	}
 
 	static fromThemeColor(token: ThemeColor): HeaderColor {
 		return new HeaderColor({ kind: "theme", token });
@@ -339,8 +344,8 @@ function sampleGradient(palette: Rgb[], position: number): Rgb {
 
 function renderGradientText(text: string, palette: Rgb[], phase: number): string {
 	const span = Math.max(LOGO_BLOCK_WIDTH - 1, 1);
-	return [...text]
-		.map((ch, i) => {
+	return Array.from(GRAPHEME_SEGMENTER.segment(text))
+		.map(({ segment: ch }, i) => {
 			if (ch === " ") return ch;
 			return paintRgb(sampleGradient(palette, i / span + phase), ch);
 		})
