@@ -34,7 +34,8 @@
     trans
     # os_icon                 # os identifier
     dir                     # current directory
-    vcs                     # git status
+    vcs                     # git status (gitstatus/libgit2; works for files-backed repos)
+    gitcli                  # git status via `git` CLI (fallback for reftable/extension repos)
     # =========================[ Line #2 ]=========================
     newline                 # \n
     prompt_char             # prompt symbol
@@ -505,6 +506,170 @@
   # using them. If you do, your prompt may become slow even when your current directory
   # isn't in an svn or hg repository.
   typeset -g POWERLEVEL9K_VCS_BACKENDS=(git)
+
+  ######################[ gitcli: git-CLI fallback for reftable repos ]#######################
+  # p10k's built-in `vcs` segment is powered by the gitstatus daemon, which uses an
+  # embedded libgit2 to open repositories. libgit2 (as shipped with gitstatus) cannot
+  # open repositories that use Git's `reftable` ref-storage backend
+  # (core.repositoryformatversion=1 + extensions.refstorage=reftable), so `vcs` silently
+  # shows nothing for those repos (e.g. web-ui). See romkatv/gitstatus#455.
+  #
+  # This custom `gitcli` segment shells out to the system `git` binary instead, which
+  # handles reftable fine. It renders *only* for extension-based repos
+  # (repositoryformatversion != 0); classic files-backed repos are left to the `vcs`
+  # segment so its rich gitstatus formatting is preserved. All work runs in p10k's async
+  # worker, so the prompt never blocks on `git status` (which can be slow in very large
+  # repos). Glyphs match the `my_git_formatter` style above.
+  prompt_gitcli() {
+    local -i len=$#_p9k__prompt _p9k__has_upglob
+    # If the cached data isn't for the current repo, show "loading" until the async
+    # worker refreshes it.
+    if [[ -z $_p9k__gitcli_dir ]] \
+       || [[ $_p9k__cwd_a != $_p9k__gitcli_dir && $_p9k__cwd_a != $_p9k__gitcli_dir/* ]]; then
+      _p9k__gitcli_clean=; _p9k__gitcli_modified=; _p9k__gitcli_untracked=; _p9k__gitcli_conflicted=
+      _p9k__gitcli_loading=1
+      _p9k__gitcli_text='loading'
+    else
+      _p9k__gitcli_loading=
+    fi
+    _p9k_prompt_segment prompt_gitcli_CLEAN      2 $_p9k_color1 '' 1 '$_p9k__gitcli_clean'      '$_p9k__gitcli_text'
+    _p9k_prompt_segment prompt_gitcli_MODIFIED   3 $_p9k_color1 '' 1 '$_p9k__gitcli_modified'   '$_p9k__gitcli_text'
+    _p9k_prompt_segment prompt_gitcli_UNTRACKED  2 $_p9k_color1 '' 1 '$_p9k__gitcli_untracked'  '$_p9k__gitcli_text'
+    _p9k_prompt_segment prompt_gitcli_CONFLICTED 3 $_p9k_color1 '' 1 '$_p9k__gitcli_conflicted' '$_p9k__gitcli_text'
+    _p9k_prompt_segment prompt_gitcli_LOADING    8 $_p9k_color1 '' 1 '$_p9k__gitcli_loading'    '$_p9k__gitcli_text'
+    (( _p9k__has_upglob )) || typeset -g "_p9k__segment_val_${_p9k__prompt_side}[$_p9k__segment_index]"=$_p9k__prompt[len+1,-1]
+  }
+
+  _p9k_prompt_gitcli_init() {
+    typeset -g _p9k__gitcli_dir=
+    typeset -g _p9k__gitcli_text=
+    typeset -g _p9k__gitcli_clean=
+    typeset -g _p9k__gitcli_modified=
+    typeset -g _p9k__gitcli_untracked=
+    typeset -g _p9k__gitcli_conflicted=
+    typeset -g _p9k__gitcli_loading=
+    _p9k__async_segments_compute+='_p9k_worker_invoke gitcli "_p9k_prompt_gitcli_compute ${(q)_p9k__cwd_a}"'
+  }
+
+  _p9k_prompt_gitcli_compute() {
+    _p9k_worker_async "_p9k_prompt_gitcli_async ${(q)1}" _p9k_prompt_gitcli_sync
+  }
+
+  _p9k_prompt_gitcli_sync() {
+    eval $REPLY
+    _p9k_worker_reply $REPLY
+  }
+
+  # Runs in a process-substitution subshell inside the p10k async worker.
+  _p9k_prompt_gitcli_async() {
+    local dir=$1
+    local new_dir=$dir new_text= new_clean= new_modified= new_untracked= new_conflicted= new_loading=
+
+    if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+      :  # not a git repo -> show nothing
+    else
+      local rv
+      rv=$(git -C "$dir" config --local core.repositoryformatversion 2>/dev/null)
+      if [[ $rv == 1 ]]; then
+        # Extension-based repo (e.g. reftable) that gitstatus/libgit2 cannot open.
+        new_dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+        new_dir=${new_dir:A}
+
+        local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
+        local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
+
+        local branch=
+        branch=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=
+        if [[ -z $branch ]]; then
+          local tag
+          tag=$(git -C "$dir" describe --tags --exact-match HEAD 2>/dev/null)
+          if [[ -n $tag ]]; then
+            branch="#${tag}"
+          else
+            branch="@$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+          fi
+        fi
+
+        local text="${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
+
+        local counts behind ahead
+        counts=$(git -C "$dir" rev-list --left-right --count '@{upstream}'...HEAD 2>/dev/null) || counts=
+        if [[ -n $counts ]]; then
+          behind=${counts%%$'\t'*}
+          ahead=${counts##*$'\t'}
+          (( behind )) && text+=" ${g_behind} ${behind}"
+          (( ahead )) && text+=" ${g_ahead} ${ahead}"
+        fi
+
+        local -i staged=0 unstaged=0 untracked=0 conflicted=0
+        local line xy
+        while IFS= read -r line; do
+          case $line in
+            'u '*) (( conflicted++ )) ;;
+            '1 '?*|'2 '?*)
+              # In porcelain v2, '.' means unmodified (v1 uses a space).
+              xy=${line[3,4]}
+              [[ ${xy[1]} != ' ' && ${xy[1]} != '.' ]] && (( staged++ ))
+              [[ ${xy[2]} != ' ' && ${xy[2]} != '.' ]] && (( unstaged++ ))
+              ;;
+            '?'*) (( untracked++ )) ;;
+          esac
+        done < <(git -C "$dir" status --porcelain=v2 --no-renames 2>/dev/null)
+
+        local gdabs action=
+        gdabs=$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null) || gdabs=
+        if [[ -n $gdabs ]]; then
+          if [[ -f $gdabs/MERGE_HEAD ]]; then
+            action='merge'
+          elif [[ -d $gdabs/rebase-merge || -d $gdabs/rebase-apply ]]; then
+            action='rebase'
+          elif [[ -f $gdabs/CHERRY_PICK_HEAD ]]; then
+            action='cherry'
+          fi
+        fi
+
+        (( staged )) && text+=" ${g_staged} ${staged}"
+        (( unstaged )) && text+=" ${g_unstaged} ${unstaged}"
+        (( untracked )) && text+=" ${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${untracked}"
+        (( conflicted )) && text+=" ${g_conflicted}${conflicted}"
+        [[ -n $action ]] && text+=" ${action}"
+
+        new_text=$text
+        if (( conflicted )) || [[ -n $action ]]; then
+          new_conflicted=1
+        elif (( staged || unstaged )); then
+          new_modified=1
+        elif (( untracked )); then
+          new_untracked=1
+        else
+          new_clean=1
+        fi
+      else
+        # Classic files-backed repo: defer to the gitstatus-based `vcs` segment.
+        new_dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+        new_dir=${new_dir:A}
+      fi
+    fi
+
+    # Suppress prompt re-render when nothing changed.
+    if [[ $new_dir == $_p9k__gitcli_dir && $new_text == $_p9k__gitcli_text \
+       && $new_clean == $_p9k__gitcli_clean && $new_modified == $_p9k__gitcli_modified \
+       && $new_untracked == $_p9k__gitcli_untracked && $new_conflicted == $_p9k__gitcli_conflicted \
+       && $new_loading == $_p9k__gitcli_loading ]]; then
+      return
+    fi
+
+    _p9k__gitcli_dir=$new_dir
+    _p9k__gitcli_text=$new_text
+    _p9k__gitcli_clean=$new_clean
+    _p9k__gitcli_modified=$new_modified
+    _p9k__gitcli_untracked=$new_untracked
+    _p9k__gitcli_conflicted=$new_conflicted
+    _p9k__gitcli_loading=$new_loading
+    _p9k_print_params _p9k__gitcli_dir _p9k__gitcli_text _p9k__gitcli_clean \
+      _p9k__gitcli_modified _p9k__gitcli_untracked _p9k__gitcli_conflicted _p9k__gitcli_loading
+    echo -E - 'reset=1'
+  }
 
   ##########################[ status: exit code of the last command ]###########################
   # Enable OK_PIPE, ERROR_PIPE and ERROR_SIGNAL status states to allow us to enable, disable and
