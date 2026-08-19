@@ -7,7 +7,7 @@
   },
   "lastChangelogVersion": "0.84.2",
   "theme": "catppuccin-frappe",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "quietStartup": true,
   "hideThinkingBlock": false,
   "packages": [
@@ -35,8 +35,8 @@
   "themes": [
     "~/dotfiles/pi/themes"
   ],
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
+  "defaultProvider": "dd-ai-gateway",
+  "defaultModel": "baseten/zai-org/GLM-5.2",
   "enabledModels": [
     "dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731",
     "dd-ai-gateway/baseten/zai-org/GLM-5.2",
