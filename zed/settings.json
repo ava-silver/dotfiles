@@ -70,17 +70,6 @@
   "show_edit_predictions": true,
   "edit_predictions": {
     "mode": "eager",
-    "provider": "ollama",
-    "ollama": {
-      "model": "qwen2.5-coder:7b",
-      "max_output_tokens": 128,
-      "api_url": "https://ai-devx-ide.us1.prod.dog/internal/ide/ollama",
-    },
-  },
-  "language_models": {
-    "ollama": {
-      "api_url": "https://ai-devx-ide.us1.prod.dog/internal/ide/ollama",
-    },
   },
   "agent_servers": {
     "pi-acp": {
