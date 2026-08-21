@@ -75,10 +75,9 @@ export ARCHFLAGS="-arch x86_64"
 source $ZSH/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f $DOTFILES/.p10k.zsh ]] || source $DOTFILES/.p10k.zsh
+[[ ! -f $HOME/.p10k.zsh ]] || source $HOME/.p10k.zsh
 
 [[ ! -f $HOME/.zsh_aliases ]] || source $HOME/.zsh_aliases
-[[ ! -f $DOTFILES/.cargo_vars ]] || source $DOTFILES/.cargo_vars
 
 path+=/home/ava/.local/bin
 path+=/home/ava/.cargo/bin
