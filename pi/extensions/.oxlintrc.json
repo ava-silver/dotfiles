@@ -1,0 +1,14 @@
+{
+	"rules": {
+		"no-control-regex": "off"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.ts"],
+			"rules": {
+				"typescript/no-floating-promises": "off",
+				"typescript/unbound-method": "off"
+			}
+		}
+	]
+}

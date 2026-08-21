@@ -1,0 +1,27 @@
+{
+  "npmCommand": ["bun"],
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "lastChangelogVersion": "0.84.2",
+  "theme": "catppuccin-frappe",
+  "defaultThinkingLevel": "medium",
+  "quietStartup": true,
+  "hideThinkingBlock": false,
+  "packages": [
+    "npm:pi-btw",
+    "npm:pi-web-access",
+    "npm:@ff-labs/pi-fff",
+    "../../repos/pi-spotify-provider"
+  ],
+  "extensions": ["~/dotfiles/pi/extensions"],
+  "skills": ["~/skills/skills"],
+  "prompts": ["~/dotfiles/pi/prompts"],
+  "themes": ["~/dotfiles/pi/themes"],
+  "defaultProvider": "spotify",
+  "defaultModel": "claude-sonnet-4-6@default",
+  "enabledModels": [
+    "spotify/claude-sonnet-4-6@default",
+    "spotify/claude-opus-4-6@default"
+  ]
+}

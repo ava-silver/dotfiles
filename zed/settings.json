@@ -7,8 +7,18 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "edit_predictions": {
+    "mode": "eager",
+  },
+  "tab_size": 2,
+  "languages": {
+    "Python": {
+      "tab_size": 4,
+    },
+  },
+  "diff_view_style": "unified",
   "icon_theme": "Material Icon Theme",
-  "cli_default_open_behavior": "new_window",
+  "cli_default_open_behavior": "existing_window",
   "project_panel": {
     "dock": "left",
   },
@@ -19,24 +29,27 @@
     "dock": "right",
   },
   "agent": {
+    "notify_when_agent_waiting": "all_screens",
     "thinking_display": "always_collapsed",
     "button": true,
-    "dock": "left",
+    "dock": "right",
+    "terminal_init_command": "pi",
     "favorite_models": [],
     "model_parameters": [],
   },
   "git_panel": {
-    "dock": "left",
+    "dock": "right",
   },
   "session": {
     "trust_all_worktrees": true,
   },
   "terminal": {
-    "font_size": 14.0,
+    "dock": "bottom",
+    "font_size": 12.0,
     "font_family": "MonoLisa Nerd Font",
     "cursor_shape": "bar",
+    "line_height": "standard",
     "blinking": "on",
-    "shell": "system",
   },
   "telemetry": {
     "diagnostics": false,
@@ -63,9 +76,18 @@
   "colorize_brackets": true,
   "auto_indent_on_paste": true,
   "linked_edits": true,
-  "show_edit_predictions": true,
+  "show_edit_predictions": false,
   "agent_servers": {
-    "gemini": {
+    "pi-acp": {
+      "type": "registry",
+    },
+    "codex-acp": {
+      "type": "registry",
+    },
+    "claude-acp": {
+      "default_config_options": {
+        "model": "sonnet",
+      },
       "type": "registry",
     },
   },
@@ -75,5 +97,8 @@
     "mode": "system",
     "light": "One Light",
     "dark": "Catppuccin Macchiato",
+  },
+  "instrumentation": {
+    "performance_profiler": { "enabled": true },
   },
 }

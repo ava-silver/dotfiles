@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
 # DNF Apps
-sudo dnf install firefox snapd solaar gimp gnome-tweaks nextcloud-client python3 rust cargo ImageMagick ranger sqlite3 vim nodejs -y --allowerasing
+sudo dnf install firefox solaar gnome-tweaks python3 rust cargo ImageMagick ranger sqlite3 vim nodejs -y --allowerasing
 
 
 # Flatpak apps
@@ -18,9 +18,6 @@ sudo flatpak install flathub com.google.AndroidStudio -y
 sudo flatpak install flathub com.valvesoftware.Steam -y
 sudo flatpak install flathub com.mattjakeman.ExtensionManager -y
 
-# Snap apps
-[ ! -L "/snap" ] && sudo ln -s /var/lib/snapd/snap /snap
-sudo snap install code --classic
 
 # npm apps
 sudo npm install -g @withgraphite/graphite-cli@stable
@@ -30,4 +27,3 @@ sudo npm install -g @withgraphite/graphite-cli@stable
 
 # Minecraft
 # Monero GUI
-

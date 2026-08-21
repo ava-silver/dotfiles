@@ -1,0 +1,542 @@
+/**
+ * Subagents — spawn background pi subagents, each a headless in-process
+ * agent session with its own context window.
+ *
+ * Tools (for the parent LLM):
+ * - subagent_spawn: fire-and-forget spawn (prompt, name, working_dir,
+ *   model, reasoning_effort). Max 16 running at once.
+ * - subagent_wait: block until the listed subagents settle, return results.
+ * - subagent_cancel: stop one or more running subagents.
+ * - subagent_check: peek at a subagent's status and recent activity.
+ * - subagent_list: list all subagents.
+ *
+ * Unawaited subagents queue their result as a follow-up message when they
+ * settle. `/background` opens the shared task picker and takeover view.
+ */
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { StringEnum } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import {
+	DEFAULT_MAX_BYTES,
+	DEFAULT_MAX_LINES,
+	formatSize,
+	getMarkdownTheme,
+	truncateHead,
+} from "@earendil-works/pi-coding-agent";
+import { Markdown, Text } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
+import { formatElapsed, latestText, REASONING_EFFORTS, type SubagentSnapshot } from "./src/domain.ts";
+import { formatContextUtilization } from "../shared/context-utilization.ts";
+import { registerBackgroundCost, registerTransientSegment } from "../shared/footer-segments.ts";
+import { resolveStandaloneChildProjectTrust } from "../shared/child-session.ts";
+import { SubagentManager, type SubagentManagerShape } from "./src/manager.ts";
+import {
+	buildSubagentResultMessage,
+	buildSubagentSpawnResult,
+	SUBAGENT_CANCEL_PARAMETER_DESCRIPTIONS,
+	SUBAGENT_CANCEL_TOOL_DESCRIPTION,
+	SUBAGENT_CHECK_PARAMETER_DESCRIPTIONS,
+	SUBAGENT_CHECK_TOOL_DESCRIPTION,
+	SUBAGENT_LIST_TOOL_DESCRIPTION,
+	SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS,
+	SUBAGENT_SPAWN_PROMPT_GUIDELINES,
+	SUBAGENT_SPAWN_PROMPT_SNIPPET,
+	SUBAGENT_SPAWN_TOOL_DESCRIPTION,
+	SUBAGENT_WAIT_PARAMETER_DESCRIPTIONS,
+	SUBAGENT_WAIT_TOOL_DESCRIPTION,
+} from "./src/prompt.ts";
+import { createDeferredResultDelivery } from "./src/result-delivery.ts";
+import { createSubagentRuntime, runTool, type SubagentRuntime } from "./src/runtime.ts";
+import { openTakeoverView } from "./src/ui/takeover.ts";
+import type { BackgroundHub } from "./src/hub.ts";
+
+const SUBAGENT_OUTPUT_MAX_BYTES = 24 * 1024;
+const WAIT_OUTPUT_MAX_BYTES = 48 * 1024;
+const WAIT_PER_AGENT_MAX_BYTES = 16 * 1024;
+
+function describeSubagent(snap: SubagentSnapshot) {
+	const details = [
+		snap.meta.modelLabel ?? "?",
+		formatContextUtilization(snap.usage),
+		formatElapsed(snap),
+		snap.cwd,
+	].filter(Boolean);
+	return `${snap.id} [${snap.status}] "${snap.title}" (${details.join(", ")})`;
+}
+
+function truncatedOutput(snap: SubagentSnapshot, maxBytes = SUBAGENT_OUTPUT_MAX_BYTES): string {
+	const output = snap.finalText || "(no output)";
+	const truncation = truncateHead(output, {
+		maxBytes: Math.min(maxBytes, DEFAULT_MAX_BYTES),
+		maxLines: Math.min(600, DEFAULT_MAX_LINES),
+	});
+	let text = truncation.content;
+	if (truncation.truncated) {
+		text += `\n\n[Output truncated: ${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)} shown. Full transcript in session file: ${snap.meta.sessionFilePath ?? "?"}]`;
+	}
+	return text;
+}
+
+export function setupSubagents(pi: ExtensionAPI, background: BackgroundHub) {
+	let runtime: SubagentRuntime | undefined;
+	let managerPromise: Promise<SubagentManagerShape> | undefined;
+	let managerView: SubagentManagerShape["view"] | undefined;
+	let sessionContext: ExtensionContext | undefined;
+	let ui: ExtensionUIContext | undefined;
+	let unsubStatus: (() => void) | undefined;
+	let costKey: string | undefined;
+	const resultDelivery = createDeferredResultDelivery<SubagentSnapshot>();
+
+	const getRuntime = () => (runtime ??= createSubagentRuntime());
+
+	/** Resolve the manager service once per runtime and wire the extension hooks. */
+	const getManager = () => {
+		managerPromise ??= getRuntime()
+			.runPromise(SubagentManager)
+			.then((manager) => {
+				manager.view.setOnSettled(onSettled);
+				managerView = manager.view;
+				unsubStatus?.();
+				unsubStatus = manager.view.subscribe(() => updateStatus(manager));
+				updateStatus(manager);
+				return manager;
+			});
+		return managerPromise;
+	};
+
+	const updateStatus = (manager: SubagentManagerShape) => {
+		const subs = manager.view.list();
+		if (costKey)
+			registerBackgroundCost(
+				costKey,
+				subs.reduce((total, snap) => total + snap.cost, 0),
+			);
+		if (!ui) return;
+		if (subs.length === 0) {
+			registerTransientSegment("subagents", null);
+			return;
+		}
+		const running = subs.filter((snap) => snap.status === "running").length;
+		const failed = subs.filter((snap) => snap.status === "error").length;
+		const done = subs.length - running - failed;
+		const parts: string[] = [];
+		if (running > 0) parts.push(`${running} running`);
+		if (done > 0) parts.push(`${done} done`);
+		if (failed > 0) parts.push(`${failed} failed`);
+		const bg = failed > 0 ? "#e78284" : running > 0 ? "#81c8be" : "#a6d189";
+		registerTransientSegment("subagents", { text: parts.join(" · "), bg, fg: "#1e2030" });
+	};
+
+	const deliverResult = (snap: SubagentSnapshot) => {
+		pi.sendMessage(
+			{
+				customType: "subagent-result",
+				content: buildSubagentResultMessage({
+					id: snap.id,
+					title: snap.title,
+					status: snap.status,
+					...(snap.errorText === undefined ? {} : { errorText: snap.errorText }),
+					output: truncatedOutput(snap),
+				}),
+				display: true,
+				details: { id: snap.id, title: snap.title, status: snap.status },
+			},
+			{ deliverAs: "followUp", triggerTurn: true },
+		);
+	};
+
+	const flushResults = () => {
+		for (const snap of resultDelivery.drain()) deliverResult(snap);
+	};
+
+	const onSettled = (snap: SubagentSnapshot, consumed: boolean) => {
+		if (consumed) {
+			resultDelivery.consume([snap.id]);
+			return;
+		}
+		// Keep the result retractable while the parent is working. A later
+		// subagent_wait can consume it before agent_settled flushes follow-ups.
+		// Defer a copy: the live snapshot keeps mutating if the subagent is
+		// restarted before the deferred result flushes.
+		resultDelivery.defer({ ...snap, meta: { ...snap.meta } });
+		if (sessionContext?.isIdle()) flushResults();
+	};
+
+	let unregisterProvider: (() => void) | undefined;
+
+	pi.on("session_start", (_event, ctx) => {
+		sessionContext = ctx;
+		costKey = `subagents:${ctx.sessionManager.getSessionId()}`;
+		if (ctx.hasUI) ui = ctx.ui;
+		unregisterProvider?.();
+		unregisterProvider = background.registerProvider("subagents", {
+			label: "Subagents",
+			list() {
+				return (managerView?.list() ?? []).map((snap) => ({
+					id: snap.id,
+					title: snap.title,
+					status: snap.status,
+					elapsed: () => formatElapsed(snap),
+					meta: () => {
+						const parts: string[] = [];
+						if (snap.meta.modelLabel) parts.push(snap.meta.modelLabel);
+						const util = formatContextUtilization(snap.usage);
+						if (util) parts.push(util);
+						return parts;
+					},
+				}));
+			},
+			subscribe(cb) {
+				return managerView?.subscribe(cb) ?? (() => {});
+			},
+			async openDetail(id, ctx) {
+				const manager = await getManager();
+				await openTakeoverView(id, ctx, manager.view);
+			},
+			kill(id) {
+				managerView?.requestAbort(id);
+			},
+		});
+	});
+
+	pi.on("agent_settled", flushResults);
+
+	pi.on("session_shutdown", async () => {
+		sessionContext = undefined;
+		resultDelivery.clear();
+		unsubStatus?.();
+		unsubStatus = undefined;
+		registerTransientSegment("subagents", null);
+		if (costKey) registerBackgroundCost(costKey, null);
+		costKey = undefined;
+		const closing = runtime;
+		runtime = undefined;
+		managerPromise = undefined;
+		managerView = undefined;
+		unregisterProvider?.();
+		unregisterProvider = undefined;
+		// Disposing the runtime runs the manager finalizer, which tears down all
+		// subagent scopes (and, later, their real child processes).
+		await closing?.dispose();
+	});
+
+	// --- Tools -------------------------------------------------------------
+
+	pi.registerTool({
+		name: "subagent_spawn",
+		label: "Spawn Subagent",
+		description: SUBAGENT_SPAWN_TOOL_DESCRIPTION,
+		promptSnippet: SUBAGENT_SPAWN_PROMPT_SNIPPET,
+		promptGuidelines: SUBAGENT_SPAWN_PROMPT_GUIDELINES,
+		parameters: Type.Object({
+			prompt: Type.String({
+				description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.prompt,
+			}),
+			name: Type.String({
+				description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.name,
+			}),
+			working_dir: Type.Optional(
+				Type.String({
+					description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.workingDir,
+				}),
+			),
+			model: Type.Optional(
+				Type.String({
+					description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.model,
+				}),
+			),
+			reasoning_effort: Type.Optional(
+				StringEnum(REASONING_EFFORTS, {
+					description: SUBAGENT_SPAWN_PARAMETER_DESCRIPTIONS.reasoningEffort,
+				}),
+			),
+		}),
+		renderCall(args, theme) {
+			const lines = [
+				theme.fg("toolTitle", "subagent_spawn") + (args.name ? " " + theme.fg("dim", args.name) : ""),
+				...(args.prompt ? [theme.fg("text", args.prompt)] : []),
+				...(args.working_dir ? [theme.fg("muted", `cwd: ${args.working_dir}`)] : []),
+				...(args.model ? [theme.fg("muted", `model: ${args.model}`)] : []),
+				...(args.reasoning_effort ? [theme.fg("muted", `effort: ${args.reasoning_effort}`)] : []),
+			];
+			return new Text(lines.join("\n"), 0, 0);
+		},
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const manager = await getManager();
+			const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
+			if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
+				throw new Error(`working_dir is not a directory: ${cwd}`);
+			}
+
+			const title = params.name.trim().slice(0, 160) || "subagent";
+			const snap = await runTool(
+				getRuntime(),
+				manager.spawn({
+					prompt: params.prompt,
+					title,
+					cwd,
+					...(params.model === undefined ? {} : { model: params.model }),
+					...(params.reasoning_effort === undefined ? {} : { reasoningEffort: params.reasoning_effort }),
+					parent: {
+						parentCwd: ctx.cwd,
+						projectTrusted: resolveStandaloneChildProjectTrust({
+							parentCwd: ctx.cwd,
+							childCwd: cwd,
+							parentTrusted: ctx.isProjectTrusted(),
+						}),
+						...(ctx.model ? { inheritedModel: { provider: ctx.model.provider, id: ctx.model.id } } : {}),
+						inheritedThinkingLevel: pi.getThinkingLevel(),
+						modelRegistry: ctx.modelRegistry,
+					},
+				}),
+			);
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: buildSubagentSpawnResult({
+							id: snap.id,
+							title: snap.title,
+							modelLabel: snap.meta.modelLabel ?? "?",
+							cwd,
+						}),
+					},
+				],
+				details: {
+					id: snap.id,
+					title: snap.title,
+					cwd,
+					model: snap.meta.modelLabel,
+				},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "subagent_wait",
+		label: "Wait for Subagents",
+		description: SUBAGENT_WAIT_TOOL_DESCRIPTION,
+		parameters: Type.Object({
+			ids: Type.Array(Type.String(), {
+				maxItems: 64,
+				description: SUBAGENT_WAIT_PARAMETER_DESCRIPTIONS.ids,
+			}),
+		}),
+		renderCall(args, theme) {
+			const label = args.ids?.join(", ") ?? "";
+			return new Text(theme.fg("toolTitle", "subagent_wait") + (label ? " " + theme.fg("dim", label) : ""), 0, 0);
+		},
+		async execute(_toolCallId, params, signal, onUpdate) {
+			const manager = await getManager();
+			const ids = [...new Set(params.ids)];
+			if (ids.length === 0) throw new Error("Provide at least one subagent id.");
+			const known = manager.view.list().map((snap) => snap.id);
+			const unknown = ids.filter((id) => !manager.view.get(id));
+			if (unknown.length > 0) {
+				throw new Error(`Unknown subagent id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
+			}
+
+			await runTool(
+				getRuntime(),
+				manager.waitFor(ids, (pending) => {
+					onUpdate?.({
+						content: [{ type: "text", text: `Waiting for ${pending.join(", ")}...` }],
+						details: { pending },
+					});
+				}),
+				{ ...(signal === undefined ? {} : { signal }), interruptMessage: "Wait aborted. Subagents keep running." },
+			);
+
+			// Settlement may have happened before this wait began. Remove any
+			// deferred automatic delivery now that the tool is returning the result.
+			resultDelivery.consume(ids);
+
+			const sections: string[] = [];
+			let remainingBytes = WAIT_OUTPUT_MAX_BYTES;
+			for (const id of ids) {
+				const snap = manager.view.get(id);
+				if (!snap) {
+					sections.push(`## ${id}\n\n(no longer tracked)`);
+					continue;
+				}
+				const verb = snap.status === "error" ? "failed" : "finished";
+				let section = `## ${snap.id} "${snap.title}" ${verb}`;
+				if (snap.errorText) section += `\nError: ${snap.errorText}`;
+				const headerBytes = Buffer.byteLength(section, "utf8") + 2;
+				const outputBudget = Math.max(512, Math.min(WAIT_PER_AGENT_MAX_BYTES, remainingBytes - headerBytes));
+				section += `\n\n${truncatedOutput(snap, outputBudget)}`;
+				const sectionBytes = Buffer.byteLength(section, "utf8");
+				if (sectionBytes > remainingBytes) {
+					sections.push(`## ${snap.id} "${snap.title}"\n\n[omitted: total wait output limit reached]`);
+					break;
+				}
+				sections.push(section);
+				remainingBytes -= sectionBytes;
+			}
+
+			const combined = sections.join("\n\n---\n\n");
+			const bounded = truncateHead(combined, {
+				maxBytes: WAIT_OUTPUT_MAX_BYTES - 128,
+				maxLines: DEFAULT_MAX_LINES,
+			});
+			const text = bounded.truncated
+				? `${bounded.content}\n\n[wait output truncated at the total output limit]`
+				: bounded.content;
+			return {
+				content: [{ type: "text", text }],
+				details: {
+					results: ids.map((id) => {
+						const snap = manager.view.get(id);
+						return { id, title: snap?.title, status: snap?.status };
+					}),
+				},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "subagent_cancel",
+		label: "Cancel Subagents",
+		description: SUBAGENT_CANCEL_TOOL_DESCRIPTION,
+		parameters: Type.Object({
+			ids: Type.Array(Type.String(), {
+				description: SUBAGENT_CANCEL_PARAMETER_DESCRIPTIONS.ids,
+			}),
+		}),
+		renderCall(args, theme) {
+			const label = args.ids?.join(", ") ?? "";
+			return new Text(theme.fg("toolTitle", "subagent_cancel") + (label ? " " + theme.fg("dim", label) : ""), 0, 0);
+		},
+		async execute(_toolCallId, params) {
+			const manager = await getManager();
+			const ids = [...new Set(params.ids)];
+			if (ids.length === 0) throw new Error("Provide at least one subagent id.");
+
+			const known = manager.view.list().map((snap) => snap.id);
+			const unknown = ids.filter((id) => !manager.view.get(id));
+			if (unknown.length > 0) {
+				throw new Error(`Unknown subagent id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
+			}
+
+			const report = await runTool(getRuntime(), manager.cancel(ids));
+
+			const lines = report.map((entry) =>
+				entry.cancelled
+					? `Cancelled ${entry.id} "${entry.title}".`
+					: `${entry.id} "${entry.title}" was already ${entry.status}.`,
+			);
+
+			return {
+				content: [{ type: "text", text: lines.join("\n") }],
+				details: {
+					results: report.map((entry) => ({
+						id: entry.id,
+						title: entry.title,
+						status: entry.status,
+					})),
+				},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "subagent_check",
+		label: "Check Subagent",
+		description: SUBAGENT_CHECK_TOOL_DESCRIPTION,
+		parameters: Type.Object({
+			id: Type.String({
+				description: SUBAGENT_CHECK_PARAMETER_DESCRIPTIONS.id,
+			}),
+		}),
+		renderCall(args, theme) {
+			return new Text(
+				theme.fg("toolTitle", "subagent_check") + (args.id ? " " + theme.fg("dim", String(args.id)) : ""),
+				0,
+				0,
+			);
+		},
+		async execute(_toolCallId, params) {
+			const manager = await getManager();
+			const snap = manager.view.get(params.id);
+			if (!snap) {
+				const known = manager.view.list().map((s) => s.id);
+				throw new Error(`Unknown subagent id "${params.id}". Known: ${known.join(", ") || "none"}.`);
+			}
+
+			let text = `${describeSubagent(snap)}\nTurns: ${snap.turns}`;
+			if (snap.errorText) text += `\nError: ${snap.errorText}`;
+
+			const output = latestText(snap);
+			if (output) {
+				const preview = truncateHead(output, { maxBytes: 2048, maxLines: 20 });
+				text += `\n\nLatest output:\n${preview.content}`;
+				if (preview.truncated) text += "\n[...]";
+			} else if (snap.status === "running") {
+				text += "\n\n(no text output yet)";
+			}
+
+			return {
+				content: [{ type: "text", text }],
+				details: { id: snap.id, status: snap.status, turns: snap.turns },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "subagent_list",
+		label: "List Subagents",
+		description: SUBAGENT_LIST_TOOL_DESCRIPTION,
+		parameters: Type.Object({}),
+		renderCall(_args, theme) {
+			return new Text(theme.fg("toolTitle", "subagent_list"), 0, 0);
+		},
+		async execute() {
+			const manager = await getManager();
+			const subs = manager.view.list();
+			const text = subs.length === 0 ? "No subagents." : subs.map((snap) => describeSubagent(snap)).join("\n");
+			return {
+				content: [{ type: "text", text }],
+				details: {
+					subagents: subs.map((snap) => ({
+						id: snap.id,
+						title: snap.title,
+						status: snap.status,
+					})),
+				},
+			};
+		},
+	});
+
+	// --- Result message rendering ------------------------------------------
+
+	pi.registerMessageRenderer("subagent-result", (message, _options, theme) => {
+		const details = (message.details ?? {}) as {
+			id?: string;
+			title?: string;
+			status?: string;
+		};
+		const failed = details.status === "error";
+		const icon = failed ? theme.fg("error", "✗") : theme.fg("success", "■");
+		const header =
+			`${icon} ` +
+			theme.fg("accent", theme.bold(`subagent ${details.id ?? "?"}`)) +
+			theme.fg("muted", ` · ${details.title ?? ""} · ${failed ? "failed" : "finished"}`);
+
+		const content = typeof message.content === "string" ? message.content : "";
+		// Drop the summary line (first line) — it duplicates the styled header.
+		const body = content.split("\n").slice(1).join("\n").trim();
+
+		const container = new Text(header, 0, 0);
+		const md = new Markdown(body, 0, 0, getMarkdownTheme());
+		return {
+			render: (width: number) => [...container.render(width), ...md.render(width)],
+			invalidate: () => {
+				container.invalidate();
+				md.invalidate();
+			},
+		};
+	});
+}

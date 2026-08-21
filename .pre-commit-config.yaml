@@ -1,0 +1,20 @@
+repos:
+  - repo: local
+    hooks:
+      - id: oxfmt-pi-extensions
+        name: oxfmt pi extensions
+        entry: pi/extensions/node_modules/.bin/oxfmt --write
+        language: system
+        files: ^pi/extensions/.*\.(cjs|js|json|jsonc|jsx|mjs|ts|tsx)$
+      - id: oxlint-pi-extensions
+        name: oxlint pi extensions
+        entry: bun --cwd pi/extensions run lint
+        language: system
+        pass_filenames: false
+        files: ^pi/extensions/.*\.(cjs|js|jsx|mjs|ts|tsx)$
+      - id: typecheck-pi-extensions
+        name: typecheck pi extensions
+        entry: bun --cwd pi/extensions run typecheck
+        language: system
+        pass_filenames: false
+        files: ^pi/extensions/.*\.(cjs|js|json|jsonc|jsx|mjs|ts|tsx)$

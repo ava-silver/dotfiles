@@ -1,0 +1,87 @@
+[user]
+name = Ava Silver
+email = ava@avasilver.dev
+[core]
+editor = "zed --wait"
+pager = delta
+excludesfile = /home/ava/.gitignore_global
+attributesFile = /home/ava/.gitattributes
+[diff]
+external = difft
+[merge]
+conflictstyle = zdiff3
+[merge "mergiraf"]
+name = mergiraf
+driver = mergiraf merge --git %O %A %B -s %S -x %X -y %Y -p %P -l %L
+[alias]
+a = add -A
+b = branch
+c = "!f() { git commit -m \"$*\" ;}; f"
+nb = checkout -b
+ac = "!f() { git a && git c $@ ;}; f"
+cr = "!$HOME/dotfiles/git/scripts/create.sh"
+pr = "!gh pr view --web"
+cc = "!git commit -m \"updated $(date)\""
+m = "merge --no-edit"
+main = "!git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'"
+mm = "!git m $(git main)"
+mc = "!git a && git merge --continue"
+st = status
+sw = switch
+sm = "!git sw $(git main)"
+pl = "!$HOME/dotfiles/git/scripts/pull.sh"
+pu = push origin HEAD
+su = "!git branch -u origin/$(git rev-parse --abbrev-ref HEAD)"
+ss = stk submit --stack --push --rebuild-overview --draft
+sc = stk sync --push
+sync = sc
+ls = stk list --local
+restack = stk restack
+co = checkout
+rst = reset --hard HEAD
+rstm = "!f() { git checkout $(git main) -- $@; }; f"
+s = "!f() { git branch --format='%(refname:short)' | fzf --query=\"$1\" --no-sort --height 20% | xargs git switch; }; f"
+sta = stash
+sp = stash pop
+unc = reset --soft HEAD~1
+d = diff --color-moved
+dt = -c diff.external=difft diff --color-moved
+dn = d --name-only
+dm = "!git d $(git main)"
+dmn = "!git dn $(git main)"
+dh = d HEAD
+dhn = dh --name-only
+cf = !sh -c \"git diff --name-only | uniq | xargs zed\"
+lg = log --graph --no-merges --author=Ava --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+cleanup-lock = "!f() { lock=$(git rev-parse --git-path index.lock) || return; if [ -e \"$lock\" ]; then rm -v \"$lock\"; else echo \"No index lock: $lock\"; fi; }; f"
+l = cleanup-lock
+standies = standup
+ticket = "!$HOME/dotfiles/git/scripts/ticket.sh"
+cln = "clean -fdx"
+cleanup-branches = !sh -c \"git b | grep -v $(git main) | xargs git b -D\"
+cwt = "!$HOME/dotfiles/git/scripts/clean-worktrees.sh"
+dwt = "!$HOME/dotfiles/git/scripts/delete-worktree.sh"
+copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
+cs = copy-stack
+trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
+# Fix p10k/gitstatus stale status in repos using feature.manyFiles or fsmonitor.
+# See romkatv/gitstatus#474
+fix-prompt = "!git config --local feature.manyFiles false && git config --local index.skipHash false && git config --local core.fsmonitor false && git config --local core.untrackedCache false && git update-index --no-fsmonitor && git update-index --no-untracked-cache && echo 'gitstatus-incompatible settings disabled'"
+wt = !$HOME/dotfiles/git/scripts/worktree.sh
+[stk]
+cleanClosed = true
+[filter "lfs"]
+clean = git-lfs clean -- %f
+smudge = git-lfs smudge -- %f
+process = git-lfs filter-process
+required = true
+[init]
+defaultBranch = main
+[push]
+autoSetupRemote = true
+[rerere]
+enabled = true
+autoupdate = true
+
+[safe]
+directory = *

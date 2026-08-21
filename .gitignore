@@ -5,3 +5,4 @@ config
 cache
 .zcompdump*
 .cargo_vars
+node_modules

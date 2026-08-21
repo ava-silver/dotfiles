@@ -1,0 +1,54 @@
+// Zed keymap
+//
+// For information on binding keys, see the Zed
+// documentation: https://zed.dev/docs/key-bindings
+//
+// To see the default key bindings run `zed: open default keymap`
+// from the command palette.
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      // "shift shift": "file_finder::Toggle"
+      "ctrl-r": "workspace::ToggleRightDock",
+    },
+    "unbind": {
+          "ctrl-r": "projects::OpenRecent"
+        },
+  },
+  {
+    "context": "Editor && vim_mode == insert",
+    "bindings": {
+      // "j k": "vim::NormalBefore"
+    },
+  },
+  {
+    "context": "Editor",
+    "unbind": {
+      "cmd-k p": "workspace::CopyPath"
+    }
+  },
+  {
+    "bindings": {
+    }
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "cmd-z": ["terminal::SendText", "\u001bZ"]
+    }
+  },
+  {
+    "context": "Editor",
+    "bindings": {
+      "alt-shift-f": "editor::Format",
+      "ctrl-l g": "editor::CopyPermalinkToLine"
+    }
+  },
+  {
+    "context": "Editor",
+    "unbind": {
+      "cmd-shift-i": "editor::Format"
+    }
+  }
+]
