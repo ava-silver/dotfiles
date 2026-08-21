@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -26,13 +26,29 @@ test("safeStringify handles cycles, bigint, depth, and size", () => {
 	assert.match(text, /truncated/);
 });
 
-test("atomic writes leave complete readable content", () => {
+test("atomic writes leave complete readable content with secure mode", async () => {
 	const directory = mkdtempSync(join(tmpdir(), "pi-workflow-test-"));
 	try {
 		const file = join(directory, "artifact.json");
-		writeFileAtomic(file, '{"value":1}');
-		writeFileAtomic(file, '{"value":2}');
+		await writeFileAtomic(file, '{"value":1}');
+		await writeFileAtomic(file, '{"value":2}');
 		assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), { value: 2 });
+		assert.equal(statSync(file).mode & 0o777, 0o600);
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});
+
+test("atomic writes clean up temporary files after a failed rename", async () => {
+	const directory = mkdtempSync(join(tmpdir(), "pi-workflow-test-"));
+	try {
+		const target = join(directory, "target");
+		mkdirSync(target);
+		await assert.rejects(writeFileAtomic(target, "content"));
+		assert.equal(
+			readdirSync(directory).some((name) => name.endsWith(".tmp")),
+			false,
+		);
 	} finally {
 		rmSync(directory, { recursive: true, force: true });
 	}

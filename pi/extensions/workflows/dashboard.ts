@@ -11,7 +11,7 @@
  *   up/down select · esc back · s save report
  */
 
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { getAgentDir, type ExtensionContext, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type TUI } from "@earendil-works/pi-tui";
@@ -52,6 +52,28 @@ export interface RunEntry {
 
 function runsDir(): string {
 	return path.join(getAgentDir(), "workflows");
+}
+
+export function createHistoricalRunCache(load: typeof loadRunEntries = loadRunEntries): {
+	get(
+		active: Map<string, WorkflowDetails>,
+		sessionId: string,
+		referencedRunIds: ReadonlySet<string>,
+		force?: boolean,
+	): Promise<RunEntry[]>;
+} {
+	let activeSignature = "";
+	let entries: RunEntry[] = [];
+	return {
+		async get(active, sessionId, referencedRunIds, force = false) {
+			const signature = [...active.keys()].sort().join(",");
+			if (force || signature !== activeSignature) {
+				entries = await load(active, sessionId, referencedRunIds);
+				activeSignature = signature;
+			}
+			return entries;
+		},
+	};
 }
 
 function normalizeTranscript(value: unknown): TranscriptEntry[] {
@@ -178,17 +200,12 @@ export function sessionWorkflowRunIds(ctx: ExtensionContext): Set<string> {
 	return runIds;
 }
 
-export function loadRunEntries(
+export async function loadRunEntries(
 	active: Map<string, WorkflowDetails>,
 	sessionId: string,
 	referencedRunIds: ReadonlySet<string>,
-): RunEntry[] {
-	let names: string[] = [];
-	try {
-		names = fs.readdirSync(runsDir()).filter((name) => name.startsWith("wf_"));
-	} catch {
-		// No runs yet.
-	}
+): Promise<RunEntry[]> {
+	const names = (await fs.readdir(runsDir()).catch(() => [] as string[])).filter((name) => name.startsWith("wf_"));
 	const entries: RunEntry[] = [];
 	for (const runId of names) {
 		const live = active.get(runId);
@@ -197,14 +214,14 @@ export function loadRunEntries(
 			continue;
 		}
 		try {
-			const raw = JSON.parse(fs.readFileSync(path.join(runsDir(), runId, "workflow.json"), "utf8"));
+			const raw = JSON.parse(await fs.readFile(path.join(runsDir(), runId, "workflow.json"), "utf8"));
 			const details = normalizeDetails(runId, raw);
 			if (details && (details.sessionId === sessionId || referencedRunIds.has(runId))) {
 				const runDir = path.join(runsDir(), runId);
 				if (details.resultArtifact) {
 					try {
 						details.result = JSON.parse(
-							fs.readFileSync(path.join(runDir, path.basename(details.resultArtifact)), "utf8"),
+							await fs.readFile(path.join(runDir, path.basename(details.resultArtifact)), "utf8"),
 						);
 					} catch {
 						// Keep the compact compatibility marker from workflow.json.
@@ -213,7 +230,7 @@ export function loadRunEntries(
 				if (details.transcriptArtifact) {
 					try {
 						const transcripts = JSON.parse(
-							fs.readFileSync(path.join(runDir, path.basename(details.transcriptArtifact)), "utf8"),
+							await fs.readFile(path.join(runDir, path.basename(details.transcriptArtifact)), "utf8"),
 						) as Record<string, unknown>;
 						for (const agent of details.agents) {
 							agent.transcript = normalizeTranscript(transcripts[String(agent.index)]);
@@ -305,6 +322,9 @@ export class WorkflowDashboard {
 	private sessionId: string;
 	private referencedRunIds: ReadonlySet<string>;
 	private close: () => void;
+	private historical = createHistoricalRunCache();
+	private refreshing = false;
+	private initialRunId: string | undefined;
 
 	constructor(
 		tui: TUI,
@@ -323,20 +343,10 @@ export class WorkflowDashboard {
 		this.sessionId = sessionId;
 		this.referencedRunIds = referencedRunIds;
 		this.close = close;
-		this.refresh();
-		if (initialRunId) {
-			const entry = this.entries.find((e) => e.runId === initialRunId || e.runId.endsWith(initialRunId));
-			if (entry) {
-				this.current = entry;
-				this.listIndex = this.entries.indexOf(entry);
-				this.view = "detail";
-			}
-		}
+		this.initialRunId = initialRunId;
+		void this.refresh(true);
 		this.timer = setInterval(() => {
-			if (this.entries.some((e) => e.live) || this.current?.live || this.notice) {
-				this.refresh();
-				this.tui.requestRender();
-			}
+			void this.refresh();
 		}, 500);
 	}
 
@@ -348,19 +358,43 @@ export class WorkflowDashboard {
 
 	invalidate() {}
 
-	private refresh() {
-		const selected = this.entries[this.listIndex]?.runId;
-		this.entries = loadRunEntries(this.getActive(), this.sessionId, this.referencedRunIds);
-		if (selected) {
-			const index = this.entries.findIndex((e) => e.runId === selected);
-			if (index >= 0) this.listIndex = index;
+	private async refresh(force = false) {
+		if (this.disposed || this.refreshing) return;
+		const active = this.getActive();
+		this.refreshing = true;
+		try {
+			const historical = await this.historical.get(active, this.sessionId, this.referencedRunIds, force);
+			if (this.disposed) return;
+			const selected = this.entries[this.listIndex]?.runId;
+			const live = [...active].map(([runId, details]) => ({ runId, details, live: true }));
+			this.entries = [...live, ...historical.filter((entry) => !active.has(entry.runId))].sort(
+				(a, b) => b.details.startedAt - a.details.startedAt,
+			);
+			if (selected) {
+				const index = this.entries.findIndex((entry) => entry.runId === selected);
+				if (index >= 0) this.listIndex = index;
+			}
+			this.listIndex = Math.min(this.listIndex, Math.max(0, this.entries.length - 1));
+			if (this.current) {
+				const refreshed = this.entries.find((entry) => entry.runId === this.current?.runId);
+				if (refreshed) this.current = refreshed;
+			}
+			if (this.initialRunId) {
+				const entry = this.entries.find(
+					(item) => item.runId === this.initialRunId || item.runId.endsWith(this.initialRunId!),
+				);
+				if (entry) {
+					this.current = entry;
+					this.listIndex = this.entries.indexOf(entry);
+					this.view = "detail";
+				}
+				this.initialRunId = undefined;
+			}
+			if (this.notice && Date.now() - this.noticeAt > NOTICE_TTL_MS) this.notice = undefined;
+			this.tui.requestRender();
+		} finally {
+			this.refreshing = false;
 		}
-		this.listIndex = Math.min(this.listIndex, Math.max(0, this.entries.length - 1));
-		if (this.current) {
-			const refreshed = this.entries.find((e) => e.runId === this.current?.runId);
-			if (refreshed) this.current = refreshed;
-		}
-		if (this.notice && Date.now() - this.noticeAt > NOTICE_TTL_MS) this.notice = undefined;
 	}
 
 	private groups(): PhaseGroup[] {
@@ -381,17 +415,18 @@ export class WorkflowDashboard {
 		this.agentIndex = Math.min(this.agentIndex, Math.max(0, agents.length - 1));
 	}
 
-	private saveReport() {
+	private async saveReport() {
 		const entry = this.current;
 		if (!entry) return;
 		const target = path.join(runsDir(), entry.runId, "report.md");
 		try {
-			fs.writeFileSync(target, buildReport(entry.details), "utf8");
+			await fs.writeFile(target, buildReport(entry.details), { encoding: "utf8", mode: 0o600 });
 			this.notice = `saved ${shortenHome(target)}`;
 		} catch (error) {
 			this.notice = `save failed: ${error instanceof Error ? error.message : String(error)}`;
 		}
 		this.noticeAt = Date.now();
+		this.tui.requestRender();
 	}
 
 	handleInput(data: string) {
@@ -445,7 +480,7 @@ export class WorkflowDashboard {
 					}
 				} else if (cancel) {
 					this.view = "list";
-					this.refresh();
+					void this.refresh();
 				}
 			} else {
 				const agents = this.selectedGroup()?.agents ?? [];
@@ -464,7 +499,7 @@ export class WorkflowDashboard {
 					this.view = "transcript";
 				}
 			}
-			if (data === "s") this.saveReport();
+			if (data === "s") void this.saveReport();
 		} else {
 			const maxScroll = Math.max(0, this.transcriptRowCount - this.transcriptViewportSize);
 			const scrollStep = data === "j" || data === "k" ? TRANSCRIPT_SCROLL_STEP : 1;

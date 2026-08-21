@@ -22,7 +22,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
 	getAgentDir,
@@ -120,10 +120,6 @@ function summaryLine(details: WorkflowDetails): string {
 	}`;
 }
 
-function writeRunFile(runDir: string, name: string, content: string) {
-	writeFileAtomic(path.join(runDir, name), content);
-}
-
 function compactToolDetails(details: WorkflowDetails): WorkflowDetails {
 	return {
 		...details,
@@ -146,20 +142,15 @@ interface RunSummary {
 	active: boolean;
 }
 
-function listRuns(
+async function listRuns(
 	activeRuns: Map<string, WorkflowDetails>,
 	sessionId: string,
 	referencedRunIds: ReadonlySet<string>,
-): RunSummary[] {
+): Promise<RunSummary[]> {
 	const base = path.join(getAgentDir(), "workflows");
-	let names: string[] = [];
-	try {
-		names = fs.readdirSync(base).filter((name) => name.startsWith("wf_"));
-	} catch {
-		// No runs yet.
-	}
+	const names = await fs.readdir(base).catch(() => [] as string[]);
 	const summaries: RunSummary[] = [];
-	for (const runId of names) {
+	for (const runId of names.filter((name) => name.startsWith("wf_"))) {
 		const live = activeRuns.get(runId);
 		if (live) {
 			const { done, failed } = countStates(live);
@@ -176,11 +167,9 @@ function listRuns(
 		}
 		try {
 			const parsed = JSON.parse(
-				fs.readFileSync(path.join(base, runId, "workflow.json"), "utf8"),
+				await fs.readFile(path.join(base, runId, "workflow.json"), "utf8"),
 			) as Partial<WorkflowDetails>;
-			if (parsed.sessionId !== sessionId && !referencedRunIds.has(runId)) {
-				continue;
-			}
+			if (parsed.sessionId !== sessionId && !referencedRunIds.has(runId)) continue;
 			const agents = parsed.agents ?? [];
 			summaries.push({
 				runId,
@@ -198,12 +187,12 @@ function listRuns(
 	return summaries.sort((a, b) => b.startedAt - a.startedAt);
 }
 
-function runDetailText(run: RunSummary, activeRuns: Map<string, WorkflowDetails>): string {
+async function runDetailText(run: RunSummary, activeRuns: Map<string, WorkflowDetails>): Promise<string> {
 	const runDir = path.join(getAgentDir(), "workflows", run.runId);
 	const live = activeRuns.get(run.runId);
 	if (live) return buildWorkflowResultMessage(live, runDir);
 	try {
-		const parsed = JSON.parse(fs.readFileSync(path.join(runDir, "workflow.json"), "utf8")) as WorkflowDetails;
+		const parsed = JSON.parse(await fs.readFile(path.join(runDir, "workflow.json"), "utf8")) as WorkflowDetails;
 		return buildWorkflowResultMessage(parsed, runDir);
 	} catch {
 		return `Run ${run.runId} — ${run.status}`;
@@ -290,7 +279,7 @@ export default function workflows(pi: ExtensionAPI) {
 				return;
 			}
 			// Non-TUI fallback: plain text listing.
-			const runs = listRuns(activeDetails(), ctx.sessionManager.getSessionId(), sessionWorkflowRunIds(ctx));
+			const runs = await listRuns(activeDetails(), ctx.sessionManager.getSessionId(), sessionWorkflowRunIds(ctx));
 			if (runs.length === 0) {
 				ctx.ui.notify("No workflow runs yet.", "info");
 				return;
@@ -298,7 +287,7 @@ export default function workflows(pi: ExtensionAPI) {
 			if (arg) {
 				const run = runs.find((r) => r.runId === arg || r.runId.endsWith(arg));
 				ctx.ui.notify(
-					run ? runDetailText(run, activeDetails()) : `No workflow run matching "${arg}".`,
+					run ? await runDetailText(run, activeDetails()) : `No workflow run matching "${arg}".`,
 					run ? "info" : "warning",
 				);
 				return;
@@ -313,7 +302,7 @@ export default function workflows(pi: ExtensionAPI) {
 			const choice = await ctx.ui.select("Workflow runs", labels);
 			if (!choice) return;
 			const run = runs[labels.indexOf(choice)];
-			if (run) ctx.ui.notify(runDetailText(run, activeDetails()), "info");
+			if (run) ctx.ui.notify(await runDetailText(run, activeDetails()), "info");
 		},
 	});
 
@@ -359,9 +348,15 @@ export default function workflows(pi: ExtensionAPI) {
 				agents: [],
 			};
 
-			writeRunFile(runDir, "script.js", params.script);
-			if (params.args !== undefined) writeRunFile(runDir, "args.json", params.args);
-			persistWorkflowJson(runDir, details);
+			const initialWrites = await Promise.allSettled([
+				writeFileAtomic(path.join(runDir, "script.js"), params.script),
+				...(params.args === undefined ? [] : [writeFileAtomic(path.join(runDir, "args.json"), params.args)]),
+				persistWorkflowJson(runDir, details),
+			]);
+			const initialFailure = initialWrites.find(
+				(result): result is PromiseRejectedResult => result.status === "rejected",
+			);
+			if (initialFailure) throw initialFailure.reason;
 			const persistence = createWorkflowPersistence(runDir, details);
 
 			// Background runs survive Esc on the parent turn, but all runs are
@@ -571,7 +566,7 @@ export default function workflows(pi: ExtensionAPI) {
 				details.status = status;
 				details.finishedAt = Date.now();
 				try {
-					persistence.flush();
+					await persistence.flush();
 				} catch (error) {
 					details.status = "failed";
 					details.error = `Artifact persistence failed: ${errorText(error)}`;

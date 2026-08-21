@@ -1,12 +1,13 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 const CACHE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "pi");
 const LEGACY_LEDGER_FILES = [join(CACHE_DIR, "spend-v1.jsonl"), join(CACHE_DIR, "spend-v2.jsonl")];
-const LEDGER_FILE = join(CACHE_DIR, "spend-v3.jsonl");
+const IMPORT_CONCURRENCY = 8;
+const IMPORT_RETRIES = 3;
 const GRAPH_FILE = join(CACHE_DIR, "spend.html");
 const SESSIONS_DIR = join(homedir(), ".pi", "agent", "sessions");
 const MIN_TIMESTAMP = Date.UTC(2000, 0, 1);
@@ -89,26 +90,57 @@ export function asRecord(entry: any, session: SessionFile): SpendRecord | undefi
 	};
 }
 
-async function sessionFiles(dir: string): Promise<string[]> {
-	let entries;
-	try {
-		entries = await readdir(dir, { withFileTypes: true });
-	} catch {
-		return [];
+async function sessionFiles(root: string, concurrency: number): Promise<string[]> {
+	const files: string[] = [];
+	let directories = [root];
+	while (directories.length > 0) {
+		const entries = await mapBounded(directories, concurrency, async (directory) => {
+			try {
+				return { directory, entries: await readdir(directory, { withFileTypes: true }) };
+			} catch {
+				return { directory, entries: [] };
+			}
+		});
+		directories = [];
+		for (const { directory, entries: children } of entries) {
+			for (const entry of children) {
+				const path = join(directory, entry.name);
+				if (entry.isDirectory()) directories.push(path);
+				else if (entry.isFile() && path.endsWith(".jsonl")) files.push(path);
+			}
+		}
 	}
-	const children = await Promise.all(
-		entries.map(async (entry) => {
-			const path = join(dir, entry.name);
-			return entry.isDirectory() ? sessionFiles(path) : entry.isFile() && path.endsWith(".jsonl") ? [path] : [];
-		}),
-	);
-	return children.flat();
+	return files;
 }
 
-async function parseSession(path: string): Promise<{ session: SessionFile; records: SpendRecord[] } | undefined> {
-	let lines: string[];
+export type SessionMetadata = { size: number; mtimeMs: number };
+type ParsedSession = { records: SpendRecord[]; metadata: SessionMetadata };
+type SessionIndex = Record<string, SessionMetadata>;
+
+type SessionReader = (path: string) => Promise<string>;
+type SessionStatter = (path: string) => Promise<SessionMetadata>;
+
+async function fileMetadata(path: string): Promise<SessionMetadata> {
+	const info = await stat(path);
+	return { size: info.size, mtimeMs: info.mtimeMs };
+}
+
+function sameMetadata(left: SessionMetadata, right: SessionMetadata): boolean {
+	return left.size === right.size && left.mtimeMs === right.mtimeMs;
+}
+
+function parseSessionText(text: string): SpendRecord[] | undefined {
+	const lines = text.split("\n");
+	let finalLine: string | undefined;
+	for (let index = lines.length - 1; index >= 0; index--) {
+		if (lines[index]) {
+			finalLine = lines[index];
+			break;
+		}
+	}
+	if (!finalLine) return;
 	try {
-		lines = (await readFile(path, "utf8")).split("\n").filter(Boolean);
+		JSON.parse(finalLine);
 	} catch {
 		return;
 	}
@@ -116,19 +148,79 @@ async function parseSession(path: string): Promise<{ session: SessionFile; recor
 	let session: SessionFile | undefined;
 	const records: SpendRecord[] = [];
 	for (const line of lines) {
+		if (!line) continue;
 		try {
-			const entry = JSON.parse(line);
-			if (entry.type === "session" && typeof entry.id === "string" && entry.id) {
-				session = { id: entry.id, cwd: typeof entry.cwd === "string" ? entry.cwd : undefined };
+			const entry: unknown = JSON.parse(line);
+			if (typeof entry !== "object" || entry === null) continue;
+			const candidate = entry as { type?: unknown; id?: unknown; cwd?: unknown };
+			if (candidate.type === "session" && typeof candidate.id === "string" && candidate.id) {
+				session = { id: candidate.id, ...(typeof candidate.cwd === "string" ? { cwd: candidate.cwd } : {}) };
 			} else if (session) {
 				const record = asRecord(entry, session);
 				if (record) records.push(record);
 			}
 		} catch {
-			// A partially written session line will be processed on the next run.
+			// Malformed interior lines do not prevent subsequent imports.
 		}
 	}
-	return session ? { session, records } : undefined;
+	return session ? records : undefined;
+}
+
+export async function parseStableSession(
+	path: string,
+	{
+		read = (file) => readFile(file, "utf8"),
+		getMetadata = fileMetadata,
+		retries = IMPORT_RETRIES,
+	}: { read?: SessionReader; getMetadata?: SessionStatter; retries?: number } = {},
+): Promise<ParsedSession | undefined> {
+	for (let attempt = 0; attempt < retries; attempt++) {
+		try {
+			const before = await getMetadata(path);
+			const records = parseSessionText(await read(path));
+			const after = await getMetadata(path);
+			if (records && sameMetadata(before, after)) return { records, metadata: before };
+		} catch {
+			// Deleted files and concurrent replacements are retried or ignored.
+		}
+	}
+}
+
+export async function mapBounded<T, R>(items: T[], limit: number, map: (item: T) => Promise<R>): Promise<R[]> {
+	const results: R[] = [];
+	let next = 0;
+	await Promise.all(
+		Array.from({ length: Math.min(limit, items.length) }, async () => {
+			while (next < items.length) {
+				const index = next++;
+				results[index] = await map(items[index]!);
+			}
+		}),
+	);
+	return results;
+}
+
+function parseIndex(text: string): SessionIndex | undefined {
+	try {
+		const value: unknown = JSON.parse(text);
+		if (typeof value !== "object" || value === null) return;
+		const sessions = (value as { sessions?: unknown }).sessions;
+		if (typeof sessions !== "object" || sessions === null || Array.isArray(sessions)) return;
+		return Object.fromEntries(
+			Object.entries(sessions).flatMap(([path, metadata]) => {
+				if (typeof metadata !== "object" || metadata === null) return [];
+				const { size, mtimeMs } = metadata as { size?: unknown; mtimeMs?: unknown };
+				return typeof size === "number" &&
+					Number.isFinite(size) &&
+					typeof mtimeMs === "number" &&
+					Number.isFinite(mtimeMs)
+					? [[path, { size, mtimeMs }]]
+					: [];
+			}),
+		);
+	} catch {
+		return;
+	}
 }
 
 export function parseLedgerRecord(value: unknown): SpendRecord | undefined {
@@ -434,51 +526,131 @@ export function parseLedger(text: string): SpendRecord[] {
 	return records;
 }
 
-export default function spendExtension(pi: ExtensionAPI): void {
+export function createSpendStore({
+	cacheDir = CACHE_DIR,
+	sessionsDir = SESSIONS_DIR,
+	concurrency = IMPORT_CONCURRENCY,
+	legacyLedgerFiles = LEGACY_LEDGER_FILES,
+}: { cacheDir?: string; sessionsDir?: string; concurrency?: number; legacyLedgerFiles?: string[] } = {}) {
+	const ledgerFile = join(cacheDir, "spend-v3.jsonl");
+	const indexFile = join(cacheDir, "spend-v3-index.json");
 	const records = new Map<string, SpendRecord>();
-	let initialized = false;
+	let loading: Promise<void> | undefined;
+	let saving = Promise.resolve();
+	let importing: Promise<void> | undefined;
+	let ledgerExists = false;
+	let indexPresent = false;
+	let index: SessionIndex | undefined;
 
-	async function loadLedger(): Promise<void> {
-		if (initialized) return;
-		initialized = true;
-		for (const file of [...LEGACY_LEDGER_FILES, LEDGER_FILE]) {
-			try {
-				for (const record of parseLedger(await readFile(file, "utf8"))) records.set(record.key, record);
-			} catch {
-				/* ignore missing or malformed cache entries */
+	function loadLedger(): Promise<void> {
+		if (loading) return loading;
+		loading = (async () => {
+			for (const file of [...legacyLedgerFiles, ledgerFile]) {
+				try {
+					const text = await readFile(file, "utf8");
+					if (file === ledgerFile) ledgerExists = true;
+					for (const record of parseLedger(text)) records.set(record.key, record);
+				} catch {
+					/* ignore missing or malformed cache entries */
+				}
 			}
+			try {
+				const text = await readFile(indexFile, "utf8");
+				indexPresent = true;
+				index = parseIndex(text);
+			} catch {
+				// An absent index is migrated below.
+			}
+		})();
+		return loading;
+	}
+
+	function save(newRecords: SpendRecord[]): Promise<void> {
+		const operation = saving.then(async () => {
+			const fresh = new Map(
+				newRecords.filter((record) => !records.has(record.key)).map((record) => [record.key, record]),
+			);
+			if (!fresh.size) return;
+			await mkdir(cacheDir, { recursive: true });
+			await appendFile(ledgerFile, [...fresh.values()].map((record) => JSON.stringify(record)).join("\n") + "\n");
+			for (const [key, record] of fresh) records.set(key, record);
+		});
+		saving = operation.catch(() => undefined);
+		return operation;
+	}
+
+	async function persistIndex(sessions: SessionIndex): Promise<void> {
+		await mkdir(cacheDir, { recursive: true });
+		const temporary = `${indexFile}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
+		try {
+			await writeFile(temporary, JSON.stringify({ v: 1, sessions }), { mode: 0o600 });
+			await rename(temporary, indexFile);
+		} finally {
+			await unlink(temporary).catch(() => undefined);
 		}
 	}
 
-	async function save(newRecords: SpendRecord[]): Promise<void> {
-		const fresh = new Map<string, SpendRecord>();
-		for (const record of newRecords) {
-			if (!records.has(record.key)) fresh.set(record.key, record);
-		}
-		if (!fresh.size) return;
-		await mkdir(CACHE_DIR, { recursive: true });
-		await appendFile(LEDGER_FILE, [...fresh.values()].map((record) => JSON.stringify(record)).join("\n") + "\n");
-		for (const [key, record] of fresh) records.set(key, record);
-	}
-
-	async function importSessions(): Promise<void> {
-		const files = await sessionFiles(SESSIONS_DIR);
-		const parsed = await Promise.all(files.map(parseSession));
-		await save(parsed.flatMap((result) => result?.records || []));
-	}
-
-	pi.on("session_start", async () => {
+	async function importChangedSessions(): Promise<void> {
 		await loadLedger();
-		await importSessions();
-	});
+		const files = await sessionFiles(sessionsDir, concurrency);
+		const metadata = await mapBounded(files, concurrency, async (file) => {
+			try {
+				return [file, await fileMetadata(file)] as const;
+			} catch {
+				return undefined;
+			}
+		});
+		const current = Object.fromEntries(
+			metadata.filter((entry): entry is readonly [string, SessionMetadata] => entry !== undefined),
+		);
+		if (!index && !indexPresent && ledgerExists) {
+			index = current;
+			await persistIndex(index);
+			return;
+		}
+
+		const previous = index || {};
+		const fileSet = new Set(files);
+		const changed = files.filter(
+			(file) => current[file] && !sameMetadata(previous[file] || { size: -1, mtimeMs: -1 }, current[file]),
+		);
+		const parsed = await mapBounded(changed, concurrency, (file) => parseStableSession(file));
+		await save(parsed.flatMap((result) => result?.records || []));
+		index = {
+			...Object.fromEntries(Object.entries(previous).filter(([file]) => fileSet.has(file))),
+			...Object.fromEntries(
+				changed.flatMap((file, position) => {
+					const result = parsed[position];
+					return result ? [[file, result.metadata]] : [];
+				}),
+			),
+		};
+		await persistIndex(index);
+	}
+
+	function importSessions(): Promise<void> {
+		if (importing) return importing;
+		importing = importChangedSessions().finally(() => {
+			importing = undefined;
+		});
+		return importing;
+	}
+
+	return { records, loadLedger, save, importSessions };
+}
+
+export default function spendExtension(pi: ExtensionAPI): void {
+	const store = createSpendStore();
+
+	pi.on("session_start", store.importSessions);
 
 	pi.on("message_end", async (event, ctx) => {
 		if (event.message.role !== "assistant" && event.message.role !== "toolResult") return;
-		await loadLedger();
+		await store.loadLedger();
 		const entry = [...ctx.sessionManager.getEntries()]
 			.reverse()
 			.find(
-				(candidate: any) =>
+				(candidate) =>
 					candidate.type === "message" &&
 					candidate.message.role === event.message.role &&
 					candidate.message.timestamp === event.message.timestamp,
@@ -486,16 +658,16 @@ export default function spendExtension(pi: ExtensionAPI): void {
 		const header = ctx.sessionManager.getHeader();
 		if (entry && header) {
 			const record = asRecord(entry, { id: header.id, cwd: header.cwd });
-			if (record) await save([record]);
+			if (record) await store.save([record]);
 		}
 	});
 
 	const saveCurrentSession = async (_event: unknown, ctx: ExtensionContext) => {
-		await loadLedger();
+		await store.loadLedger();
 		const file = ctx.sessionManager.getSessionFile();
 		if (!file) return;
-		const parsed = await parseSession(file);
-		if (parsed) await save(parsed.records);
+		const parsed = await parseStableSession(file);
+		if (parsed) await store.save(parsed.records);
 	};
 	pi.on("session_compact", saveCurrentSession);
 	pi.on("session_tree", saveCurrentSession);
@@ -503,23 +675,20 @@ export default function spendExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("spend", {
 		description: "Open Pi spend graphs in the browser (use /spend text for the report)",
 		handler: async (args, ctx) => {
-			await loadLedger();
-			await importSessions();
+			await store.importSessions();
 			if (args.trim() === "text") {
-				const report = summary(records.values());
+				const report = summary(store.records.values());
 				if (ctx.hasUI) await ctx.ui.editor("Pi spend", report);
 				else console.log(report);
 				return;
 			}
 
 			await mkdir(CACHE_DIR, { recursive: true });
-			await writeFile(GRAPH_FILE, graphHtml(records.values()));
+			await writeFile(GRAPH_FILE, graphHtml(store.records.values()));
 			const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
 			const commandArgs = process.platform === "win32" ? ["/c", "start", "", GRAPH_FILE] : [GRAPH_FILE];
 			const result = await pi.exec(command, commandArgs, { timeout: 5_000 });
-			if (result.code !== 0) {
-				ctx.ui.notify(`Could not open ${GRAPH_FILE}`, "error");
-			}
+			if (result.code !== 0) ctx.ui.notify(`Could not open ${GRAPH_FILE}`, "error");
 		},
 	});
 }

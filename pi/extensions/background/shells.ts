@@ -54,14 +54,22 @@ interface Terminal {
 	status: TerminalStatus;
 	exitCode: number | undefined;
 	/** Combined stdout+stderr, trimmed to OUTPUT_CAP_BYTES. */
-	output: string;
+	output: Buffer[];
+	outputBytes: number;
 	pid: number | undefined;
 	startedAt: number;
 	endedAt: number | undefined;
 	proc: child_process.ChildProcess | undefined;
 	artifactDir: string | undefined;
 	artifactPath: string | undefined;
-	artifactFd: number | undefined;
+	artifactStream: fs.WriteStream | undefined;
+	artifactFinalizing: Promise<void> | undefined;
+	artifactBlocked: boolean;
+	settling: Promise<void> | undefined;
+	settled: Promise<void>;
+	resolveSettled: () => void;
+	killRequested: boolean;
+	killNotify: boolean;
 	artifactBytes: number;
 	artifactStatus: "available" | "truncated" | "unavailable";
 	abortCleanup: (() => void) | undefined;
@@ -84,58 +92,81 @@ function describe(t: Terminal): string {
 	return `${t.id} [${t.status}] "${t.title}" (${elapsed(t)}, ${t.cwd})${artifact ? ` ${artifact}` : ""}`;
 }
 
-type ArtifactWriter = (fd: number, buffer: Buffer, offset: number, length: number) => number;
-
-/** Write no more than the remaining artifact quota. Never throws. */
-export function writeArtifactChunk(
-	fd: number,
-	chunk: Buffer,
-	remainingBytes: number,
-	writer: ArtifactWriter = (file, buffer, offset, length) => fs.writeSync(file, buffer, offset, length),
-): { written: number; truncated: boolean; failed: boolean } {
-	const length = Math.min(chunk.length, Math.max(0, remainingBytes));
-	let written = 0;
-	try {
-		while (written < length) {
-			const count = writer(fd, chunk, written, length - written);
-			if (count <= 0) return { written, truncated: false, failed: true };
-			written += count;
-		}
-	} catch {
-		return { written, truncated: false, failed: true };
-	}
-	return { written, truncated: chunk.length > length, failed: false };
+function pauseOutput(t: Terminal): void {
+	t.proc?.stdout?.pause();
+	t.proc?.stderr?.pause();
 }
 
-function closeArtifactFd(t: Terminal): void {
-	const fd = t.artifactFd;
-	t.artifactFd = undefined;
-	if (fd !== undefined) {
-		try {
-			fs.closeSync(fd);
-		} catch {}
-	}
+function resumeOutput(t: Terminal): void {
+	t.proc?.stdout?.resume();
+	t.proc?.stderr?.resume();
 }
 
-/** Append a chunk to a terminal's output buffer, enforcing the rolling cap. */
+function finishArtifact(t: Terminal): Promise<void> {
+	if (t.artifactFinalizing) return t.artifactFinalizing;
+	const stream = t.artifactStream;
+	if (!stream) return Promise.resolve();
+	t.artifactStream = undefined;
+	if (t.artifactBlocked) {
+		t.artifactBlocked = false;
+		resumeOutput(t);
+	}
+	t.artifactFinalizing = new Promise((resolve) => {
+		stream.once("close", resolve);
+		stream.end();
+	});
+	return t.artifactFinalizing;
+}
+
+function failArtifact(t: Terminal): void {
+	t.artifactStatus = "unavailable";
+	void finishArtifact(t);
+}
+
+/** Append a chunk to a terminal's bounded combined output buffer and artifact. */
 function appendOutput(t: Terminal, chunk: Buffer | string): void {
 	const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-	if (t.artifactFd !== undefined) {
-		const result = writeArtifactChunk(t.artifactFd, bytes, MAX_ARTIFACT_BYTES - t.artifactBytes);
-		t.artifactBytes += result.written;
-		if (result.failed) {
-			t.artifactStatus = "unavailable";
-			closeArtifactFd(t);
-		} else if (result.truncated) {
+	const stream = t.artifactStream;
+	if (stream) {
+		const length = Math.min(bytes.length, Math.max(0, MAX_ARTIFACT_BYTES - t.artifactBytes));
+		if (length > 0) {
+			try {
+				t.artifactBytes += length;
+				if (!stream.write(bytes.subarray(0, length))) {
+					t.artifactBlocked = true;
+					pauseOutput(t);
+					stream.once("drain", () => {
+						t.artifactBlocked = false;
+						if (t.artifactStream === stream) resumeOutput(t);
+					});
+				}
+			} catch {
+				failArtifact(t);
+			}
+		}
+		if (bytes.length > length) {
 			t.artifactStatus = "truncated";
-			closeArtifactFd(t);
+			void finishArtifact(t);
 		}
 	}
-	t.output += bytes.toString();
-	if (Buffer.byteLength(t.output, "utf8") > OUTPUT_CAP_BYTES * 1.5) {
-		const buf = Buffer.from(t.output, "utf8");
-		t.output = buf.slice(buf.length - OUTPUT_CAP_BYTES).toString("utf8");
+	t.output.push(bytes);
+	t.outputBytes += bytes.length;
+	while (t.outputBytes > OUTPUT_CAP_BYTES) {
+		const first = t.output[0];
+		if (!first) break;
+		const excess = t.outputBytes - OUTPUT_CAP_BYTES;
+		if (first.length <= excess) {
+			t.output.shift();
+			t.outputBytes -= first.length;
+		} else {
+			t.output[0] = first.subarray(excess);
+			t.outputBytes -= excess;
+		}
 	}
+}
+
+function outputText(t: Terminal): string {
+	return Buffer.concat(t.output).toString();
 }
 
 export function truncateTerminalText(content: string, notice?: string): { text: string; truncated: boolean } {
@@ -162,7 +193,7 @@ function terminalOutput(t: Terminal, maxBytes = DEFAULT_MAX_BYTES): { text: stri
 			: `[Output truncated at ${formatSize(maxBytes)}. ${artifact}]`;
 	const reservedBytes =
 		Buffer.byteLength(outputNotice, "utf8") + (artifact ? Buffer.byteLength(artifact, "utf8") + 1 : 0) + 1;
-	const truncation = truncateTail(t.output || "(no output)", {
+	const truncation = truncateTail(outputText(t) || "(no output)", {
 		maxBytes: Math.max(0, Math.min(maxBytes, DEFAULT_MAX_BYTES) - reservedBytes),
 		maxLines: DEFAULT_MAX_LINES - (artifact ? 2 : 1),
 	});
@@ -187,10 +218,10 @@ export function settledTerminalIdsToPrune(
 }
 
 /** Best-effort cleanup so retention never turns a failed removal into an extension failure. */
-export function removeTerminalArtifactDirectory(artifactDir: string | undefined): void {
+export async function removeTerminalArtifactDirectory(artifactDir: string | undefined): Promise<void> {
 	if (!artifactDir) return;
 	try {
-		fs.rmSync(artifactDir, { recursive: true, force: true });
+		await fs.promises.rm(artifactDir, { recursive: true, force: true });
 	} catch {}
 }
 
@@ -251,21 +282,48 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 	const onSettled = (t: Terminal) => {
 		updateStatus();
 		notifyListeners();
+		if (!sessionCtx) return;
 		pending.set(t.id, { ...t }); // snapshot
-		if (sessionCtx?.isIdle()) flushPending();
+		if (sessionCtx.isIdle()) flushPending();
 	};
 
 	// -- Spawn ---------------------------------------------------------------
 
-	const closeArtifact = (t: Terminal) => {
-		closeArtifactFd(t);
+	const closeArtifact = async (t: Terminal) => {
+		await finishArtifact(t);
 		t.abortCleanup?.();
 		t.abortCleanup = undefined;
 	};
 
-	const removeArtifact = (t: Terminal) => {
-		closeArtifact(t);
-		removeTerminalArtifactDirectory(t.artifactDir);
+	const settleTerminal = (
+		t: Terminal,
+		status: TerminalStatus,
+		exitCode: number | undefined,
+		deliver: boolean,
+		notify: boolean,
+	): Promise<void> => {
+		if (t.settling) return t.settling;
+		t.settling = (async () => {
+			await closeArtifact(t);
+			if (t.endedAt !== undefined) return;
+			t.exitCode = exitCode;
+			t.status = status;
+			t.endedAt = Date.now();
+			t.proc = undefined;
+			if (deliver) onSettled(t);
+			else if (notify) {
+				notifyListeners();
+				updateStatus();
+			}
+		})().finally(t.resolveSettled);
+		return t.settling;
+	};
+
+	const removeArtifact = async (t: Terminal) => {
+		if (t.killRequested) await t.settled;
+		else if (t.settling) await t.settling;
+		else await closeArtifact(t);
+		await removeTerminalArtifactDirectory(t.artifactDir);
 	};
 
 	const pruneTerminals = () => {
@@ -275,11 +333,14 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 			// Once untracked, no tool result can disclose this artifact path.
 			terminals.delete(id);
 			pending.delete(id);
-			removeArtifact(t);
+			void removeArtifact(t);
 		}
 	};
 
-	const spawnTerminal = (opts: { command: string; title: string; cwd: string }, signal?: AbortSignal): Terminal => {
+	const spawnTerminal = async (
+		opts: { command: string; title: string; cwd: string },
+		signal?: AbortSignal,
+	): Promise<Terminal> => {
 		pruneTerminals();
 		if ([...terminals.values()].filter((t) => t.status === "running").length >= MAX_RUNNING_TERMINALS)
 			throw new Error(`Max ${MAX_RUNNING_TERMINALS} running terminals reached.`);
@@ -287,24 +348,29 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 			throw new Error(`Max ${MAX_TRACKED_TERMINALS} tracked terminals reached.`);
 		let artifactDir: string | undefined;
 		let artifactPath: string | undefined;
-		let artifactFd: number | undefined;
+		let artifactStream: fs.WriteStream | undefined;
 		let artifactStatus: Terminal["artifactStatus"] = "available";
 		try {
-			artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-terminal-"));
-			fs.chmodSync(artifactDir, 0o700);
+			artifactDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-terminal-"));
+			await fs.promises.chmod(artifactDir, 0o700);
 			artifactPath = path.join(artifactDir, "output.log");
-			artifactFd = fs.openSync(artifactPath, "w", 0o600);
+			artifactStream = fs.createWriteStream(artifactPath, { flags: "w", mode: 0o600 });
+			await new Promise<void>((resolve, reject) => {
+				artifactStream?.once("open", () => resolve());
+				artifactStream?.once("error", reject);
+			});
 		} catch {
 			artifactStatus = "unavailable";
-			if (artifactFd !== undefined) {
-				try {
-					fs.closeSync(artifactFd);
-				} catch {}
-			}
-			removeTerminalArtifactDirectory(artifactDir);
+			artifactStream?.destroy();
+			await removeTerminalArtifactDirectory(artifactDir);
 			artifactDir = undefined;
 			artifactPath = undefined;
+			artifactStream = undefined;
 		}
+		let resolveSettled: () => void = () => undefined;
+		const settled = new Promise<void>((resolve) => {
+			resolveSettled = resolve;
+		});
 		const t: Terminal = {
 			id: nextId(),
 			title: opts.title,
@@ -312,18 +378,27 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 			cwd: opts.cwd,
 			status: "running",
 			exitCode: undefined,
-			output: "",
+			output: [],
+			outputBytes: 0,
 			pid: undefined,
 			startedAt: Date.now(),
 			endedAt: undefined,
 			proc: undefined,
 			artifactDir,
 			artifactPath,
-			artifactFd,
+			artifactStream,
+			artifactFinalizing: undefined,
+			artifactBlocked: false,
+			settling: undefined,
+			settled,
+			resolveSettled,
+			killRequested: false,
+			killNotify: false,
 			artifactBytes: 0,
 			artifactStatus,
 			abortCleanup: undefined,
 		};
+		if (artifactStream) artifactStream.on("error", () => failArtifact(t));
 		terminals.set(t.id, t);
 		updateStatus();
 		const proc = child_process.spawn("bash", ["-c", opts.command], {
@@ -339,28 +414,19 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 		proc.stdout.on("data", (chunk: Buffer) => appendOutput(t, chunk));
 		proc.stderr.on("data", (chunk: Buffer) => appendOutput(t, chunk));
 
-		proc.on("close", (code: number | null) => {
-			closeArtifact(t);
-			if (t.endedAt !== undefined) return;
-			t.exitCode = code ?? undefined;
-			t.status = code === 0 ? "done" : "error";
-			t.endedAt = Date.now();
-			t.proc = undefined;
-			onSettled(t);
-		});
-
-		proc.on("error", (err: Error) => {
-			if (t.endedAt !== undefined) {
-				closeArtifact(t);
-				return;
-			}
-			appendOutput(t, `\n[spawn error: ${err.message}]`);
-			closeArtifact(t);
-			t.status = "error";
-			t.endedAt = Date.now();
-			t.proc = undefined;
-			onSettled(t);
-		});
+		const settle = (code: number | null, error?: Error) => {
+			if (error) appendOutput(t, `\n[spawn error: ${error.message}]`);
+			const killed = t.killRequested;
+			void settleTerminal(
+				t,
+				killed || error || code !== 0 ? "error" : "done",
+				killed ? undefined : (code ?? undefined),
+				!killed,
+				killed && t.killNotify,
+			);
+		};
+		proc.on("close", (code: number | null) => settle(code));
+		proc.on("error", (error: Error) => settle(null, error));
 
 		const abort = () => killTerminal(t, true);
 		if (signal?.aborted) abort();
@@ -372,20 +438,12 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 	};
 
 	const killTerminal = (t: Terminal, notify: boolean): boolean => {
-		if (t.status !== "running") return false;
-		const pid = t.pid;
-		t.status = "error";
-		t.endedAt = Date.now();
-		t.proc = undefined;
-		t.abortCleanup?.();
-		t.abortCleanup = undefined;
+		if (t.status !== "running" || t.settling || t.killRequested) return false;
+		t.killRequested = true;
+		t.killNotify = notify;
 		pending.delete(t.id);
 		appendOutput(t, "\n[process killed]\n");
-		if (pid !== undefined) killProcessTree(pid);
-		if (notify) {
-			notifyListeners();
-			updateStatus();
-		}
+		if (t.pid !== undefined) killProcessTree(t.pid);
 		return true;
 	};
 
@@ -446,7 +504,7 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 
 	pi.on("agent_settled", flushPending);
 
-	pi.on("session_shutdown", () => {
+	pi.on("session_shutdown", async () => {
 		sessionCtx = undefined;
 		pending.clear();
 		unregisterProvider?.();
@@ -455,7 +513,7 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 		const tracked = [...terminals.values()];
 		for (const t of tracked) killTerminal(t, false);
 		terminals.clear();
-		for (const t of tracked) removeArtifact(t);
+		await Promise.all(tracked.map(removeArtifact));
 		registerTransientSegment("terminals", null);
 	});
 
@@ -482,12 +540,14 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 		},
 		async execute(_id, params, signal, _onUpdate, ctx) {
 			const cwd = path.resolve(ctx.cwd, params.working_dir ?? ".");
-			if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) {
+			try {
+				if (!(await fs.promises.stat(cwd)).isDirectory()) throw new Error();
+			} catch {
 				throw new Error(`working_dir is not a directory: ${cwd}`);
 			}
 			const title = params.title.trim().slice(0, 160) || "terminal";
 			if (signal?.aborted) throw new Error("Terminal run aborted.");
-			const t = spawnTerminal({ command: params.command, title, cwd }, signal);
+			const t = await spawnTerminal({ command: params.command, title, cwd }, signal);
 			return {
 				content: [
 					{
@@ -521,15 +581,18 @@ export function setupShells(pi: ExtensionAPI, background: BackgroundHub) {
 				throw new Error(`Unknown background shell id(s): ${unknown.join(", ")}. Known: ${known.join(", ") || "none"}.`);
 			}
 			const lines: string[] = [];
+			const killed: Terminal[] = [];
 			for (const id of ids) {
 				const t = terminals.get(id);
 				if (!t) continue;
 				if (killTerminal(t, false)) {
+					killed.push(t);
 					lines.push(`Killed ${id} "${t.title}".${artifactNotice(t) ? ` ${artifactNotice(t)}` : ""}`);
 				} else {
 					lines.push(`${id} "${t.title}" was already ${t.status}.`);
 				}
 			}
+			await Promise.all(killed.map((terminal) => terminal.settled));
 			updateStatus();
 			notifyListeners();
 			return {
@@ -737,7 +800,7 @@ class TerminalOutputView implements Component, Focusable {
 		lines.push(border);
 
 		const viewport = this.viewportHeight();
-		const rawLines = sanitize(t.output || "(no output)").split("\n");
+		const rawLines = sanitize(outputText(t) || "(no output)").split("\n");
 		const maxOffset = Math.max(0, rawLines.length - viewport);
 		if (this.scrollOffset > maxOffset) this.scrollOffset = maxOffset;
 

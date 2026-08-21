@@ -1,4 +1,4 @@
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 export interface SerializationOptions {
@@ -120,18 +120,14 @@ export function safeStringify(value: unknown, options: SerializationOptions = {}
 }
 
 /** Durable same-directory replace: readers see either the old or new file. */
-export function writeFileAtomic(filePath: string, content: string) {
-	fs.mkdirSync(path.dirname(filePath), { recursive: true });
-	const temporary = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+export async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+	await fs.mkdir(path.dirname(filePath), { recursive: true });
+	const temporary = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
 	try {
-		fs.writeFileSync(temporary, content, { encoding: "utf8", mode: 0o600 });
-		fs.renameSync(temporary, filePath);
+		await fs.writeFile(temporary, content, { encoding: "utf8", mode: 0o600 });
+		await fs.rename(temporary, filePath);
 	} catch (error) {
-		try {
-			fs.unlinkSync(temporary);
-		} catch {
-			// The original write error is more useful.
-		}
+		await fs.unlink(temporary).catch(() => undefined);
 		throw error;
 	}
 }
