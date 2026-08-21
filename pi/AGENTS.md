@@ -19,6 +19,8 @@
 - Use two dashes (`--`) over em-dashes
 - When looking through datadog repos, they should usually be cloned in `~/dd/`, but if they're not, clone them there first.
 - Put long-living plans in `.plans/` in the root of the repository, which will be gitignored.
+- Copying multiple things to my clipboard (prompts, etc) is fine since I use a clipboard manager.
+
 ## Tools
 
 - Run commands needing AWS auth through `aws-sso-exec` (for example, `aws-sso-exec aws sts get-caller-identity`). It uses native AWS SSO and opens a browser for the user to auth only when required.
