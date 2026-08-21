@@ -26,7 +26,7 @@
   },
   {
     "bindings": {
-      "ctrl-alt-cmd-c": "project_panel::CopyRelativePath"
+      "ctrl-alt-cmd-c": "workspace::CopyRelativePath"
     }
   },
   {
@@ -46,6 +46,12 @@
     "context": "Editor",
     "unbind": {
       "cmd-shift-i": "editor::Format"
+    }
+  },
+  {
+    "context": "Editor && extension == md",
+    "bindings": {
+      "ctrl-p": "markdown::OpenPreview"
     }
   }
 ]
