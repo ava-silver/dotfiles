@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { safeStringify, toSerializable } from "./serialization.ts";
 
@@ -69,16 +68,13 @@ function sanitizeAgentOptions(value: unknown): SandboxAgentOptions {
 }
 
 /**
- * Execute orchestration code in a separate, permission-restricted Node process.
- * The child can only invoke the narrow agent/phase IPC protocol and is always
+ * Execute orchestration code in a separate child process using the current runtime.
+ * The child exposes only the narrow agent/phase IPC protocol and is always
  * terminated on completion, cancellation, or protocol failure. The workflow
  * itself and its agent requests have no wall-clock deadline. Active requests
  * are aborted only when the workflow is cancelled or the sandbox is cleaned up.
  */
 export function runWorkflowSandbox(options: RunWorkflowSandboxOptions) {
-	if (!process.allowedNodeEnvironmentFlags.has("--permission")) {
-		return Promise.reject(new Error("This Node runtime cannot enforce workflow child permissions"));
-	}
 	if (byteLength(options.source) > MAX_SOURCE_BYTES) {
 		return Promise.reject(new Error(`Workflow script exceeds the ${MAX_SOURCE_BYTES} byte limit`));
 	}
@@ -93,24 +89,14 @@ export function runWorkflowSandbox(options: RunWorkflowSandboxOptions) {
 
 	return new Promise<unknown>((resolve, reject) => {
 		const workerPath = fileURLToPath(new URL("./sandbox-child.cjs", import.meta.url));
-		const child = spawn(
-			process.execPath,
-			[
-				"--permission",
-				`--allow-fs-read=${path.dirname(workerPath)}`,
-				"--max-old-space-size=128",
-				"--stack-size=2048",
-				workerPath,
-			],
-			{
-				cwd: options.cwd,
-				env: {
-					PATH: process.env.PATH ?? "",
-					NODE_NO_WARNINGS: "1",
-				},
-				stdio: ["ignore", "ignore", "ignore", "ipc"],
+		const child = spawn(process.execPath, ["--max-old-space-size=128", "--stack-size=2048", workerPath], {
+			cwd: options.cwd,
+			env: {
+				PATH: process.env.PATH ?? "",
+				NODE_NO_WARNINGS: "1",
 			},
-		);
+			stdio: ["ignore", "ignore", "ignore", "ipc"],
+		});
 		const token = randomBytes(24).toString("hex");
 		const requestIds = new Set<number>();
 		const activeAgentRequests = new Map<number, AbortController>();

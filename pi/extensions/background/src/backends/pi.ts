@@ -210,6 +210,7 @@ export const spawnPiSession = (task: SpawnTask): Effect.Effect<SubagentSession, 
 				const { loader, settingsManager } = await createChildResources({
 					cwd: task.cwd,
 					projectTrusted: task.parent.projectTrusted,
+					excludedExtensionBasenames: ["google-style.ts"],
 				});
 				const { session } = await createAgentSession({
 					cwd: task.cwd,

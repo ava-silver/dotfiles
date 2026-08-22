@@ -6,6 +6,9 @@
 
 - Start with the simplest implementation that satisfies the stated requirements and existing tests. Before adding an abstraction, guard, or edge-case handling, name (to yourself) the concrete requirement, failing test, observed failure, or established repository convention it addresses -- with file:line if it's a type or call site. If you cannot, leave it out. When the answer is a lookup question (can this be null? who are the callers? does this already exist in the repo?), go look it up rather than hedging.
 - In general, opt for existing tools (formatters, linters, etc) for fixing problems where possible instead of manual edits
+- Prefer functional code over imperative code. In TypeScript and Python, favor composition and transformations over mutable loops. For Go code longer than a script, add small helper functions when needed (like map/filter) to preserve a functional style.
+- Before implementing new logic, search for an existing helper or implementation and reuse it when appropriate.
+- Validate the behavior the user requested, not just adjacent checks. For integration changes, validate at least one representative consumer.
 - After implementation, reread the complete diff and remove speculative abstractions, checks, and indirection.
 - Avoid meta commentary when writing docs, comments, or PR descriptions. Don't make arguments against previous iterations that used to exist -- keep text artifacts grounded in the present.
 - For all git operations, load the `git-workflow` skill for full context on branching, committing, and pushing conventions.
@@ -14,6 +17,7 @@
 - Don't make changes (or commit/push) when I'm just asking a question (i.e. I'm not explicitly asking you to make some change). If you're unsure if you should make changes, feel free to ask if you should make the change you're thinking of.
 - Use two dashes (`--`) over em-dashes
 - Put long-living plans in `.plans/` in the root of the repository, which will be gitignored.
+- Copying multiple things to my clipboard (prompts, etc) is fine since I use a clipboard manager.
 
 ## Tools
 
@@ -22,6 +26,7 @@
 - Use the `ffgrep` tool or `rg` instead of `grep`
 - Use `jq` for querying json files
 - Use `mq` for querying large markdown files
+- Start with the narrowest local command that can answer the question, and time-bound potentially long-running commands.
 
 ## Pi config
 

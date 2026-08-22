@@ -32,6 +32,7 @@ export interface ChildResourceOptions {
 	cwd: string;
 	projectTrusted: boolean;
 	appendSystemPrompt?: string[];
+	excludedExtensionBasenames?: string[];
 	agentDir?: string;
 }
 
@@ -46,6 +47,16 @@ export async function createChildResources(options: ChildResourceOptions) {
 		agentDir,
 		settingsManager,
 		...(options.appendSystemPrompt ? { appendSystemPrompt: options.appendSystemPrompt } : {}),
+		...(options.excludedExtensionBasenames
+			? {
+					extensionsOverride: (base) => ({
+						...base,
+						extensions: base.extensions.filter(
+							(extension) => !options.excludedExtensionBasenames?.includes(path.basename(extension.resolvedPath)),
+						),
+					}),
+				}
+			: {}),
 	});
 	await loader.reload();
 	return { loader, settingsManager };

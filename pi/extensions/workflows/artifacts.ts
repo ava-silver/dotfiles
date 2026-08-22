@@ -60,34 +60,38 @@ export function boundedArtifactTranscript(
 	return [initial, marker, ...tail];
 }
 
-function writeRunFile(runDir: string, name: string, content: string) {
-	writeFileAtomic(path.join(runDir, name), content);
+async function writeRunFile(runDir: string, name: string, content: string) {
+	await writeFileAtomic(path.join(runDir, name), content);
 }
 
-export function persistWorkflowJson(runDir: string, details: WorkflowDetails) {
+export async function persistWorkflowJson(runDir: string, details: WorkflowDetails): Promise<void> {
 	const transcripts = Object.fromEntries(
 		details.agents.map((agent) => [agent.index, boundedArtifactTranscript(agent.transcript)]),
 	);
-	writeRunFile(runDir, "transcripts.json", safeStringify(transcripts, { maxBytes: 2 * 1024 * 1024 }));
-	if (details.result !== undefined) {
-		writeRunFile(runDir, "result.json", safeStringify(details.result, { maxBytes: 1024 * 1024 }));
-	}
 	const compact: WorkflowDetails = {
 		...details,
 		...(details.result !== undefined ? { result: "[stored in result.json]", resultArtifact: "result.json" } : {}),
 		transcriptArtifact: "transcripts.json",
 		agents: details.agents.map((agent) => ({ ...agent, transcript: [] })),
 	};
-	writeRunFile(runDir, "workflow.json", safeStringify(compact, { maxBytes: 1024 * 1024 }));
+	const writes = await Promise.allSettled([
+		writeRunFile(runDir, "transcripts.json", safeStringify(transcripts, { maxBytes: 2 * 1024 * 1024 })),
+		...(details.result === undefined
+			? []
+			: [writeRunFile(runDir, "result.json", safeStringify(details.result, { maxBytes: 1024 * 1024 }))]),
+		writeRunFile(runDir, "workflow.json", safeStringify(compact, { maxBytes: 1024 * 1024 })),
+	]);
+	const failure = writes.find((result): result is PromiseRejectedResult => result.status === "rejected");
+	if (failure) throw failure.reason;
 }
 
-/** Coalesce live checkpoints while keeping final persistence synchronous. */
+/** Coalesce nonblocking checkpoints and persist the latest state on flush. */
 export function createWorkflowPersistence(
 	runDir: string,
 	details: WorkflowDetails,
 	options: {
 		intervalMs?: number;
-		persist?: (runDir: string, details: WorkflowDetails) => void;
+		persist?: (runDir: string, details: WorkflowDetails) => Promise<void>;
 	} = {},
 ) {
 	const intervalMs = Math.max(0, options.intervalMs ?? WORKFLOW_CHECKPOINT_INTERVAL_MS);
@@ -95,42 +99,65 @@ export function createWorkflowPersistence(
 	let lastPersistedAt = Date.now();
 	let dirty = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let write: Promise<void> | undefined;
+	let flushing: Promise<void> | undefined;
 
-	const savePending = () => {
-		timer = undefined;
-		if (!dirty) return;
-		try {
-			persist(runDir, details);
-			dirty = false;
-			lastPersistedAt = Date.now();
-		} catch {
-			// Final flush retries and reports persistence failures synchronously.
-		}
+	const schedule = (immediate = false) => {
+		if (timer || write) return;
+		const delay = immediate ? 0 : Math.max(0, intervalMs - (Date.now() - lastPersistedAt));
+		timer = setTimeout(() => {
+			timer = undefined;
+			void startWrite().catch(() => undefined);
+		}, delay);
+	};
+
+	const startWrite = (): Promise<void> => {
+		if (write) return write;
+		if (!dirty) return Promise.resolve();
+		dirty = false;
+		let succeeded = false;
+		write = persist(runDir, details)
+			.then(() => {
+				succeeded = true;
+				lastPersistedAt = Date.now();
+			})
+			.catch((error) => {
+				dirty = true;
+				throw error;
+			})
+			.finally(() => {
+				write = undefined;
+				if (succeeded && dirty && !flushing) schedule();
+			});
+		return write;
 	};
 
 	return {
 		checkpoint(options: { immediate?: boolean } = {}) {
 			dirty = true;
-			if (options.immediate) {
-				if (timer) clearTimeout(timer);
+			if (options.immediate && timer) {
+				clearTimeout(timer);
 				timer = undefined;
-				savePending();
-				return;
 			}
-			if (timer) return;
-			const delay = Math.max(0, intervalMs - (Date.now() - lastPersistedAt));
-			if (delay === 0) {
-				savePending();
-				return;
-			}
-			timer = setTimeout(savePending, delay);
+			schedule(options.immediate);
 		},
-		flush() {
+		flush(): Promise<void> {
 			if (timer) clearTimeout(timer);
 			timer = undefined;
-			persist(runDir, details);
-			dirty = false;
-			lastPersistedAt = Date.now();
+			dirty = true;
+			if (!flushing) {
+				flushing = (async () => {
+					const liveWrite = write;
+					if (liveWrite) await liveWrite.catch(() => undefined);
+					while (dirty || write) {
+						if (write) await write;
+						else await startWrite();
+					}
+				})().finally(() => {
+					flushing = undefined;
+				});
+			}
+			return flushing;
 		},
 	};
 }

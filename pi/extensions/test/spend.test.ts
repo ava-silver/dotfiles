@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
-import { asRecord, graphHtml, parseLedger, parseLedgerRecord, recordKey, type SpendRecord } from "../spend.ts";
+import {
+	asRecord,
+	createSpendStore,
+	graphHtml,
+	mapBounded,
+	parseLedger,
+	parseLedgerRecord,
+	parseStableSession,
+	recordKey,
+	type SpendRecord,
+} from "../spend.ts";
 
 const timestamp = Date.UTC(2025, 0, 1);
 const usage = {
@@ -124,4 +137,123 @@ test("spend graph renders hostile model names as text", () => {
 	assert.doesNotMatch(html, /innerHTML/);
 	assert.equal(html.includes(model), false);
 	assert.match(html, /textContent/);
+});
+
+const session = (id: string, entry = "entry") =>
+	`${JSON.stringify({ type: "session", id, cwd: "/work" })}\n${JSON.stringify({ type: "message", id: entry, message: { role: "assistant", timestamp, provider: "test", model: "model", usage } })}\n`;
+
+async function spendFixture() {
+	const root = await mkdtemp(join(tmpdir(), "pi-spend-"));
+	const cacheDir = join(root, "cache");
+	const sessionsDir = join(root, "sessions");
+	await mkdir(sessionsDir, { recursive: true });
+	return { root, cacheDir, sessionsDir, legacyLedgerFiles: [] };
+}
+
+test("spend index seeds existing ledger metadata without reparsing sessions", async (t) => {
+	const fixture = await spendFixture();
+	t.after(() => rm(fixture.root, { recursive: true, force: true }));
+	await mkdir(fixture.cacheDir, { recursive: true });
+	await writeFile(join(fixture.cacheDir, "spend-v3.jsonl"), `${JSON.stringify(record())}\n`);
+	await writeFile(join(fixture.sessionsDir, "existing.jsonl"), "not json\n");
+	const store = createSpendStore(fixture);
+	await store.importSessions();
+	assert.equal(store.records.size, 1);
+	const index = JSON.parse(await readFile(join(fixture.cacheDir, "spend-v3-index.json"), "utf8"));
+	assert.ok(index.sessions[join(fixture.sessionsDir, "existing.jsonl")]);
+});
+
+test("spend rebuilds a malformed index instead of skipping sessions", async (t) => {
+	const fixture = await spendFixture();
+	t.after(() => rm(fixture.root, { recursive: true, force: true }));
+	await mkdir(fixture.cacheDir, { recursive: true });
+	await writeFile(join(fixture.cacheDir, "spend-v3.jsonl"), `${JSON.stringify(record())}\n`);
+	await writeFile(join(fixture.cacheDir, "spend-v3-index.json"), "{bad}");
+	await writeFile(join(fixture.sessionsDir, "new.jsonl"), session("new", "new-entry"));
+
+	const store = createSpendStore(fixture);
+	await store.importSessions();
+
+	assert.equal(store.records.size, 2);
+});
+
+test("spend serializes concurrent ledger appends", async (t) => {
+	const fixture = await spendFixture();
+	t.after(() => rm(fixture.root, { recursive: true, force: true }));
+	const store = createSpendStore(fixture);
+	await store.loadLedger();
+
+	await Promise.all([store.save([record()]), store.save([record()])]);
+
+	const lines = (await readFile(join(fixture.cacheDir, "spend-v3.jsonl"), "utf8")).trim().split("\n");
+	assert.equal(lines.length, 1);
+});
+
+test("spend index imports changed and new files, skips unchanged files, and prunes deleted files", async (t) => {
+	const fixture = await spendFixture();
+	t.after(() => rm(fixture.root, { recursive: true, force: true }));
+	const first = join(fixture.sessionsDir, "first.jsonl");
+	await writeFile(first, session("one"));
+	const store = createSpendStore(fixture);
+	await store.importSessions();
+	assert.equal(store.records.size, 1);
+	await store.importSessions();
+	assert.equal(store.records.size, 1);
+	await writeFile(first, `${session("one")} ${"\n"}${session("one", "changed")}`);
+	const second = join(fixture.sessionsDir, "second.jsonl");
+	await writeFile(second, session("two", "second"));
+	await store.importSessions();
+	assert.equal(store.records.size, 3);
+	await rm(first);
+	await store.importSessions();
+	const index = JSON.parse(await readFile(join(fixture.cacheDir, "spend-v3-index.json"), "utf8"));
+	assert.equal(index.sessions[first], undefined);
+	assert.ok(index.sessions[second]);
+});
+
+test("spend retries read races and partial final records", async () => {
+	let calls = 0;
+	const metadata = [
+		{ size: 1, mtimeMs: 1 },
+		{ size: 2, mtimeMs: 2 },
+		{ size: 2, mtimeMs: 2 },
+		{ size: 2, mtimeMs: 2 },
+	];
+	const raced = await parseStableSession("race", {
+		getMetadata: async () => metadata.shift() || { size: 2, mtimeMs: 2 },
+		read: async () => session("race"),
+	});
+	assert.equal(raced?.records.length, 1);
+	const partial = await parseStableSession("partial", {
+		getMetadata: async () => ({ size: 1, mtimeMs: 1 }),
+		read: async () => (++calls === 1 ? "{" : session("partial")),
+	});
+	assert.equal(partial?.records.length, 1);
+	assert.equal(calls, 2);
+});
+
+test("spend accepts malformed interior lines when the final record is complete", async (t) => {
+	const fixture = await spendFixture();
+	t.after(() => rm(fixture.root, { recursive: true, force: true }));
+	const file = join(fixture.sessionsDir, "interior.jsonl");
+	await writeFile(
+		file,
+		`${JSON.stringify({ type: "session", id: "interior" })}\n{bad}\n${session("ignored", "valid").split("\n").at(1)}\n`,
+	);
+	const parsed = await parseStableSession(file);
+	assert.equal(parsed?.records.length, 1);
+});
+
+test("spend bounds concurrent imports", async () => {
+	let active = 0;
+	let maximum = 0;
+	const result = await mapBounded([1, 2, 3, 4, 5], 2, async (value) => {
+		active++;
+		maximum = Math.max(maximum, active);
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		active--;
+		return value * 2;
+	});
+	assert.deepEqual(result, [2, 4, 6, 8, 10]);
+	assert.equal(maximum, 2);
 });

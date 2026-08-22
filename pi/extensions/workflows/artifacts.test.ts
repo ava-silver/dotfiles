@@ -44,7 +44,7 @@ test("artifact transcript keeps the initial prompt, marker, and newest entries",
 	assert.ok(bounded.reduce((total, entry) => total + Buffer.byteLength(entry.text, "utf8"), 0) <= 256);
 });
 
-test("live artifact persistence includes current agents and transcripts", () => {
+test("live artifact persistence includes current agents and transcripts", async () => {
 	const directory = mkdtempSync(join(tmpdir(), "pi-workflow-artifacts-"));
 	try {
 		const details = workflowDetails();
@@ -69,7 +69,7 @@ test("live artifact persistence includes current agents and transcripts", () => 
 			],
 		});
 
-		persistWorkflowJson(directory, details);
+		await persistWorkflowJson(directory, details);
 
 		const workflow = JSON.parse(readFileSync(join(directory, "workflow.json"), "utf8")) as WorkflowDetails;
 		const transcripts = JSON.parse(readFileSync(join(directory, "transcripts.json"), "utf8")) as Record<
@@ -98,34 +98,63 @@ test("live artifact persistence includes current agents and transcripts", () => 
 	}
 });
 
-test("workflow checkpoints throttle updates and support immediate/final flushes", async () => {
+test("workflow persistence coalesces writes and flushes the latest state", async () => {
 	const details = workflowDetails();
 	const snapshots: WorkflowDetails[] = [];
+	let release: (() => void) | undefined;
+	let writes = 0;
 	const persistence = createWorkflowPersistence("fixture", details, {
-		intervalMs: 15,
-		persist: (_runDir, current) => snapshots.push(structuredClone(current)),
+		intervalMs: 0,
+		persist: async (_runDir, current) => {
+			writes += 1;
+			snapshots.push(structuredClone(current));
+			if (writes < 3) {
+				await new Promise<void>((resolve) => {
+					release = resolve;
+				});
+			}
+		},
 	});
 
 	details.currentPhase = "Scan";
-	persistence.checkpoint();
-	details.currentPhase = "Review";
-	persistence.checkpoint();
-	assert.equal(snapshots.length, 0);
-
-	await new Promise((resolve) => setTimeout(resolve, 30));
-	assert.equal(snapshots.length, 1);
-	assert.equal(snapshots[0]?.currentPhase, "Review");
-
-	details.status = "completed";
 	persistence.checkpoint({ immediate: true });
-	assert.equal(snapshots.length, 2);
-	assert.equal(snapshots[1]?.status, "completed");
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	assert.equal(writes, 1);
+	details.currentPhase = "Review";
+	persistence.checkpoint({ immediate: true });
+	assert.equal(writes, 1);
+	release?.();
+	await new Promise((resolve) => setTimeout(resolve, 10));
+	assert.equal(writes, 2);
+	release?.();
+	await persistence.flush();
+	assert.equal(snapshots.at(-1)?.currentPhase, "Review");
+});
 
-	details.finishedAt = 3;
-	persistence.flush();
-	assert.equal(snapshots.length, 3);
-	assert.equal(snapshots[2]?.finishedAt, 3);
+test("workflow persistence retries a live failure on final flush", async () => {
+	const details = workflowDetails();
+	let attempts = 0;
+	const persistence = createWorkflowPersistence("fixture", details, {
+		intervalMs: 0,
+		persist: async () => {
+			attempts += 1;
+			if (attempts === 1) throw new Error("disk full");
+		},
+	});
 
-	await new Promise((resolve) => setTimeout(resolve, 20));
-	assert.equal(snapshots.length, 3);
+	persistence.checkpoint({ immediate: true });
+	await new Promise((resolve) => setTimeout(resolve, 10));
+	await persistence.flush();
+	assert.equal(attempts, 2);
+});
+
+test("workflow persistence surfaces a final write failure", async () => {
+	const persistence = createWorkflowPersistence("fixture", workflowDetails(), {
+		intervalMs: 0,
+		persist: async () => {
+			throw new Error("disk full");
+		},
+	});
+
+	await assert.rejects(persistence.flush(), /disk full/);
 });
