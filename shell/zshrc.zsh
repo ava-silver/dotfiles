@@ -71,3 +71,5 @@ export FFF_ENABLE_HOME_SCAN=0
 [[ ! -d $HOME/.cargo/bin ]] || path+=($HOME/.cargo/bin)
 export GPG_TTY=$(tty)
 command -v git-stk >/dev/null && source <(git stk completions zsh)
+
+export OPENROUTER_API_KEY=$(security find-generic-password -a ${USER} -s OPENROUTER_API_KEY -w)

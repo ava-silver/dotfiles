@@ -9,6 +9,10 @@
           "id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M"
         }
       ]
+    },
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": "$OPENROUTER_API_KEY"
     }
   }
 }
