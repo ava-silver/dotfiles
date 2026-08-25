@@ -45,7 +45,20 @@ alias xclip="pbcopy"
 
 alias brewi="brew update && brew install -y"
 alias brewr="brew uninstall"
-alias brewu="brew update && brew upgrade -y"
+
+bun-sentinel-link() {
+    local source="$(brew --prefix bun 2>/dev/null)/bin/bun"
+    local target="/opt/homebrew/Cellar/bun/1.3.14/bin/bun"
+
+    [[ -x "$source" ]] || { echo "Bun is not installed by Homebrew" >&2; return 1; }
+    /bin/mkdir -p "${target:h}" &&
+        /bin/rm -f "$target" &&
+        /bin/ln -fL "$source" "$target"
+}
+
+brewu() {
+    brew update && brew upgrade -y && bun-sentinel-link
+}
 
 #  -------------------------------K8s----------------------------------
 alias kgp="k get pod"
