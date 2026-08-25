@@ -48,12 +48,14 @@ alias brewr="brew uninstall"
 
 bun-sentinel-link() {
     local source="$(brew --prefix bun 2>/dev/null)/bin/bun"
-    local target="/opt/homebrew/Cellar/bun/1.3.14/bin/bun"
+    local sentinel="/opt/homebrew/Cellar/bun/1.3.14/bin/bun"
+    local target="/opt/homebrew/bin/bun"
 
     [[ -x "$source" ]] || { echo "Bun is not installed by Homebrew" >&2; return 1; }
-    /bin/mkdir -p "${target:h}" &&
-        /bin/rm -f "$target" &&
-        /bin/ln -fL "$source" "$target"
+    /bin/mkdir -p "${sentinel:h}" &&
+        /bin/rm -f "$sentinel" "$target" &&
+        /bin/ln -fL "$source" "$sentinel" &&
+        /bin/ln -s "$sentinel" "$target"
 }
 
 brewu() {
