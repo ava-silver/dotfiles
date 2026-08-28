@@ -173,3 +173,5 @@ source "/Users/ava.silver/.yarn/switch/env"
 
 eval "$(cdd init)"
 export GITLAB_HOST=gitlab.ddbuild.io
+
+[[ ! -f /opt/dogbrew/bin/dogbrew ]] || eval "$(/opt/dogbrew/bin/dogbrew init zsh)"
