@@ -8,12 +8,15 @@ set -euo pipefail
 #
 # Prints the worktree path on success and opens it in zed.
 
-# copy_agents_local <repo_root> <wt_dir>
-# Copies top-level AGENTS.local.md from repo_root into wt_dir, if present.
-copy_agents_local() {
+# symlink_local_files <repo_root> <wt_dir>
+# Symlinks local files and directories from repo_root into wt_dir, if present.
+symlink_local_files() {
     local repo_root="$1" wt_dir="$2"
     if [[ -f "$repo_root/AGENTS.local.md" ]]; then
-        cp "$repo_root/AGENTS.local.md" "$wt_dir/AGENTS.local.md"
+        ln -s "$repo_root/AGENTS.local.md" "$wt_dir/AGENTS.local.md"
+    fi
+    if [[ -d "$repo_root/.plans" ]]; then
+        ln -s "$repo_root/.plans" "$wt_dir/.plans"
     fi
 }
 
@@ -51,7 +54,7 @@ if [ "$#" -eq 0 ]; then
 
     git checkout --quiet "$trunk_branch"
     git worktree add --quiet "$wt_dir" "$branch"
-    copy_agents_local "$repo_root" "$wt_dir"
+    symlink_local_files "$repo_root" "$wt_dir"
     echo "$wt_dir"
     zed "$wt_dir"
     exit 0
@@ -78,6 +81,6 @@ fi
 # create the worktree and branch off trunk without touching the main worktree's HEAD
 git worktree add --quiet -b "$branch" "$wt_dir" "$trunk_branch"
 gt track "$branch" --parent "$trunk_branch" --cwd "$wt_dir" --force --quiet
-copy_agents_local "$repo_root" "$wt_dir"
+symlink_local_files "$repo_root" "$wt_dir"
 echo "$wt_dir"
 zed "$wt_dir"
