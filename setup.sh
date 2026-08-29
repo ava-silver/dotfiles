@@ -94,21 +94,6 @@ killall Dock 2>/dev/null || true
 # gh/gt wrappers and subernetes live in bin/; zshrc puts that dir on PATH ahead
 # of /opt/homebrew/bin, so no symlinking is needed here.
 
-# Pi config files are symlinked; resource directories are loaded directly from
-# the repo via settings.json, so edits and newly added resources need no setup rerun.
-link "$REPO_DIR/pi/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
-link "$REPO_DIR/pi/settings.json" "$HOME/.pi/agent/settings.json"
-link "$REPO_DIR/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json"
-link "$REPO_DIR/pi/models.json" "$HOME/.pi/agent/models.json"
-link "$REPO_DIR/pi/pi-auto-rename.json" "$HOME/.pi/agent/extensions/pi-auto-rename.json"
-
-# Install dependencies for local Pi extensions.
-if command -v bun >/dev/null 2>&1; then
-    (cd "$REPO_DIR/pi/extensions" && bun install --frozen-lockfile)
-else
-    echo "Warning: bun not found; Pi extension dependencies were not installed"
-fi
-
 config_link_all zed .config/zed
 link "$REPO_DIR/ghostty/config.ghostty" "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
 link "$REPO_DIR/tools/lsd.yaml" "$HOME/.config/lsd/config.yaml"
