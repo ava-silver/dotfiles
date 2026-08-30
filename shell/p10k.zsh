@@ -230,8 +230,6 @@
     fi
   }
   autoload -Uz add-zsh-hook
-  add-zsh-hook -d precmd _git_prompt_backend_precmd
-  add-zsh-hook precmd _git_prompt_backend_precmd
 
   ######################[ gitcli: git-CLI fallback for reftable repos ]#######################
   prompt_gitcli() {
@@ -519,7 +517,13 @@
   typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
   typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=false
 
-  (( ! $+functions[p10k] )) || p10k reload
+  if (( $+functions[p10k] )); then
+    p10k reload
+    add-zsh-hook -d precmd _git_prompt_backend_precmd
+    add-zsh-hook -d precmd _p9k_precmd
+    add-zsh-hook precmd _git_prompt_backend_precmd
+    add-zsh-hook precmd _p9k_precmd
+  fi
 }
 
 # Tell `p10k configure` which file it should overwrite.
