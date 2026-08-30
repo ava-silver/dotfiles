@@ -137,8 +137,8 @@
   typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=2
   typeset -g POWERLEVEL9K_VCS_CONFLICTED_BACKGROUND=3
   typeset -g POWERLEVEL9K_VCS_LOADING_BACKGROUND=8
-  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
-  typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON=' '
+  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
+  typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON=' '
 
   function my_git_formatter() {
     emulate -L zsh
@@ -216,8 +216,6 @@
       _p9k__gitcli_clean=; _p9k__gitcli_modified=; _p9k__gitcli_untracked=; _p9k__gitcli_conflicted=
       _p9k__gitcli_loading=1
       _p9k__gitcli_text='loading'
-    else
-      _p9k__gitcli_loading=
     fi
     _p9k_prompt_segment prompt_gitcli_CLEAN      2 $_p9k_color1 '' 1 '$_p9k__gitcli_clean'      '$_p9k__gitcli_text'
     _p9k_prompt_segment prompt_gitcli_MODIFIED   3 $_p9k_color1 '' 1 '$_p9k__gitcli_modified'   '$_p9k__gitcli_text'
@@ -253,28 +251,42 @@
 
     # One call to verify we're in a git repo and capture git-dir + toplevel.
     local revparse
-    revparse=$(git -C "$dir" rev-parse --absolute-git-dir --show-toplevel 2>/dev/null) || return
-    local gdabs=${revparse%%$'\n'*}
-    local toplevel=${revparse##*$'\n'}
-
-    local rv
-    rv=$(git -C "$dir" config --local core.repositoryformatversion 2>/dev/null)
-    if [[ $rv == 1 ]]; then
+    revparse=$(git -C "$dir" rev-parse --absolute-git-dir --show-toplevel 2>/dev/null)
+    if (( $? != 0 )); then
+      new_dir=${dir:A}
+    else
+      local gdabs=${revparse%%$'\n'*}
+      local toplevel=${revparse##*$'\n'}
       new_dir=${toplevel:A}
+
+      local ref_storage
+      ref_storage=$(git -C "$dir" config --local --get extensions.refStorage 2>/dev/null)
+      if [[ $ref_storage == reftable ]]; then
 
       local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
       local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
 
       # One call gets branch name, ahead/behind, and dirty status.
       # --branch emits header lines: branch.head, branch.oid, branch.upstream, branch.ab.
-      # Wrapped in timeout so a slow index scan never hangs the prompt; loading state persists instead.
-      local branch= oid=
-      local -i ahead=0 behind=0
-      local -i staged=0 unstaged=0 untracked=0 conflicted=0
+      # Wrapped in timeout so a slow index scan never hangs the prompt.
+      local branch= oid= status_output
+      local -i ahead=0 behind=0 staged=0 unstaged=0 untracked=0 conflicted=0
       local -a _status_cmd=(git -C "$dir" status --porcelain=v2 --branch --no-renames)
-      (( $+commands[timeout] )) && _status_cmd=(timeout 10 $_status_cmd[@])
-      local line
-      while IFS= read -r line; do
+      local timeout_command=
+      if (( $+commands[timeout] )); then
+        timeout_command=timeout
+      elif (( $+commands[gtimeout] )); then
+        timeout_command=gtimeout
+      fi
+      [[ -n $timeout_command ]] && _status_cmd=($timeout_command 10 $_status_cmd[@])
+      status_output=$($_status_cmd[@] 2>/dev/null)
+      local status_rc=$?
+      if (( status_rc != 0 )); then
+        new_text='loading'
+        new_loading=1
+      else
+        local line
+        while IFS= read -r line; do
         case $line in
           '# branch.head '*)
             branch=${line#'# branch.head '}
@@ -296,7 +308,7 @@
             ;;
           '?'*) (( untracked++ )) ;;
         esac
-      done < <($_status_cmd[@] 2>/dev/null)
+        done <<< "$status_output"
 
       # Detached HEAD: fall back to tag or short sha from the oid we already have.
       if [[ -z $branch ]]; then
@@ -340,8 +352,8 @@
       else
         new_clean=1
       fi
-    else
-      new_dir=${toplevel:A}
+        fi
+      fi
     fi
 
     if [[ $new_dir == $_p9k__gitcli_dir && $new_text == $_p9k__gitcli_text \

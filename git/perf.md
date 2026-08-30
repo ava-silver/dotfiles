@@ -1,57 +1,73 @@
-# Git prompt performance
+# Git prompt performance investigation
 
-## Two prompt paths
+## Measured repositories
 
-The p10k git segment routes per repo:
+Measurements use Git 2.50.1 on macOS with warm filesystem caches.
 
-- **Non-reftable** (`repositoryformatversion=0`) → gitstatus/libgit2. Fast, async, C. Covers GitHub, GitLab, personal repos -- the majority.
-- **Reftable** (`repositoryformatversion=1`) → gitcli (`_p9k_prompt_gitcli_async` in `shell/p10k.zsh`). Pure `git` subprocess calls. Covers newer Datadog repos that were initialized with `--ref-format=reftable`.
+| Repository | Git format | Tracked files | Index | `status` | `status -uno` |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `~/dd/dd-source` | files | 395,735 | 59 MiB | 7.6 s | 58 ms |
+| `~/dd/web-ui` | reftable | 236,596 | 21 MiB | 5.1 s before caches, 175 ms after | 57 ms |
 
-## What was optimized
+Trace2 attributes the delay to the untracked-file scan. It visited 56,009 directories and 301,938 paths in `web-ui`, and 86,266 directories and 481,962 paths in `dd-source`.
 
-The gitcli path previously made ~9 git subprocess calls per prompt. Reduced to 3:
+`web-ui` now has the recommended local settings:
 
-1. `git rev-parse --absolute-git-dir --show-toplevel` -- verifies git repo, captures git dir and worktree root
-2. `git config --local core.repositoryformatversion` -- determines which path to take
-3. `git status --porcelain=v2 --branch --no-renames` -- branch name, ahead/behind, and dirty status in one call (the `--branch` flag adds `# branch.*` header lines)
-
-Action detection (merge/rebase/cherry-pick) now reads the git dir directly instead of spawning a subprocess. `git status` is wrapped in `timeout 10` (GNU coreutils) so a hung index scan degrades to a loading indicator rather than a frozen prompt.
-
-Detached HEAD adds one more call (`git describe --tags`) but uses the `# branch.oid` SHA already in memory as fallback, so no extra `rev-parse --short` needed.
-
-## Gitconfig guards
-
-Three global settings protect gitstatus/libgit2 on non-reftable repos -- libgit2 can't parse the FSMN/UNTR index extensions that fsmonitor and untrackedCache write:
-
-```
-core.fsmonitor = false
-core.untrackedCache = false
-index.skipHash = false   # feature.manyFiles implies skipHash=true
+```ini
+core.fsmonitor = true
+core.untrackedCache = true
+feature.manyFiles = true
+extensions.refStorage = reftable
 ```
 
-These don't apply to reftable repos since they never touch libgit2.
+The first status call populates the index cache. Later calls avoid the full directory walk. `dd-source` includes a later `.git-shared-config` that overrides its earlier local `core.fsmonitor=false`, so inspect effective values with `git config --get`, not only `--local`.
 
-## To do on the work laptop
+## Findings
 
-**Check which repos are reftable:**
+- `vcs` and `gitcli` are separate prompt segments, not backend alternatives. Both are scheduled on every prompt. A normal repository still pays for the `gitcli` repository checks while `gitstatus` handles the status. A reftable repository still attempts `gitstatus` before the CLI fallback runs.
+- `core.repositoryformatversion=1` means that a repository uses extensions; it does not prove that the repository uses reftable. The prompt now checks `extensions.refStorage=reftable`, and `setup-reftable-perf` rejects other repositories.
+- Disabling `core.fsmonitor` and `core.untrackedCache` does not remove extensions already written to an index. `dd-source` still contains an `FSMN` index extension despite its false local settings, so `gitstatus` may fail or report stale data.
+- A failed or timed-out CLI status must not become a clean status. The prompt now publishes `loading` when status exits unsuccessfully, and it clears the loading state outside Git repositories.
+- Ahead/behind counts are included in `status --branch`. In `web-ui`, `--no-ahead-behind` made no measurable difference at about 165 ms, so untracked-file discovery is the current bottleneck.
+
+## Recommended next steps
+
+1. Repair the existing non-reftable index before relying on `gitstatus`:
+
+   ```sh
+   repo=~/dd/dd-source
+   git -C "$repo" config --file "$repo/.git-shared-config" core.fsmonitor false
+   git -C "$repo" config --local core.fsmonitor false
+   git -C "$repo" config --local core.untrackedCache false
+   git -C "$repo" config --local feature.manyFiles false
+   git -C "$repo" config --local index.skipHash false
+   git -C "$repo" update-index --no-fsmonitor --no-untracked-cache
+   ```
+
+   Confirm that `git -C "$repo" config --get core.fsmonitor` is `false` and that the index no longer contains `FSMN` or `UNTR`, then restart the shell.
+
+2. Stop scheduling both prompt backends. Select the backend before running status, or enable the CLI segment only for known reftable repositories. This is the largest remaining prompt-level inefficiency.
+
+3. Keep `core.fsmonitor` and `core.untrackedCache` enabled in large reftable repositories. Run:
+
+   ```sh
+   git -C ~/dd/web-ui setup-reftable-perf
+   ```
+
+4. Re-run the measurements after repairing `dd-source` and after changing backend selection. Use Trace2 when a status call exceeds the expected cost:
+
+   ```sh
+   GIT_TRACE2_PERF=/tmp/git-status.perf \
+     git -C ~/dd/dd-source status --porcelain=v2 --branch --no-renames
+   ```
+
+## Detection and safety checks
+
 ```sh
-git -C ~/dd/some-repo rev-parse --show-toplevel && git config core.repositoryformatversion
-# 1 = reftable (gitcli path), 0 = non-reftable (gitstatus path)
-```
-
-**Enable fast status on reftable repos** (safe -- gitcli path, no libgit2):
-```sh
-git setup-reftable-perf
-# sets core.fsmonitor=true + core.untrackedCache=true locally
-```
-
-Do this in each large reftable repo. First `git status` after enabling populates the caches; every subsequent call (including each prompt) uses OS-level change detection instead of a full tree walk.
-
-**Check if any non-reftable repos have locally-set overrides** that could still break gitstatus:
-```sh
-git config --local core.fsmonitor
-git config --local core.untrackedCache
-git config --local index.skipHash
-git config --local feature.manyFiles
-# Any of these being true/1 on a non-reftable repo will cause stale prompt status
+for repo in ~/dd/dd-source ~/dd/web-ui; do
+  printf '%s: ' "$repo"
+  git -C "$repo" rev-parse --show-ref-format
+  git -C "$repo" config --show-origin --get-regexp \
+    '^(core\.(repositoryformatversion|fsmonitor|untrackedCache)|index\.skipHash|feature\.manyFiles|extensions\.refStorage)$' || true
+done
 ```
