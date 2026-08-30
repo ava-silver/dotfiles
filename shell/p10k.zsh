@@ -220,9 +220,13 @@
   _git_prompt_backend_precmd() {
     [[ $PWD == $_git_prompt_backend_pwd ]] && return
     typeset -g _git_prompt_backend_pwd=$PWD
-    local ref_storage
+    if (( $+_git_prompt_gitcli_segment_index )); then
+      typeset -g "_p9k__segment_val_${_git_prompt_gitcli_segment_side}[$_git_prompt_gitcli_segment_index]"=
+    fi
+    local ref_storage gitcli_override
     ref_storage=$(command git -C "$PWD" config --local --get extensions.refStorage 2>/dev/null)
-    if [[ $ref_storage == reftable ]]; then
+    gitcli_override=$(command git -C "$PWD" config --local --get prompt.gitcli 2>/dev/null)
+    if [[ $ref_storage == reftable || $gitcli_override == true ]]; then
       typeset -g _p9k__git_backend=gitcli
       typeset -gi _p9k_vcs_index=0
     else
@@ -232,7 +236,7 @@
   }
   autoload -Uz add-zsh-hook
 
-  ######################[ gitcli: git-CLI fallback for reftable repos ]#######################
+  ##########################[ gitcli: Git CLI status ]##########################
   prompt_gitcli() {
     local -i len=$#_p9k__prompt _p9k__has_upglob
     if [[ $_p9k__git_backend != gitcli ]]; then
@@ -254,7 +258,10 @@
   }
 
   instant_prompt_gitcli() {
-    [[ $(command git -C "$PWD" config --local --get extensions.refStorage 2>/dev/null) == reftable ]] || return
+    local ref_storage gitcli_override
+    ref_storage=$(command git -C "$PWD" config --local --get extensions.refStorage 2>/dev/null)
+    gitcli_override=$(command git -C "$PWD" config --local --get prompt.gitcli 2>/dev/null)
+    [[ $ref_storage == reftable || $gitcli_override == true ]] || return
     # Instant prompt cannot use the async state, so render a fixed loading segment.
     p10k segment -b 8 -f 7 -t 'loading'
   }
@@ -272,6 +279,8 @@
     typeset -g _p9k__gitcli_untracked=
     typeset -g _p9k__gitcli_conflicted=
     typeset -g _p9k__gitcli_loading=
+    typeset -gi _git_prompt_gitcli_segment_index=$_p9k__segment_index
+    typeset -g _git_prompt_gitcli_segment_side=$_p9k__prompt_side
 
     # Select the backend before p10k builds the first prompt.
     _git_prompt_backend_precmd
