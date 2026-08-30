@@ -35,16 +35,16 @@
     status                  # exit code of the last command
     command_execution_time  # duration of the last command
     background_jobs         # presence of background jobs
+    context                 # user@hostname
+    time
+    # =========================[ Line #2 ]=========================
+    newline
     direnv                  # direnv status (https://direnv.net/)
     terraform               # terraform workspace (https://www.terraform.io)
     aws                     # aws profile
     azure                   # azure account name
     gcloud                  # google cloud cli account and project
     google_app_cred         # google application credentials
-    context                 # user@hostname
-    time
-    # =========================[ Line #2 ]=========================
-    newline
     kubecontext             # current kubernetes context
   )
 
@@ -129,6 +129,9 @@
   typeset -g POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS_PCT=50
   typeset -g POWERLEVEL9K_DIR_HYPERLINK=false
   typeset -g POWERLEVEL9K_DIR_SHOW_WRITABLE=v3
+
+  # Shorten the physical DataDog repository path to ~dd.
+  hash -d dd="$HOME/go/src/github.com/DataDog"
 
   ##########################[ gitcli: asynchronous Git status ]##########################
   typeset -g POWERLEVEL9K_GITCLI_BRANCH_ICON=' '

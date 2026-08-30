@@ -96,6 +96,10 @@ export LANG=en_US.UTF-8
 
 source "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme"
 
+# Show only the working directory in terminal tabs and windows.
+ZSH_THEME_TERM_TAB_TITLE_IDLE='%~'
+ZSH_THEME_TERM_TITLE_IDLE='%~'
+
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f $HOME/.p10k.zsh ]] || source $HOME/.p10k.zsh
 
