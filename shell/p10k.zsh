@@ -252,6 +252,12 @@
     (( _p9k__has_upglob )) || typeset -g "_p9k__segment_val_${_p9k__prompt_side}[$_p9k__segment_index]"=$_p9k__prompt[len+1,-1]
   }
 
+  instant_prompt_gitcli() {
+    [[ $(command git -C "$PWD" config --local --get extensions.refStorage 2>/dev/null) == reftable ]] || return
+    # Instant prompt cannot use the async state, so render a fixed loading segment.
+    p10k segment -b 8 -f 7 -t 'loading'
+  }
+
   _p9k_prompt_gitcli_init() {
     typeset -g _git_prompt_backend_pwd=
     if (( ! $+_git_prompt_vcs_index )); then
@@ -266,6 +272,8 @@
     typeset -g _p9k__gitcli_conflicted=
     typeset -g _p9k__gitcli_loading=
 
+    # Select the backend before p10k builds the first prompt.
+    _git_prompt_backend_precmd
     _p9k__async_segments_compute+='_p9k_gitcli_prefetch'
   }
 
