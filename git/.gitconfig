@@ -71,9 +71,9 @@ dwt = "!$HOME/dotfiles/git/scripts/delete-worktree.sh"
 copy-stack = "!$HOME/dotfiles/git/scripts/copy-stack.sh"
 cs = copy-stack
 trigger-ci = "!f() { git commit --allow-empty -m 'trigger ci'  && git pu ; }; f"
-# Enable fsmonitor + untrackedCache for reftable repos -- safe because they use the
-# gitcli prompt path, not gitstatus/libgit2. Dramatically speeds up `git status`.
-setup-reftable-perf = "!git config --local core.fsmonitor true && git config --local core.untrackedCache true && echo 'fsmonitor + untrackedCache enabled'"
+# Enable fsmonitor + untrackedCache only for reftable repos -- safe because they use
+# the gitcli prompt path, not gitstatus/libgit2.
+setup-reftable-perf = "!f() { test \"$(git config --local --get extensions.refStorage)\" = reftable || { echo 'not a reftable repository' >&2; return 1; }; git config --local core.fsmonitor true && git config --local core.untrackedCache true && echo 'fsmonitor + untrackedCache enabled'; }; f"
 wt = !$HOME/dotfiles/git/scripts/worktree.sh
 [stk]
 cleanClosed = true

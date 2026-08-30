@@ -25,8 +25,7 @@
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     trans
     dir                     # current directory
-    vcs                     # git status (gitstatus/libgit2; works for files-backed repos)
-    gitcli                  # git status via `git` CLI (fallback for reftable/extension repos)
+    gitcli                  # asynchronous Git status
     newline
     prompt_char
   )
@@ -36,16 +35,16 @@
     status                  # exit code of the last command
     command_execution_time  # duration of the last command
     background_jobs         # presence of background jobs
+    context                 # user@hostname
+    time
+    # =========================[ Line #2 ]=========================
+    newline
     direnv                  # direnv status (https://direnv.net/)
     terraform               # terraform workspace (https://www.terraform.io)
     aws                     # aws profile
     azure                   # azure account name
     gcloud                  # google cloud cli account and project
     google_app_cred         # google application credentials
-    context                 # user@hostname
-    time
-    # =========================[ Line #2 ]=========================
-    newline
     kubecontext             # current kubernetes context
   )
 
@@ -131,236 +130,509 @@
   typeset -g POWERLEVEL9K_DIR_HYPERLINK=false
   typeset -g POWERLEVEL9K_DIR_SHOW_WRITABLE=v3
 
-  #####################################[ vcs: git status ]######################################
-  typeset -g POWERLEVEL9K_VCS_CLEAN_BACKGROUND=2
-  typeset -g POWERLEVEL9K_VCS_MODIFIED_BACKGROUND=3
-  typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=2
-  typeset -g POWERLEVEL9K_VCS_CONFLICTED_BACKGROUND=3
-  typeset -g POWERLEVEL9K_VCS_LOADING_BACKGROUND=8
-  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
-  typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON=' '
+  # Shorten the physical DataDog repository path to ~dd.
+  hash -d dd="$HOME/go/src/github.com/DataDog"
 
-  function my_git_formatter() {
+  ##########################[ gitcli: asynchronous Git status ]##########################
+  typeset -g POWERLEVEL9K_GITCLI_BRANCH_ICON=' '
+  typeset -g POWERLEVEL9K_GITCLI_UNTRACKED_ICON=' '
+  typeset -gF POWERLEVEL9K_GITCLI_TIMEOUT_SECONDS=120
+
+  autoload -Uz add-zsh-hook
+  zmodload zsh/datetime
+
+  _git_prompt_display_text() {
     emulate -L zsh
-
-    if [[ -n $P9K_CONTENT ]]; then
-      typeset -g my_git_format=$P9K_CONTENT
+    local text=$1
+    local -i max_width=$2
+    local marker=$'\x1d'
+    if [[ $text != *$marker*$marker* ]]; then
+      reply=("$text" '')
       return
     fi
 
-    local       meta='%7F'
-    local      clean='%0F'
-    local   modified='%0F'
-    local  untracked='%0F'
-    local conflicted='%1F'
+    local prefix=${text%%$marker*}
+    local rest=${text#*$marker}
+    local branch=${rest%%$marker*}
+    local suffix=${rest#*$marker}
+    local display=$branch
 
-    local res
-
-    if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
-      local branch=${(V)VCS_STATUS_LOCAL_BRANCH}
-      res+="${clean}${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
+    if (( max_width > 0 && $#display > max_width )); then
+      local -a parts=("${(@s:/:)display}")
+      if (( $#parts >= 3 )); then
+        display=${(j:/:)parts[3,-1]}
+      elif (( $#parts == 2 )); then
+        display=$parts[2]
+      fi
+      if (( $#display > max_width )); then
+        if (( max_width > 2 )); then
+          display="${display[1,max_width-2]}.."
+        else
+          display=${display[1,max_width]}
+        fi
+      fi
     fi
 
-    if [[ -n $VCS_STATUS_TAG && -z $VCS_STATUS_LOCAL_BRANCH ]]; then
-      local tag=${(V)VCS_STATUS_TAG}
-      (( $#tag > 32 )) && tag[13,-13]="…"
-      res+="${meta}#${clean}${tag//\%/%%}"
-    fi
-
-    [[ -z $VCS_STATUS_LOCAL_BRANCH && -z $VCS_STATUS_TAG ]] &&
-      res+="${meta}@${clean}${VCS_STATUS_COMMIT[1,8]}"
-
-    if [[ -n ${VCS_STATUS_REMOTE_BRANCH:#$VCS_STATUS_LOCAL_BRANCH} ]]; then
-      res+="${meta}:${clean}${(V)VCS_STATUS_REMOTE_BRANCH//\%/%%}"
-    fi
-
-    if [[ $VCS_STATUS_COMMIT_SUMMARY == (|*[^[:alnum:]])(wip|WIP)(|[^[:alnum:]]*) ]]; then
-      res+=" ${modified}wip"
-    fi
-
-    if (( VCS_STATUS_COMMITS_AHEAD || VCS_STATUS_COMMITS_BEHIND )); then
-      (( VCS_STATUS_COMMITS_BEHIND )) && res+=" ${clean}󰦗 ${VCS_STATUS_COMMITS_BEHIND}"
-      (( VCS_STATUS_COMMITS_AHEAD && !VCS_STATUS_COMMITS_BEHIND )) && res+=" "
-      (( VCS_STATUS_COMMITS_AHEAD  )) && res+="${clean}󰦘 ${VCS_STATUS_COMMITS_AHEAD}"
-    elif [[ -n $VCS_STATUS_REMOTE_BRANCH ]]; then
-      res+=" ${clean}="
-    fi
-
-    (( VCS_STATUS_PUSH_COMMITS_BEHIND )) && res+=" ${clean}⇠${VCS_STATUS_PUSH_COMMITS_BEHIND}"
-    (( VCS_STATUS_PUSH_COMMITS_AHEAD && !VCS_STATUS_PUSH_COMMITS_BEHIND )) && res+=" "
-    (( VCS_STATUS_PUSH_COMMITS_AHEAD  )) && res+="${clean}⇢${VCS_STATUS_PUSH_COMMITS_AHEAD}"
-    (( VCS_STATUS_STASHES        )) && res+=" ${clean} ${VCS_STATUS_STASHES}"
-    [[ -n $VCS_STATUS_ACTION     ]] && res+=" ${conflicted}${VCS_STATUS_ACTION}"
-    (( VCS_STATUS_NUM_CONFLICTED )) && res+=" ${conflicted}${VCS_STATUS_NUM_CONFLICTED}"
-    (( VCS_STATUS_NUM_STAGED     )) && res+=" ${modified} ${VCS_STATUS_NUM_STAGED}"
-    (( VCS_STATUS_NUM_UNSTAGED   )) && res+=" ${modified} ${VCS_STATUS_NUM_UNSTAGED}"
-    (( VCS_STATUS_NUM_UNTRACKED  )) && res+=" ${untracked}${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${VCS_STATUS_NUM_UNTRACKED}"
-    (( VCS_STATUS_HAS_UNSTAGED == -1 )) && res+=" ${modified}─"
-
-    typeset -g my_git_format=$res
+    display=${(V)display}
+    reply=("${prefix}${display//\%/%%}${suffix}" "$branch")
   }
-  functions -M my_git_formatter 2>/dev/null
 
-  typeset -g POWERLEVEL9K_VCS_MAX_INDEX_SIZE_DIRTY=-1
-  typeset -g POWERLEVEL9K_VCS_DISABLED_WORKDIR_PATTERN='~'
-  typeset -g POWERLEVEL9K_VCS_DISABLE_GITSTATUS_FORMATTING=true
-  typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${$((my_git_formatter()))+${my_git_format}}'
-  typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED,COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
-  typeset -g POWERLEVEL9K_VCS_BACKENDS=(git)
+  _git_prompt_render_segment() {
+    _p9k_prompt_segment prompt_gitcli_CLEAN      2 $_p9k_color1 '' 1 '$_p9k__gitcli_clean'      '$_p9k__gitcli_display_text'
+    _p9k_prompt_segment prompt_gitcli_MODIFIED   3 $_p9k_color1 '' 1 '$_p9k__gitcli_modified'   '$_p9k__gitcli_display_text'
+    _p9k_prompt_segment prompt_gitcli_UNTRACKED  2 $_p9k_color1 '' 1 '$_p9k__gitcli_untracked'  '$_p9k__gitcli_display_text'
+    _p9k_prompt_segment prompt_gitcli_CONFLICTED 3 $_p9k_color1 '' 1 '$_p9k__gitcli_conflicted' '$_p9k__gitcli_display_text'
+    _p9k_prompt_segment prompt_gitcli_REFRESHING 8 $_p9k_color1 '' 1 '$_p9k__gitcli_refreshing' '$_p9k__gitcli_display_text'
+    _p9k_prompt_segment prompt_gitcli_LOADING    8 $_p9k_color1 '' 1 '$_p9k__gitcli_loading'    '$_p9k__gitcli_display_text'
+  }
 
-  ######################[ gitcli: git-CLI fallback for reftable repos ]#######################
   prompt_gitcli() {
     local -i len=$#_p9k__prompt _p9k__has_upglob
-    if [[ -z $_p9k__gitcli_dir ]] \
-       || [[ $_p9k__cwd_a != $_p9k__gitcli_dir && $_p9k__cwd_a != $_p9k__gitcli_dir/* ]]; then
-      _p9k__gitcli_clean=; _p9k__gitcli_modified=; _p9k__gitcli_untracked=; _p9k__gitcli_conflicted=
-      _p9k__gitcli_loading=1
-      _p9k__gitcli_text='loading'
-    else
-      _p9k__gitcli_loading=
+    local raw_branch
+    local -a reply
+
+    _git_prompt_display_text "$_p9k__gitcli_text" 0
+    raw_branch=$reply[2]
+    if [[ -n $raw_branch ]] && (( COLUMNS > 0 )); then
+      local -i dir_width=_p9k__dir_len text_width nonbranch_width max_width
+      (( dir_width > POWERLEVEL9K_DIR_MAX_LENGTH )) && dir_width=POWERLEVEL9K_DIR_MAX_LENGTH
+      _p9k_prompt_length "$reply[1]"
+      text_width=$_p9k__ret
+      nonbranch_width=$(( text_width - $#raw_branch ))
+      # Reserve room for segment separators, the transient icon, the gap, and the time.
+      max_width=$(( COLUMNS - dir_width - nonbranch_width - 34 ))
+      (( max_width < 8 )) && max_width=8
+      (( $#raw_branch > max_width )) && _git_prompt_display_text "$_p9k__gitcli_text" $max_width
     fi
-    _p9k_prompt_segment prompt_gitcli_CLEAN      2 $_p9k_color1 '' 1 '$_p9k__gitcli_clean'      '$_p9k__gitcli_text'
-    _p9k_prompt_segment prompt_gitcli_MODIFIED   3 $_p9k_color1 '' 1 '$_p9k__gitcli_modified'   '$_p9k__gitcli_text'
-    _p9k_prompt_segment prompt_gitcli_UNTRACKED  2 $_p9k_color1 '' 1 '$_p9k__gitcli_untracked'  '$_p9k__gitcli_text'
-    _p9k_prompt_segment prompt_gitcli_CONFLICTED 3 $_p9k_color1 '' 1 '$_p9k__gitcli_conflicted' '$_p9k__gitcli_text'
-    _p9k_prompt_segment prompt_gitcli_LOADING    8 $_p9k_color1 '' 1 '$_p9k__gitcli_loading'    '$_p9k__gitcli_text'
+    typeset -g _p9k__gitcli_display_text=$reply[1]
+    _git_prompt_render_segment
+
     (( _p9k__has_upglob )) || typeset -g "_p9k__segment_val_${_p9k__prompt_side}[$_p9k__segment_index]"=$_p9k__prompt[len+1,-1]
   }
 
-  _p9k_prompt_gitcli_init() {
-    typeset -g _p9k__gitcli_dir=
-    typeset -g _p9k__gitcli_text=
+  _git_prompt_route_precmd() {
+    local route=${PWD:A}
+    if [[ $route == $_git_prompt_route_pwd ]]; then
+      if [[ -n ${_p9k__gitcli_clean}${_p9k__gitcli_modified}${_p9k__gitcli_untracked}${_p9k__gitcli_conflicted} ]]; then
+        typeset -g _p9k__gitcli_clean=
+        typeset -g _p9k__gitcli_modified=
+        typeset -g _p9k__gitcli_untracked=
+        typeset -g _p9k__gitcli_conflicted=
+        typeset -g _p9k__gitcli_refreshing=1
+        if (( $+_git_prompt_gitcli_segment_index )); then
+          typeset -g "_p9k__segment_val_${_git_prompt_gitcli_segment_side}[$_git_prompt_gitcli_segment_index]"=
+        fi
+      fi
+      return
+    fi
+
+    typeset -g _git_prompt_route_pwd=$route
+    (( ++_git_prompt_route_generation ))
+    typeset -g _git_prompt_cache_git_dir=
+    typeset -g _git_prompt_cache_toplevel=
+    typeset -g _p9k__gitcli_text=loading
     typeset -g _p9k__gitcli_clean=
     typeset -g _p9k__gitcli_modified=
     typeset -g _p9k__gitcli_untracked=
     typeset -g _p9k__gitcli_conflicted=
+    typeset -g _p9k__gitcli_refreshing=
+    typeset -g _p9k__gitcli_loading=1
+    if (( $+_git_prompt_gitcli_segment_index )); then
+      typeset -g "_p9k__segment_val_${_git_prompt_gitcli_segment_side}[$_git_prompt_gitcli_segment_index]"=
+    fi
+  }
+
+  _git_prompt_apply() {
+    emulate -L zsh
+    local -i generation=$1
+    local route=$2 git_dir=$3 toplevel=$4 kind=$5 text=$6
+
+    (( generation == _git_prompt_route_generation )) || return
+    [[ $route == $_git_prompt_route_pwd && ${PWD:A} == $route ]] || return
+    case $kind in
+      absent|loading|clean|modified|untracked|conflicted) ;;
+      *) return ;;
+    esac
+
+    typeset -g _git_prompt_cache_git_dir=$git_dir
+    typeset -g _git_prompt_cache_toplevel=$toplevel
+
+    local old_text=$_p9k__gitcli_text
+    local old_kind=
+    [[ -n $_p9k__gitcli_clean ]] && old_kind=clean
+    [[ -n $_p9k__gitcli_modified ]] && old_kind=modified
+    [[ -n $_p9k__gitcli_untracked ]] && old_kind=untracked
+    [[ -n $_p9k__gitcli_conflicted ]] && old_kind=conflicted
+    [[ -n $_p9k__gitcli_refreshing ]] && old_kind=refreshing
+    [[ -n $_p9k__gitcli_loading ]] && old_kind=loading
+    [[ -z $old_kind ]] && old_kind=absent
+
+    typeset -g _p9k__gitcli_text=$text
+    typeset -g _p9k__gitcli_clean=
+    typeset -g _p9k__gitcli_modified=
+    typeset -g _p9k__gitcli_untracked=
+    typeset -g _p9k__gitcli_conflicted=
+    typeset -g _p9k__gitcli_refreshing=
     typeset -g _p9k__gitcli_loading=
-    _p9k__async_segments_compute+='_p9k_worker_invoke gitcli "_p9k_prompt_gitcli_compute ${(q)_p9k__cwd_a}"'
+    case $kind in
+      clean)      typeset -g _p9k__gitcli_clean=1 ;;
+      modified)   typeset -g _p9k__gitcli_modified=1 ;;
+      untracked)  typeset -g _p9k__gitcli_untracked=1 ;;
+      conflicted) typeset -g _p9k__gitcli_conflicted=1 ;;
+      loading)    typeset -g _p9k__gitcli_loading=1 ;;
+    esac
+
+    if [[ $kind != $old_kind || $text != $old_text ]]; then
+      if (( $+_git_prompt_gitcli_segment_index )); then
+        typeset -g "_p9k__segment_val_${_git_prompt_gitcli_segment_side}[$_git_prompt_gitcli_segment_index]"=
+      fi
+      reset=2
+    fi
+  }
+
+  _git_prompt_run() {
+    emulate -L zsh
+    local -F deadline=$1 remaining
+    local capture_stderr=$2 timeout_bin=
+    shift 2
+
+    if (( deadline > 0 )); then
+      remaining=$(( deadline - EPOCHREALTIME ))
+      (( remaining > 0 )) || return 124
+      if (( $+commands[timeout] )); then
+        timeout_bin=$commands[timeout]
+      elif (( $+commands[gtimeout] )); then
+        timeout_bin=$commands[gtimeout]
+      fi
+    fi
+
+    if [[ -n $timeout_bin ]]; then
+      if (( capture_stderr )); then
+        LC_ALL=C "$timeout_bin" -k 1 "${remaining}s" "$@" 2>&1
+      else
+        LC_ALL=C "$timeout_bin" -k 1 "${remaining}s" "$@" 2>/dev/null
+      fi
+    elif (( capture_stderr )); then
+      LC_ALL=C "$@" 2>&1
+    else
+      LC_ALL=C "$@" 2>/dev/null
+    fi
+  }
+
+  _git_prompt_parse_track() {
+    emulate -L zsh -o extended_glob
+    local value=$1 ahead=0 behind=0 gone=0 rest
+    case $value in
+      '') ;;
+      gone|'[gone]') gone=1 ;;
+      'ahead '<->) ahead=${value#ahead } ;;
+      'behind '<->) behind=${value#behind } ;;
+      'ahead '<->', behind '<->)
+        rest=${value#ahead }
+        ahead=${rest%%,*}
+        behind=${value##*behind }
+        ;;
+      *) return 1 ;;
+    esac
+    REPLY="$ahead $behind $gone"
+  }
+
+  _git_prompt_action() {
+    emulate -L zsh -o extended_glob
+    local git_dir=$1 action= progress_dir= next= last=
+
+    if [[ -d $git_dir/rebase-merge ]]; then
+      progress_dir=$git_dir/rebase-merge
+      [[ -f $progress_dir/interactive ]] && action=rebase-i || action=rebase-m
+      [[ ! -e $progress_dir/msgnum || -r $progress_dir/msgnum ]] || return 1
+      [[ ! -e $progress_dir/end || -r $progress_dir/end ]] || return 1
+      [[ -r $progress_dir/msgnum ]] && next=$(<$progress_dir/msgnum)
+      [[ -r $progress_dir/end ]] && last=$(<$progress_dir/end)
+    elif [[ -d $git_dir/rebase-apply ]]; then
+      progress_dir=$git_dir/rebase-apply
+      if [[ -f $progress_dir/rebasing ]]; then
+        action=rebase
+      elif [[ -f $progress_dir/applying ]]; then
+        action=am
+      else
+        action=am/rebase
+      fi
+      [[ ! -e $progress_dir/next || -r $progress_dir/next ]] || return 1
+      [[ ! -e $progress_dir/last || -r $progress_dir/last ]] || return 1
+      [[ -r $progress_dir/next ]] && next=$(<$progress_dir/next)
+      [[ -r $progress_dir/last ]] && last=$(<$progress_dir/last)
+    elif [[ -f $git_dir/MERGE_HEAD ]]; then
+      action=merge
+    elif [[ -f $git_dir/REVERT_HEAD ]]; then
+      [[ -d $git_dir/sequencer ]] && action=revert-seq || action=revert
+    elif [[ -f $git_dir/CHERRY_PICK_HEAD ]]; then
+      [[ -d $git_dir/sequencer ]] && action=cherry-seq || action=cherry
+    elif [[ -f $git_dir/BISECT_START || -f $git_dir/BISECT_LOG ]]; then
+      action=bisect
+    elif [[ -d $git_dir/sequencer ]]; then
+      action=action
+    fi
+
+    if [[ -n $next || -n $last ]]; then
+      [[ $next == <-> && $last == <-> ]] || return 1
+      action+=" $next/$last"
+    fi
+    REPLY=$action
+  }
+
+  _git_prompt_format() {
+    emulate -L zsh -o extended_glob
+    local meta='%7F' clean='%0F' modified='%0F' untracked_color='%0F' conflicted_color='%1F'
+    local res escaped
+
+    if [[ -n $local_branch ]]; then
+      res+="${clean}${(g::)POWERLEVEL9K_GITCLI_BRANCH_ICON}"$'\x1d'"${local_branch}"$'\x1d'
+    elif [[ -n $tag ]]; then
+      escaped=${(V)tag}
+      (( $#escaped > 32 )) && escaped[13,-13]='…'
+      res+="${meta}#${clean}${escaped//\%/%%}"
+    else
+      res+="${meta}@${clean}${oid[1,8]}"
+    fi
+
+    if [[ -n $remote_branch && $remote_branch != $local_branch ]]; then
+      escaped=${(V)remote_branch}
+      res+="${meta}:${clean}${escaped//\%/%%}"
+    fi
+    [[ $commit_summary == (|*[^[:alnum:]])(wip|WIP)(|[^[:alnum:]]*) ]] && res+=" ${modified}wip"
+
+    if (( ahead || behind )); then
+      (( behind )) && res+=" ${clean}󰦗 $behind"
+      (( ahead && ! behind )) && res+=' '
+      (( ahead )) && res+="${clean}󰦘 $ahead"
+    elif [[ -n $remote_branch ]]; then
+      res+=" ${clean}="
+    fi
+
+    (( stashes )) && res+=" ${clean} $stashes"
+    [[ -n $action ]] && res+=" ${conflicted_color}${action}"
+    (( conflicted )) && res+=" ${conflicted_color}${conflicted}"
+    (( staged )) && res+=" ${modified} $staged"
+    (( unstaged )) && res+=" ${modified} $unstaged"
+    (( untracked )) && res+=" ${untracked_color}${(g::)POWERLEVEL9K_GITCLI_UNTRACKED_ICON}${untracked}"
+    REPLY=$res
+  }
+
+  _git_prompt_emit() {
+    print -r -- "_git_prompt_apply $1 ${(q)2} ${(q)3} ${(q)4} ${(q)5} ${(q)6}"
+  }
+
+  _p9k_prompt_gitcli_init() {
+    typeset -g _git_prompt_route_pwd=
+    typeset -gi _git_prompt_route_generation=0
+    typeset -g _git_prompt_cache_git_dir=
+    typeset -g _git_prompt_cache_toplevel=
+    typeset -g _p9k__gitcli_text=loading
+    typeset -g _p9k__gitcli_clean=
+    typeset -g _p9k__gitcli_modified=
+    typeset -g _p9k__gitcli_untracked=
+    typeset -g _p9k__gitcli_conflicted=
+    typeset -g _p9k__gitcli_refreshing=
+    typeset -g _p9k__gitcli_loading=1
+    typeset -gi _git_prompt_gitcli_segment_index=$_p9k__segment_index
+    typeset -g _git_prompt_gitcli_segment_side=$_p9k__prompt_side
+
+    _git_prompt_route_precmd
+    _p9k__async_segments_compute+='_p9k_gitcli_prefetch'
+  }
+
+  _p9k_gitcli_prefetch() {
+    _p9k_worker_invoke gitcli \
+      "_p9k_prompt_gitcli_compute $_git_prompt_route_generation ${(q)_git_prompt_route_pwd} ${(q)_git_prompt_cache_git_dir} ${(q)_git_prompt_cache_toplevel}"
   }
 
   _p9k_prompt_gitcli_compute() {
-    _p9k_worker_async "_p9k_prompt_gitcli_async ${(q)1}" _p9k_prompt_gitcli_sync
+    _p9k_worker_async \
+      "_p9k_prompt_gitcli_async $1 ${(q)2} ${(q)3} ${(q)4}" \
+      _p9k_prompt_gitcli_sync
   }
 
   _p9k_prompt_gitcli_sync() {
-    eval $REPLY
-    _p9k_worker_reply $REPLY
+    _p9k_worker_reply "$REPLY"
   }
 
   _p9k_prompt_gitcli_async() {
-    local dir=$1
-    local new_dir=$dir new_text= new_clean= new_modified= new_untracked= new_conflicted= new_loading=
-
-    # One call to verify we're in a git repo and capture git-dir + toplevel.
-    local revparse
-    revparse=$(git -C "$dir" rev-parse --absolute-git-dir --show-toplevel 2>/dev/null) || return
-    local gdabs=${revparse%%$'\n'*}
-    local toplevel=${revparse##*$'\n'}
-
-    local rv
-    rv=$(git -C "$dir" config --local core.repositoryformatversion 2>/dev/null)
-    if [[ $rv == 1 ]]; then
-      new_dir=${toplevel:A}
-
-      local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
-      local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
-
-      # One call gets branch name, ahead/behind, and dirty status.
-      # --branch emits header lines: branch.head, branch.oid, branch.upstream, branch.ab.
-      # Wrapped in timeout so a slow index scan never hangs the prompt; loading state persists instead.
-      local branch= oid=
-      local -i ahead=0 behind=0
-      local -i staged=0 unstaged=0 untracked=0 conflicted=0
-      local -a _status_cmd=(git -C "$dir" status --porcelain=v2 --branch --no-renames)
-      (( $+commands[timeout] )) && _status_cmd=(timeout 10 $_status_cmd[@])
-      local line
-      while IFS= read -r line; do
-        case $line in
-          '# branch.head '*)
-            branch=${line#'# branch.head '}
-            [[ $branch == '(detached)' ]] && branch=
-            ;;
-          '# branch.oid '*)
-            oid=${line#'# branch.oid '}
-            ;;
-          '# branch.ab '*)
-            local ab=${line#'# branch.ab '}
-            local ahead_s=${ab%% *}; ahead=${ahead_s#+}
-            local behind_s=${ab##* }; behind=${behind_s#-}
-            ;;
-          'u '*) (( conflicted++ )) ;;
-          '1 '?*|'2 '?*)
-            local xy=${line[3,4]}
-            [[ ${xy[1]} != ' ' && ${xy[1]} != '.' ]] && (( staged++ ))
-            [[ ${xy[2]} != ' ' && ${xy[2]} != '.' ]] && (( unstaged++ ))
-            ;;
-          '?'*) (( untracked++ )) ;;
-        esac
-      done < <($_status_cmd[@] 2>/dev/null)
-
-      # Detached HEAD: fall back to tag or short sha from the oid we already have.
-      if [[ -z $branch ]]; then
-        local tag
-        tag=$(git -C "$dir" describe --tags --exact-match HEAD 2>/dev/null)
-        if [[ -n $tag ]]; then
-          branch="#${tag}"
-        else
-          branch="@${oid[1,8]}"
-        fi
-      fi
-
-      local text="${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
-
-      (( behind )) && text+=" ${g_behind} ${behind}"
-      (( ahead )) && text+=" ${g_ahead} ${ahead}"
-
-      # Action detection via filesystem -- no subprocess needed.
-      local action=
-      if [[ -f $gdabs/MERGE_HEAD ]]; then
-        action='merge'
-      elif [[ -d $gdabs/rebase-merge || -d $gdabs/rebase-apply ]]; then
-        action='rebase'
-      elif [[ -f $gdabs/CHERRY_PICK_HEAD ]]; then
-        action='cherry'
-      fi
-
-      (( staged )) && text+=" ${g_staged} ${staged}"
-      (( unstaged )) && text+=" ${g_unstaged} ${unstaged}"
-      (( untracked )) && text+=" ${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${untracked}"
-      (( conflicted )) && text+=" ${g_conflicted}${conflicted}"
-      [[ -n $action ]] && text+=" ${action}"
-
-      new_text=$text
-      if (( conflicted )) || [[ -n $action ]]; then
-        new_conflicted=1
-      elif (( staged || unstaged )); then
-        new_modified=1
-      elif (( untracked )); then
-        new_untracked=1
-      else
-        new_clean=1
-      fi
-    else
-      new_dir=${toplevel:A}
+    emulate -L zsh -o extended_glob
+    local -i generation=$1
+    local route=$2 git_dir=$3 toplevel=$4
+    local -F deadline=0
+    if (( POWERLEVEL9K_GITCLI_TIMEOUT_SECONDS > 0 )) \
+       && (( $+commands[timeout] || $+commands[gtimeout] )); then
+      deadline=$(( EPOCHREALTIME + POWERLEVEL9K_GITCLI_TIMEOUT_SECONDS ))
     fi
 
-    if [[ $new_dir == $_p9k__gitcli_dir && $new_text == $_p9k__gitcli_text \
-       && $new_clean == $_p9k__gitcli_clean && $new_modified == $_p9k__gitcli_modified \
-       && $new_untracked == $_p9k__gitcli_untracked && $new_conflicted == $_p9k__gitcli_conflicted \
-       && $new_loading == $_p9k__gitcli_loading ]]; then
+    if [[ -z $git_dir || -z $toplevel ]]; then
+      local revparse
+      revparse=$(_git_prompt_run $deadline 1 git -C "$route" \
+        rev-parse --absolute-git-dir --show-toplevel)
+      if (( $? != 0 )); then
+        if [[ $revparse == *'not a git repository'* ]]; then
+          _git_prompt_emit $generation "$route" '' '' absent ''
+        else
+          _git_prompt_emit $generation "$route" '' '' loading loading
+        fi
+        return
+      fi
+      local -a revparse_lines=("${(@f)revparse}")
+      if (( $#revparse_lines != 2 )); then
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      fi
+      git_dir=${revparse_lines[1]:A}
+      toplevel=${revparse_lines[2]:A}
+    fi
+
+    local status_output
+    status_output=$(_git_prompt_run $deadline 0 git -C "$route" status \
+      --porcelain=v2 --branch --show-stash --ahead-behind --no-renames)
+    if (( $? != 0 )); then
+      _git_prompt_emit $generation "$route" '' '' loading loading
       return
     fi
 
-    _p9k__gitcli_dir=$new_dir
-    _p9k__gitcli_text=$new_text
-    _p9k__gitcli_clean=$new_clean
-    _p9k__gitcli_modified=$new_modified
-    _p9k__gitcli_untracked=$new_untracked
-    _p9k__gitcli_conflicted=$new_conflicted
-    _p9k__gitcli_loading=$new_loading
-    _p9k_print_params _p9k__gitcli_dir _p9k__gitcli_text _p9k__gitcli_clean \
-      _p9k__gitcli_modified _p9k__gitcli_untracked _p9k__gitcli_conflicted _p9k__gitcli_loading
-    echo -E - 'reset=1'
+    local local_branch= oid= upstream= remote_branch= tag= commit_summary= action=
+    local -i ahead=0 behind=0 stashes=0
+    local -i staged=0 unstaged=0 untracked=0 conflicted=0
+    local -i seen_head=0 seen_oid=0 seen_ab=0 detached=0 malformed=0
+    local line value xy
+    while IFS= read -r line; do
+      case $line in
+        '# branch.head '*)
+          (( ++seen_head == 1 )) || { malformed=1; break; }
+          local_branch=${line#'# branch.head '}
+          if [[ $local_branch == '(detached)' ]]; then
+            local_branch=
+            detached=1
+          fi
+          ;;
+        '# branch.oid '*)
+          (( ++seen_oid == 1 )) || { malformed=1; break; }
+          oid=${line#'# branch.oid '}
+          ;;
+        '# branch.upstream '*)
+          [[ -z $upstream ]] || { malformed=1; break; }
+          upstream=${line#'# branch.upstream '}
+          ;;
+        '# branch.ab '*)
+          (( ++seen_ab == 1 )) || { malformed=1; break; }
+          value=${line#'# branch.ab '}
+          if [[ $value == +<->' '-<-> ]]; then
+            ahead=${${value%% *}#+}
+            behind=${${value##* }#-}
+          else
+            malformed=1
+            break
+          fi
+          ;;
+        '# stash '*)
+          value=${line#'# stash '}
+          [[ $value == <-> ]] || { malformed=1; break; }
+          stashes=$value
+          ;;
+        '# '*) ;;
+        '1 '*|'2 '*)
+          xy=${line[3,4]}
+          (( $#xy == 2 )) || { malformed=1; break; }
+          [[ ${xy[1]} != ' ' && ${xy[1]} != '.' ]] && (( staged++ ))
+          [[ ${xy[2]} != ' ' && ${xy[2]} != '.' ]] && (( unstaged++ ))
+          ;;
+        'u '*) (( conflicted++ )) ;;
+        '? '*) (( untracked++ )) ;;
+        '! '*) ;;
+        *) malformed=1; break ;;
+      esac
+    done <<< "$status_output"
+
+    if (( malformed || seen_head != 1 || seen_oid != 1 )) \
+       || (( ! detached && ! $#local_branch )) \
+       || [[ $oid != '(initial)' && ( $oid != [0-9a-f]## || ( $#oid != 40 && $#oid != 64 ) ) ]]; then
+      _git_prompt_emit $generation "$route" '' '' loading loading
+      return
+    fi
+
+    if [[ -n $local_branch && $oid != '(initial)' ]]; then
+      local metadata
+      metadata=$(_git_prompt_run $deadline 0 git -C "$route" for-each-ref --count=1 \
+        --format='refname=%(refname)%0aobjectname=%(objectname)%0aupstream=%(upstream:remoteref)%0aupstream_track=%(upstream:track,nobracket)%0asubject=%(contents:subject)' \
+        "refs/heads/$local_branch")
+      if (( $? != 0 )); then
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      fi
+
+      local metadata_ref= metadata_oid= metadata_upstream= upstream_track=
+      local -i metadata_fields=0
+      for line in "${(@f)metadata}"; do
+        case $line in
+          refname=*) metadata_ref=${line#refname=}; (( metadata_fields++ )) ;;
+          objectname=*) metadata_oid=${line#objectname=}; (( metadata_fields++ )) ;;
+          upstream=*) metadata_upstream=${line#upstream=}; (( metadata_fields++ )) ;;
+          upstream_track=*) upstream_track=${line#upstream_track=}; (( metadata_fields++ )) ;;
+          subject=*) commit_summary=${line#subject=}; (( metadata_fields++ )) ;;
+          *) malformed=1 ;;
+        esac
+      done
+      if (( malformed || metadata_fields != 5 )) \
+         || [[ $metadata_ref != "refs/heads/$local_branch" || $metadata_oid != $oid ]]; then
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      fi
+
+      local -a track_counts
+      _git_prompt_parse_track "$upstream_track" || {
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      }
+      track_counts=(${=REPLY})
+      if (( track_counts[3] )); then
+        ahead=0
+        behind=0
+      elif [[ -n $metadata_upstream ]]; then
+        (( seen_ab == 1 && ahead == track_counts[1] && behind == track_counts[2] )) || {
+          _git_prompt_emit $generation "$route" '' '' loading loading
+          return
+        }
+        [[ $metadata_upstream == refs/heads/* ]] && remote_branch=${metadata_upstream#refs/heads/}
+      fi
+
+    elif [[ -z $local_branch ]]; then
+      local tags
+      tags=$(_git_prompt_run $deadline 0 git -C "$route" tag --points-at="$oid" --sort=refname)
+      if (( $? != 0 )); then
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      fi
+      [[ -n $tags ]] && tag=${${(f)tags}[-1]}
+      commit_summary=$(_git_prompt_run $deadline 0 git -C "$route" show -s --format=%s "${oid}^{commit}")
+      if (( $? != 0 )); then
+        _git_prompt_emit $generation "$route" '' '' loading loading
+        return
+      fi
+    fi
+
+    _git_prompt_action "$git_dir" || {
+      _git_prompt_emit $generation "$route" '' '' loading loading
+      return
+    }
+    action=$REPLY
+
+    _git_prompt_format
+    local text=$REPLY kind
+    if (( conflicted )) || [[ -n $action ]]; then
+      kind=conflicted
+    elif (( staged || unstaged )); then
+      kind=modified
+    elif (( untracked )); then
+      kind=untracked
+    else
+      kind=clean
+    fi
+    _git_prompt_emit $generation "$route" "$git_dir" "$toplevel" "$kind" "$text"
   }
 
   ##########################[ status: exit code of the last command ]###########################
@@ -476,7 +748,14 @@
   typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
   typeset -g POWERLEVEL9K_DISABLE_HOT_RELOAD=false
 
-  (( ! $+functions[p10k] )) || p10k reload
+  if (( $+functions[p10k] )); then
+    p10k reload
+    add-zsh-hook -d precmd _git_prompt_backend_precmd
+    add-zsh-hook -d precmd _git_prompt_route_precmd
+    add-zsh-hook -d precmd _p9k_precmd
+    add-zsh-hook precmd _git_prompt_route_precmd
+    add-zsh-hook precmd _p9k_precmd
+  fi
 }
 
 # Tell `p10k configure` which file it should overwrite.
