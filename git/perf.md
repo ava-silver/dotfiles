@@ -36,9 +36,24 @@ The first status call populates the index cache. Later calls avoid the full dire
 - `web-ui` has local fsmonitor and untracked-cache support enabled for its reftable index.
 - The prompt now selects one status backend per repository while retaining untracked detection and counts.
 
-## Follow-up measurements
+## Repeatable benchmark
 
-Re-run the measurements after restarting the shell and use Trace2 if a status call exceeds the expected cost:
+Use `git/bench.zsh` to measure the prompt's Git operations and interactive shell startup:
+
+```sh
+GIT_BENCH_REPEAT=5 ./git/bench.zsh ~/dd/web-ui ~/dd/dd-source
+```
+
+The harness reports median, minimum, and maximum times for:
+
+- backend detection with `git config`
+- repository lookup with `git rev-parse`
+- full status with `git status --porcelain=v2 --branch --no-renames`
+- interactive startup through the macOS `script` command
+
+The status benchmark always includes untracked-file detection. The backend check returns status 1 when `extensions.refStorage` is unset, which is expected for files-backed repositories.
+
+Use Trace2 when a status call exceeds the expected cost:
 
 ```sh
 GIT_TRACE2_PERF=/tmp/git-status.perf \
