@@ -251,87 +251,97 @@
     local dir=$1
     local new_dir=$dir new_text= new_clean= new_modified= new_untracked= new_conflicted= new_loading=
 
-    if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
-      :
-    else
-      local rv
-      rv=$(git -C "$dir" config --local core.repositoryformatversion 2>/dev/null)
-      if [[ $rv == 1 ]]; then
-        new_dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
-        new_dir=${new_dir:A}
+    # One call to verify we're in a git repo and capture git-dir + toplevel.
+    local revparse
+    revparse=$(git -C "$dir" rev-parse --absolute-git-dir --show-toplevel 2>/dev/null) || return
+    local gdabs=${revparse%%$'\n'*}
+    local toplevel=${revparse##*$'\n'}
 
-        local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
-        local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
+    local rv
+    rv=$(git -C "$dir" config --local core.repositoryformatversion 2>/dev/null)
+    if [[ $rv == 1 ]]; then
+      new_dir=${toplevel:A}
 
-        local branch=
-        branch=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=
-        if [[ -z $branch ]]; then
-          local tag
-          tag=$(git -C "$dir" describe --tags --exact-match HEAD 2>/dev/null)
-          if [[ -n $tag ]]; then
-            branch="#${tag}"
-          else
-            branch="@$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
-          fi
-        fi
+      local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
+      local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
 
-        local text="${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
+      # One call gets branch name, ahead/behind, and dirty status.
+      # --branch emits header lines: branch.head, branch.oid, branch.upstream, branch.ab.
+      # Wrapped in timeout so a slow index scan never hangs the prompt; loading state persists instead.
+      local branch= oid=
+      local -i ahead=0 behind=0
+      local -i staged=0 unstaged=0 untracked=0 conflicted=0
+      local -a _status_cmd=(git -C "$dir" status --porcelain=v2 --branch --no-renames)
+      (( $+commands[timeout] )) && _status_cmd=(timeout 10 $_status_cmd[@])
+      local line
+      while IFS= read -r line; do
+        case $line in
+          '# branch.head '*)
+            branch=${line#'# branch.head '}
+            [[ $branch == '(detached)' ]] && branch=
+            ;;
+          '# branch.oid '*)
+            oid=${line#'# branch.oid '}
+            ;;
+          '# branch.ab '*)
+            local ab=${line#'# branch.ab '}
+            local ahead_s=${ab%% *}; ahead=${ahead_s#+}
+            local behind_s=${ab##* }; behind=${behind_s#-}
+            ;;
+          'u '*) (( conflicted++ )) ;;
+          '1 '?*|'2 '?*)
+            local xy=${line[3,4]}
+            [[ ${xy[1]} != ' ' && ${xy[1]} != '.' ]] && (( staged++ ))
+            [[ ${xy[2]} != ' ' && ${xy[2]} != '.' ]] && (( unstaged++ ))
+            ;;
+          '?'*) (( untracked++ )) ;;
+        esac
+      done < <($_status_cmd[@] 2>/dev/null)
 
-        local counts behind ahead
-        counts=$(git -C "$dir" rev-list --left-right --count '@{upstream}'...HEAD 2>/dev/null) || counts=
-        if [[ -n $counts ]]; then
-          behind=${counts%%$'\t'*}
-          ahead=${counts##*$'\t'}
-          (( behind )) && text+=" ${g_behind} ${behind}"
-          (( ahead )) && text+=" ${g_ahead} ${ahead}"
-        fi
-
-        local -i staged=0 unstaged=0 untracked=0 conflicted=0
-        local line xy
-        while IFS= read -r line; do
-          case $line in
-            'u '*) (( conflicted++ )) ;;
-            '1 '?*|'2 '?*)
-              xy=${line[3,4]}
-              [[ ${xy[1]} != ' ' && ${xy[1]} != '.' ]] && (( staged++ ))
-              [[ ${xy[2]} != ' ' && ${xy[2]} != '.' ]] && (( unstaged++ ))
-              ;;
-            '?'*) (( untracked++ )) ;;
-          esac
-        done < <(git -C "$dir" status --porcelain=v2 --no-renames 2>/dev/null)
-
-        local gdabs action=
-        gdabs=$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null) || gdabs=
-        if [[ -n $gdabs ]]; then
-          if [[ -f $gdabs/MERGE_HEAD ]]; then
-            action='merge'
-          elif [[ -d $gdabs/rebase-merge || -d $gdabs/rebase-apply ]]; then
-            action='rebase'
-          elif [[ -f $gdabs/CHERRY_PICK_HEAD ]]; then
-            action='cherry'
-          fi
-        fi
-
-        (( staged )) && text+=" ${g_staged} ${staged}"
-        (( unstaged )) && text+=" ${g_unstaged} ${unstaged}"
-        (( untracked )) && text+=" ${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${untracked}"
-        (( conflicted )) && text+=" ${g_conflicted}${conflicted}"
-        [[ -n $action ]] && text+=" ${action}"
-
-        new_text=$text
-        if (( conflicted )) || [[ -n $action ]]; then
-          new_conflicted=1
-        elif (( staged || unstaged )); then
-          new_modified=1
-        elif (( untracked )); then
-          new_untracked=1
+      # Detached HEAD: fall back to tag or short sha from the oid we already have.
+      if [[ -z $branch ]]; then
+        local tag
+        tag=$(git -C "$dir" describe --tags --exact-match HEAD 2>/dev/null)
+        if [[ -n $tag ]]; then
+          branch="#${tag}"
         else
-          new_clean=1
+          branch="@${oid[1,8]}"
         fi
-      else
-        new_dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
-        new_dir=${new_dir:A}
       fi
+
+      local text="${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
+
+      (( behind )) && text+=" ${g_behind} ${behind}"
+      (( ahead )) && text+=" ${g_ahead} ${ahead}"
+
+      # Action detection via filesystem -- no subprocess needed.
+      local action=
+      if [[ -f $gdabs/MERGE_HEAD ]]; then
+        action='merge'
+      elif [[ -d $gdabs/rebase-merge || -d $gdabs/rebase-apply ]]; then
+        action='rebase'
+      elif [[ -f $gdabs/CHERRY_PICK_HEAD ]]; then
+        action='cherry'
+      fi
+
+      (( staged )) && text+=" ${g_staged} ${staged}"
+      (( unstaged )) && text+=" ${g_unstaged} ${unstaged}"
+      (( untracked )) && text+=" ${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${untracked}"
+      (( conflicted )) && text+=" ${g_conflicted}${conflicted}"
+      [[ -n $action ]] && text+=" ${action}"
+
+      new_text=$text
+      if (( conflicted )) || [[ -n $action ]]; then
+        new_conflicted=1
+      elif (( staged || unstaged )); then
+        new_modified=1
+      elif (( untracked )); then
+        new_untracked=1
+      else
+        new_clean=1
+      fi
+    else
+      new_dir=${toplevel:A}
     fi
 
     if [[ $new_dir == $_p9k__gitcli_dir && $new_text == $_p9k__gitcli_text \
