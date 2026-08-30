@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 
 # Benchmark the Git operations used by the prompt and interactive shell startup.
+# Usage: GIT_BENCH_REPEAT=5 ./git/bench.zsh [repository ...]
+# Full status always includes untracked-file detection; no -uno shortcut is used.
 # Set GIT_BENCH_REPEAT to change the number of samples (default: 5).
 
 emulate -L zsh
