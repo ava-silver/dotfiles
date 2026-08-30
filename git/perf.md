@@ -24,42 +24,26 @@ The first status call populates the index cache. Later calls avoid the full dire
 
 ## Findings
 
-- `vcs` and `gitcli` are separate prompt segments, not backend alternatives. Both are scheduled on every prompt. A normal repository still pays for the `gitcli` repository checks while `gitstatus` handles the status. A reftable repository still attempts `gitstatus` before the CLI fallback runs.
+- `vcs` and `gitcli` are separate prompt segments, so both used to run. The prompt now selects one backend before rendering: files repositories use `gitstatus`, and reftable repositories use the Git CLI.
 - `core.repositoryformatversion=1` means that a repository uses extensions; it does not prove that the repository uses reftable. The prompt now checks `extensions.refStorage=reftable`, and `setup-reftable-perf` rejects other repositories.
-- Disabling `core.fsmonitor` and `core.untrackedCache` does not remove extensions already written to an index. `dd-source` still contains an `FSMN` index extension despite its false local settings, so `gitstatus` may fail or report stale data.
+- Disabling `core.fsmonitor` and `core.untrackedCache` does not remove extensions already written to an index. `dd-source` now has effective fsmonitor disabled and no `FSMN` or `UNTR` index extensions, so it is safe to use with `gitstatus`.
 - A failed or timed-out CLI status must not become a clean status. The prompt now publishes `loading` when status exits unsuccessfully, and it clears the loading state outside Git repositories.
 - Ahead/behind counts are included in `status --branch`. In `web-ui`, `--no-ahead-behind` made no measurable difference at about 165 ms, so untracked-file discovery is the current bottleneck.
 
-## Recommended next steps
+## Current state
 
-1. Repair the existing non-reftable index before relying on `gitstatus`:
+- `dd-source` has been repaired for `gitstatus`: effective fsmonitor is `false`, and its index no longer contains `FSMN` or `UNTR`.
+- `web-ui` has local fsmonitor and untracked-cache support enabled for its reftable index.
+- The prompt now selects one status backend per repository while retaining untracked detection and counts.
 
-   ```sh
-   repo=~/dd/dd-source
-   git -C "$repo" config --file "$repo/.git-shared-config" core.fsmonitor false
-   git -C "$repo" config --local core.fsmonitor false
-   git -C "$repo" config --local core.untrackedCache false
-   git -C "$repo" config --local feature.manyFiles false
-   git -C "$repo" config --local index.skipHash false
-   git -C "$repo" update-index --no-fsmonitor --no-untracked-cache
-   ```
+## Follow-up measurements
 
-   Confirm that `git -C "$repo" config --get core.fsmonitor` is `false` and that the index no longer contains `FSMN` or `UNTR`, then restart the shell.
+Re-run the measurements after restarting the shell and use Trace2 if a status call exceeds the expected cost:
 
-2. Stop scheduling both prompt backends. Select the backend before running status, or enable the CLI segment only for known reftable repositories. This is the largest remaining prompt-level inefficiency.
-
-3. Keep `core.fsmonitor` and `core.untrackedCache` enabled in large reftable repositories. Run:
-
-   ```sh
-   git -C ~/dd/web-ui setup-reftable-perf
-   ```
-
-4. Re-run the measurements after repairing `dd-source` and after changing backend selection. Use Trace2 when a status call exceeds the expected cost:
-
-   ```sh
-   GIT_TRACE2_PERF=/tmp/git-status.perf \
-     git -C ~/dd/dd-source status --porcelain=v2 --branch --no-renames
-   ```
+```sh
+GIT_TRACE2_PERF=/tmp/git-status.perf \
+  git -C ~/dd/dd-source status --porcelain=v2 --branch --no-renames
+```
 
 ## Detection and safety checks
 

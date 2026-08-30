@@ -25,8 +25,8 @@
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     trans
     dir                     # current directory
-    vcs                     # git status (gitstatus/libgit2; works for files-backed repos)
-    gitcli                  # git status via `git` CLI (fallback for reftable/extension repos)
+    vcs                     # gitstatus/libgit2 for files-backed repos
+    gitcli                  # git CLI for reftable repos
     newline
     prompt_char
   )
@@ -208,9 +208,38 @@
   typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED,COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
   typeset -g POWERLEVEL9K_VCS_BACKENDS=(git)
 
+  # Keep p10k's vcs renderer, but route status collection before invoking it.
+  if (( ! $+_git_prompt_vcs_body )); then
+    typeset -g _git_prompt_vcs_body=$functions[prompt_vcs]
+  fi
+  prompt_vcs() {
+    [[ $_p9k__git_backend == gitcli ]] || eval "$_git_prompt_vcs_body"
+  }
+
+  _git_prompt_backend_precmd() {
+    [[ $PWD == $_git_prompt_backend_pwd ]] && return
+    typeset -g _git_prompt_backend_pwd=$PWD
+    local ref_storage
+    ref_storage=$(command git -C "$PWD" config --local --get extensions.refStorage 2>/dev/null)
+    if [[ $ref_storage == reftable ]]; then
+      typeset -g _p9k__git_backend=gitcli
+      typeset -gi _p9k_vcs_index=0
+    else
+      typeset -g _p9k__git_backend=vcs
+      typeset -gi _p9k_vcs_index=$_git_prompt_vcs_index
+    fi
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook -d precmd _git_prompt_backend_precmd
+  add-zsh-hook precmd _git_prompt_backend_precmd
+
   ######################[ gitcli: git-CLI fallback for reftable repos ]#######################
   prompt_gitcli() {
     local -i len=$#_p9k__prompt _p9k__has_upglob
+    if [[ $_p9k__git_backend != gitcli ]]; then
+      (( _p9k__has_upglob )) || typeset -g "_p9k__segment_val_${_p9k__prompt_side}[$_p9k__segment_index]"=
+      return
+    fi
     if [[ -z $_p9k__gitcli_dir ]] \
        || [[ $_p9k__cwd_a != $_p9k__gitcli_dir && $_p9k__cwd_a != $_p9k__gitcli_dir/* ]]; then
       _p9k__gitcli_clean=; _p9k__gitcli_modified=; _p9k__gitcli_untracked=; _p9k__gitcli_conflicted=
@@ -226,6 +255,11 @@
   }
 
   _p9k_prompt_gitcli_init() {
+    typeset -g _git_prompt_backend_pwd=
+    if (( ! $+_git_prompt_vcs_index )); then
+      typeset -gi _git_prompt_vcs_index=$_p9k_vcs_index
+    fi
+    typeset -g _p9k__git_backend=vcs
     typeset -g _p9k__gitcli_dir=
     typeset -g _p9k__gitcli_text=
     typeset -g _p9k__gitcli_clean=
@@ -233,10 +267,12 @@
     typeset -g _p9k__gitcli_untracked=
     typeset -g _p9k__gitcli_conflicted=
     typeset -g _p9k__gitcli_loading=
+
     _p9k__async_segments_compute+='_p9k_worker_invoke gitcli "_p9k_prompt_gitcli_compute ${(q)_p9k__cwd_a}"'
   }
 
   _p9k_prompt_gitcli_compute() {
+    [[ $_p9k__git_backend == gitcli ]] || return
     _p9k_worker_async "_p9k_prompt_gitcli_async ${(q)1}" _p9k_prompt_gitcli_sync
   }
 
@@ -258,10 +294,6 @@
       local gdabs=${revparse%%$'\n'*}
       local toplevel=${revparse##*$'\n'}
       new_dir=${toplevel:A}
-
-      local ref_storage
-      ref_storage=$(git -C "$dir" config --local --get extensions.refStorage 2>/dev/null)
-      if [[ $ref_storage == reftable ]]; then
 
       local g_ahead=$'\U000f0998' g_behind=$'\U000f0997'
       local g_staged=$'\uf457' g_unstaged=$'\uea73' g_conflicted=$'\uebab'
@@ -353,7 +385,6 @@
         new_clean=1
       fi
         fi
-      fi
     fi
 
     if [[ $new_dir == $_p9k__gitcli_dir && $new_text == $_p9k__gitcli_text \
