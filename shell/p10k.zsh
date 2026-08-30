@@ -266,11 +266,15 @@
     typeset -g _p9k__gitcli_conflicted=
     typeset -g _p9k__gitcli_loading=
 
-    _p9k__async_segments_compute+='_p9k_worker_invoke gitcli "_p9k_prompt_gitcli_compute ${(q)_p9k__cwd_a}"'
+    _p9k__async_segments_compute+='_p9k_gitcli_prefetch'
+  }
+
+  _p9k_gitcli_prefetch() {
+    [[ $_p9k__git_backend == gitcli ]] || return
+    _p9k_worker_invoke gitcli "_p9k_prompt_gitcli_compute ${(q)_p9k__cwd_a}"
   }
 
   _p9k_prompt_gitcli_compute() {
-    [[ $_p9k__git_backend == gitcli ]] || return
     _p9k_worker_async "_p9k_prompt_gitcli_async ${(q)1}" _p9k_prompt_gitcli_sync
   }
 
