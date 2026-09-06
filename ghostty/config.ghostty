@@ -2,7 +2,7 @@
 
 # Typography
 font-family = MonoLisa Nerd Font
-font-size = 18
+font-size = 12
 font-feature = -calt, -liga, -dlig
 adjust-cell-width = -10%
 
