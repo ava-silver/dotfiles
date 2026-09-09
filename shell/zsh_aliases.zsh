@@ -181,5 +181,5 @@ piredact() {
     fi
 
     pi --no-session --model dd-ai-gateway/baseten/deepseek-ai/DeepSeek-V4-Flash-0731 \
-        "Read the Seeker alert at $1. Print a short progress update before reading the alert, before redacting, and after verification. Collect every reported local file path that exists, then run exactly one command to redact and verify them: redact-secrets -- <absolute-path>... Do not read or print secret values yourself."
+        "Read the Seeker alert at $1. Collect every reported local file path that exists, then run exactly one command to redact and verify them: redact-secrets -- <absolute-path>... Do not read or print secret values yourself."
 }
