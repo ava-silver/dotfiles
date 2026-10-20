@@ -1,4 +1,4 @@
-export DOTFILES=/home/ava/.dotfiles
+export DOTFILES=/home/ava/dotfiles
 export ZSH=$DOTFILES/.oh-my-zsh
 export NODE_NO_WARNINGS=1
 [[ $- != *i* ]] && return
