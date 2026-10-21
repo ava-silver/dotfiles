@@ -1,3 +1,7 @@
+# Note: Deprecated
+
+My config is now managed in https://github.com/ava-silver/nix-config/
+
 # dotfiles
 
 Run `./setup.sh` to provision a new machine (idempotent). It installs packages
